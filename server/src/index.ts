@@ -15,6 +15,10 @@
  * - No persiste en BD
  */
 
+import http from "http";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import WebSocket, { WebSocketServer } from "ws";
 import type {
   ClientToServerMessage,
@@ -27,6 +31,9 @@ import {
   MAX_USERS_PER_ROOM,
   ROOM_TIMEOUT,
 } from "./protocol.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Estructura de datos para cada conexión
 interface ClientConnection {
@@ -43,18 +50,67 @@ interface Room {
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-const wss = new WebSocketServer({ port: PORT });
-
 // Map global: roomId → Room
 const rooms = new Map<string, Room>();
+
+// MIME types
+const mimeTypes: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
+
+// HTTP Server para archivos estáticos
+const server = http.createServer((req, res) => {
+  console.log(`📥 HTTP ${req.method} ${req.url}`);
+
+  // Ruta de archivos estáticos (build del cliente)
+  const clientDistPath = path.join(__dirname, "../../client/dist");
+  
+  let filePath = path.join(clientDistPath, req.url === "/" ? "index.html" : req.url || "");
+  
+  // Si es un directorio, buscar index.html
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(filePath, "index.html");
+  }
+
+  // Verificar si existe
+  if (!fs.existsSync(filePath)) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("404 Not Found");
+    return;
+  }
+
+  // Leer y servir archivo
+  const ext = path.extname(filePath);
+  const contentType = mimeTypes[ext] || "application/octet-stream";
+  
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("500 Internal Server Error");
+      return;
+    }
+    
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(data);
+  });
+});
+
+// WebSocket Server montado sobre HTTP server
+const wss = new WebSocketServer({ server });
+
 
 function isValidBase64(value: string): boolean {
   if (value.length === 0 || value.length % 4 !== 0) return false;
   return /^[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
-
-console.log(`🚀 WindChat Server iniciado en puerto ${PORT}`);
-console.log(`📡 Esperando conexiones WebSocket...`);
 
 wss.on("connection", (ws: WebSocket) => {
   console.log("✅ Nuevo cliente conectado");
@@ -293,5 +349,14 @@ function broadcastPeerJoined(room: Room) {
 process.on("SIGTERM", () => {
   console.log("🛑 Shutting down...");
   wss.close();
+  server.close();
   process.exit(0);
+});
+
+// Iniciar servidor
+server.listen(PORT, () => {
+  console.log(`🚀 WindChat Server (HTTP + WebSocket) en puerto ${PORT}`);
+  console.log(`📁 Sirviendo archivos desde: ${path.join(__dirname, "../../client/dist")}`);
+  console.log(`📡 WebSocket listo en ws://localhost:${PORT}`);
+  console.log(`🌐 HTTP listo en http://localhost:${PORT}`);
 });

@@ -32,6 +32,15 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", toggleTheme);
   });
 
+  const configuredPublicUrl = (import.meta as any)?.env?.VITE_PUBLIC_URL as string | undefined;
+  const publicLinkBox = document.getElementById("publicLinkBox");
+  const publicLinkAnchor = document.getElementById("publicLinkAnchor") as HTMLAnchorElement | null;
+  if (configuredPublicUrl && publicLinkBox && publicLinkAnchor) {
+    publicLinkAnchor.href = configuredPublicUrl;
+    publicLinkAnchor.textContent = configuredPublicUrl;
+    publicLinkBox.classList.add("visible");
+  }
+
   // Landing page button (navegar a pantalla dedicada de chat)
   const landingStartBtn = document.querySelector<HTMLButtonElement>(".hero .btn-primary");
   if (landingStartBtn) {
@@ -49,13 +58,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const usernameInput = username;
+  let isConnecting = false;
   
   loginBtn.addEventListener("click", () => handleChatLogin());
   usernameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") handleChatLogin();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleChatLogin();
+    }
   });
 
   async function handleChatLogin() {
+    if (isConnecting) {
+      console.warn("[!] Ya estas conectando, espera...");
+      return;
+    }
+
     let roomId = usernameInput.value.trim();
 
     if (!roomId) {
@@ -64,7 +82,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     currentRoomId = roomId;
-    connectToChat(roomId);
+    isConnecting = true;
+    if (loginBtn) loginBtn.disabled = true;
+    usernameInput.disabled = true;
+    
+    try {
+      await connectToChat(roomId);
+    } catch (err) {
+      console.error("[ERROR] Fallo al conectar:", err);
+      isConnecting = false;
+      if (loginBtn) loginBtn.disabled = false;
+      usernameInput.disabled = false;
+    }
   }
 
   async function connectToChat(roomId: string) {
@@ -72,12 +101,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("loginScreen")!.classList.add("hidden");
       document.getElementById("chatContainer")!.classList.remove("hidden");
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const configuredWsUrl = (import.meta as any)?.env?.VITE_WS_URL as string | undefined;
-      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const serverUrl = configuredWsUrl
-        ? configuredWsUrl
-        : `${protocol}//${isLocalhost ? `${window.location.hostname}:8080` : window.location.host}`;
+      // Servidor híbrido: WebSocket en la misma URL
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const serverUrl = `${wsProtocol}//${window.location.host}`;
 
       console.log(`[+] Conectando a: ${serverUrl}`);
 

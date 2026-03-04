@@ -150,6 +150,29 @@
             transform: translateY(-5px);
         }
 
+        .public-link {
+            margin: 0 auto 2rem auto;
+            max-width: 760px;
+            padding: 1rem 1.2rem;
+            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            display: none;
+            gap: 0.8rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .public-link.visible {
+            display: flex;
+        }
+
+        .public-link a {
+            color: var(--accent-strong);
+            text-decoration: none;
+            word-break: break-all;
+        }
+
         footer {
             text-align: center;
             padding: 2rem;
@@ -318,6 +341,11 @@
             <button class="btn-primary">Comenzar Ahora</button>
         </div>
     </section>
+
+    <div class="public-link" id="publicLinkBox" aria-live="polite">
+        <span>Enlace público para compartir:</span>
+        <a id="publicLinkAnchor" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
 
     <section class="features" id="features">
         <div class="card">

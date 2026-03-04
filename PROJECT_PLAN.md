@@ -289,7 +289,7 @@ type ServerToClientMessage = PeerJoinedMessage | EncryptedMessage | TypingIndica
 - [x] Build cliente: `npm run build`
 - [x] Start servidor: `npm run dev:server`
 - [x] Open localhost:3000 (server) + otra ventana
-- [ ] Probar:
+- [x] Probar:
   - [x] Conexión y handshake
   - [x] Generación de roomID
   - [x] Intercambio de claves
@@ -301,12 +301,43 @@ type ServerToClientMessage = PeerJoinedMessage | EncryptedMessage | TypingIndica
 
 ## PASO 9: Deploy Cloudflare Tunnel (~20 minutos)
 
-- [ ] Instalar Cloudflare CLI
+- [x] Instalar Cloudflare CLI
 - [x] `npm run build:server`
-- [ ] `npm install -g wrangler` (opcional)
-- [ ] Crear tunnel públicamente
-- [ ] Update UI con URL pública
+- [x] `npm install -g wrangler` (opcional)
+- [x] Crear tunnel públicamente
+- [x] Update UI con URL pública
+- [x] **Implementar doble túnel (servidor + cliente)**
+- [x] **Corregir bug del input de login (evento duplicado)**
+- [x] **REDISEÑO: Servidor híbrido HTTP+WebSocket (un solo túnel)**
 - [ ] Probar con 2 máquinas reales
+
+### ⚠️ Problemas Resueltos:
+1. **WebSocket no conectaba**: Se creó doble túnel (puerto 8080 + 3000)
+2. **Input de roomID se buggeaba**: Se agregó protección contra eventos duplicados
+3. **Faltaba documentación**: Se creó `CLOUDFLARE_GUIDE.md`
+4. **Demasiadas ventanas y URLs confusas**: Se rediseñó servidor híbrido
+
+### 🎯 Arquitectura Final (v2):
+```
+ANTES (4 procesos):
+- Servidor WebSocket (puerto 8080)
+- Cliente Vite dev (puerto 3000)
+- Túnel Cloudflare → servidor (puerto 8080)
+- Túnel Cloudflare → cliente (puerto 3000)
+= URLs diferentes, confusión, 4 ventanas
+
+AHORA (2 procesos):
+- Servidor Híbrido (HTTP + WebSocket en puerto 8080)
+  ↳ Sirve archivos estáticos de client/dist/
+  ↳ Maneja WebSocket upgrade en la misma conexión
+- Túnel Cloudflare → servidor híbrido (puerto 8080)
+= UNA URL para todo, 2 ventanas, simple y claro
+```
+
+### ✅ Verificación Local:
+- HTTP: `http://127.0.0.1:8080/` → ✅ 200 OK
+- Chat: `http://127.0.0.1:8080/chat.html` → ✅ 200 OK
+- WebSocket: `ws://127.0.0.1:8080` → ✅ Montado sobre HTTP server
 
 ---
 

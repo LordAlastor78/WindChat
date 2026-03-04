@@ -6,7 +6,8 @@ export default defineConfig({
     port: 3000,
     strictPort: false,
     https: false,
-    host: '127.0.0.1'
+    host: '127.0.0.1',
+    allowedHosts: ['.trycloudflare.com']
   },
   build: {
     target: 'ES2020',
