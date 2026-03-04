@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WindChat - Secure Chat</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #f4fbff;
+            --bg-secondary: #e6f7ff;
+            --chat-bg: #ffffff;
+            --text-primary: #0a192f;
+            --accent: #38bdf8;
+            --accent-strong: #0ea5e9;
+            --message-me: #38bdf8;
+            --message-other: #e5e7eb;
+            --border-color: rgba(0,0,0,0.08);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0b1120;
+            --bg-secondary: #111827;
+            --chat-bg: #1f2937;
+            --text-primary: #e6f7ff;
+            --accent: #38bdf8;
+            --accent-strong: #0ea5e9;
+            --message-me: #0ea5e9;
+            --message-other: #374151;
+            --border-color: rgba(255,255,255,0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Fira Code', monospace;
+            background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 1100px;
+            height: 90vh;
+            background: var(--chat-bg);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .hidden { display: none; }
+
+        header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand { font-weight: 600; font-size: 1.2rem; color: var(--accent); }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .login-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .login-screen input {
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            width: 250px;
+            background: transparent;
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            padding: 0.8rem 1.5rem;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 0.7rem 1rem;
+            border-radius: 15px;
+            position: relative;
+            font-size: 0.9rem;
+        }
+
+        .me {
+            align-self: flex-end;
+            background: var(--message-me);
+            color: white;
+        }
+
+        .other {
+            align-self: flex-start;
+            background: var(--message-other);
+        }
+
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            gap: 0.5rem;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .typing {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            padding-left: 1.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+    </style>
+</head>
+<body data-theme="light">
+
+<div class="app">
+
+    <header>
+        <div class="brand">WindChat</div>
+        <button class="theme-toggle" onclick="toggleTheme()">Tema</button>
+    </header>
+
+    <!-- LOGIN -->
+    <div class="login-screen" id="loginScreen">
+        <h2>Conéctate de forma segura</h2>
+        <input type="text" id="username" placeholder="Introduce tu username" onkeypress="if(event.key==='Enter') startChat()" />
+        <button class="btn-primary" onclick="startChat()">Comenzar Ahora</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="chat-container hidden" id="chatContainer">
+        <div class="messages" id="messages"></div>
+        <div class="typing" id="typingIndicator"></div>
+        <div class="input-area">
+            <input type="file" id="fileInput" hidden="hidden" />
+            <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+            <input type="text" id="messageInput" placeholder="Escribe un mensaje..." oninput="handleTyping()" onkeypress="if(event.key==='Enter') sendMessage()" />
+            <button class="icon-btn" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let username = "";
+
+    function toggleTheme() {
+        const body = document.body;
+        const theme = body.getAttribute("data-theme");
+        body.setAttribute("data-theme", theme === "dark" ? "light" : "dark");
+    }
+
+    function startChat() {
+        const input = document.getElementById("username");
+        if (!input.value.trim()) return;
+        username = input.value.trim();
+        document.getElementById("loginScreen").classList.add("hidden");
+        document.getElementById("chatContainer").classList.remove("hidden");
+        setTimeout(() => document.getElementById("messageInput").focus(), 100);
+    }
+
+    function sendMessage() {
+        const input = document.getElementById("messageInput");
+        if (!input.value.trim()) return;
+
+        const msg = document.createElement("div");
+        msg.classList.add("message", "me");
+        msg.innerText = input.value;
+
+        document.getElementById("messages").appendChild(msg);
+        input.value = "";
+        scrollToBottom();
+    }
+
+    function handleTyping() {
+        const indicator = document.getElementById("typingIndicator");
+        indicator.innerText = "Escribiendo...";
+        clearTimeout(window.typingTimeout);
+        window.typingTimeout = setTimeout(() => {
+            indicator.innerText = "";
+        }, 1000);
+    }
+
+    function scrollToBottom() {
+        const messages = document.getElementById("messages");
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const msg = document.createElement("div");
+            msg.classList.add("message", "me");
+            msg.innerText = `📎 ${file.name}`;
+            document.getElementById("messages").appendChild(msg);
+            e.target.value = "";
+            scrollToBottom();
+        }
+    });
+
+    window.addEventListener("beforeunload", () => {
+        document.getElementById("messages").innerHTML = "";
+    });
+</script>
+
+</body>
+</html>

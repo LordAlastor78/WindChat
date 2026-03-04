@@ -1,0 +1,30 @@
+{
+  "name": "windchat",
+  "version": "1.0.0",
+  "description": "End-to-End Encrypted, Ephemeral Web Chat",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build:server": "npm run build -w server",
+    "build:client": "npm run build -w client",
+    "start": "npm run dev:server",
+    "client": "npm run dev:client",
+    "setup": "npm install && npm install -w server && npm install -w client",
+    "test": "npm run build && npm run start"
+  },
+  "keywords": [
+    "encryption",
+    "e2ee",
+    "chat",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT"
+}

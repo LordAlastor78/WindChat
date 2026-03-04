@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WindChat - Secure Chat</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #f4fbff;
+            --bg-secondary: #e6f7ff;
+            --chat-bg: #ffffff;
+            --text-primary: #0a192f;
+            --accent: #38bdf8;
+            --accent-strong: #0ea5e9;
+            --message-me: #38bdf8;
+            --message-other: #e5e7eb;
+            --border-color: rgba(0,0,0,0.08);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0b1120;
+            --bg-secondary: #111827;
+            --chat-bg: #1f2937;
+            --text-primary: #e6f7ff;
+            --accent: #38bdf8;
+            --accent-strong: #0ea5e9;
+            --message-me: #0ea5e9;
+            --message-other: #374151;
+            --border-color: rgba(255,255,255,0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Fira Code', monospace;
+            background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 1100px;
+            height: 90vh;
+            background: var(--chat-bg);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* HEADER */
+        header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand {
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .header-info {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: background 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* LOGIN SCREEN */
+        .login-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .login-screen h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .login-screen input {
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            width: 250px;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .login-screen input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .roomId-info {
+            padding: 1rem;
+            background: var(--accent);
+            color: white;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            word-break: break-all;
+            margin-top: 1rem;
+            max-width: 300px;
+        }
+
+        .copy-button {
+            margin-top: 0.5rem;
+            padding: 0.3rem 0.8rem;
+            background: white;
+            color: var(--accent);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* CHAT */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 0.7rem 1rem;
+            border-radius: 15px;
+            position: relative;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+        }
+
+        .message.me {
+            align-self: flex-end;
+            background: var(--message-me);
+            color: white;
+        }
+
+        .message.other {
+            align-self: flex-start;
+            background: var(--message-other);
+            color: var(--text-primary);
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            display: block;
+            margin-top: 0.3rem;
+        }
+
+        .status-message {
+            align-self: center;
+            background: var(--accent);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+        }
+
+        .error-message {
+            align-self: center;
+            background: #ef4444;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+        }
+
+        .typing {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            padding-left: 1.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        /* INPUT AREA */
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            gap: 0.5rem;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--accent);
+            transition: transform 0.1s;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-primary {
+            padding: 0.8rem 1.5rem;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-strong);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* SCROLLBAR */
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <header>
+        <div class="brand">🌬️ WindChat</div>
+        <div class="header-info" id="headerInfo"></div>
+        <button class="theme-toggle" id="themeToggle">🌙</button>
+    </header>
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="loginScreen">
+        <h2>Conectarse a WindChat</h2>
+        <p>Crea una nueva sala o únete a una existente</p>
+        
+        <input 
+            type="text" 
+            id="roomInputCreate" 
+            placeholder="Deja vacío para crear nueva sala"
+            maxlength="22"
+        />
+        
+        <button class="btn-primary" id="createButton">Crear / Conectar</button>
+        
+        <div class="roomId-info" id="roomIdInfo"></div>
+    </div>
+
+    <!-- CHAT SCREEN -->
+    <div class="chat-container hidden" id="chatContainer">
+        <div class="messages" id="messages"></div>
+        <div class="typing" id="typingIndicator"></div>
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Escribe un mensaje..." 
+                disabled
+            />
+            <button class="icon-btn" id="sendButton" disabled>➤</button>
+        </div>
+    </div>
+
+</div>
+
+<script type="module" src="./main.ts"></script>
+
+</body>
+</html>
