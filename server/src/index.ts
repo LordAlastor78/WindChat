@@ -21,12 +21,12 @@ import type {
   ServerToClientMessage,
   HandshakeMessage,
   EncryptedMessage,
-} from "../shared/protocol";
+} from "./protocol.js";
 import {
   MAX_MESSAGE_SIZE,
   MAX_USERS_PER_ROOM,
   ROOM_TIMEOUT,
-} from "../shared/protocol";
+} from "./protocol.js";
 
 // Estructura de datos para cada conexión
 interface ClientConnection {
@@ -47,6 +47,11 @@ const wss = new WebSocketServer({ port: PORT });
 
 // Map global: roomId → Room
 const rooms = new Map<string, Room>();
+
+function isValidBase64(value: string): boolean {
+  if (value.length === 0 || value.length % 4 !== 0) return false;
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
 
 console.log(`🚀 WindChat Server iniciado en puerto ${PORT}`);
 console.log(`📡 Esperando conexiones WebSocket...`);
@@ -102,7 +107,7 @@ wss.on("connection", (ws: WebSocket) => {
     handleDisconnect(ws, client);
   });
 
-  ws.on("error", (err) => {
+  ws.on("error", (err: Error) => {
     console.error("❌ WebSocket error:", err);
   });
 });
@@ -120,7 +125,13 @@ function handleJoin(
   const { roomId, publicKey } = msg;
 
   // Validar
-  if (!roomId || !publicKey) {
+  if (
+    typeof roomId !== "string" ||
+    typeof publicKey !== "string" ||
+    roomId.trim().length === 0 ||
+    roomId.length > 128 ||
+    !isValidBase64(publicKey)
+  ) {
     console.warn("⚠️ Handshake incompleto");
     ws.close(1008, "Invalid handshake");
     return;
@@ -150,7 +161,7 @@ function handleJoin(
 
   // Si hay otro cliente, intercambiar claves públicas
   if (room.clients.size === 2) {
-    broadcastPeerJoined(room, ws);
+    broadcastPeerJoined(room);
     console.log(`👥 Room ${roomId} activa (2/2 clientes)`);
 
     // Limpiar room al timeout
@@ -183,7 +194,12 @@ function handleMessage(
   if (!room) return;
 
   // Validar estructura
-  if (!msg.iv || !msg.ciphertext) {
+  if (
+    typeof msg.iv !== "string" ||
+    typeof msg.ciphertext !== "string" ||
+    !isValidBase64(msg.iv) ||
+    !isValidBase64(msg.ciphertext)
+  ) {
     console.warn("⚠️ Mensaje incompleto");
     return;
   }
@@ -208,6 +224,10 @@ function handleMessage(
  */
 function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
   if (!client.roomId) return;
+
+  if (typeof msg?.isTyping !== "boolean") {
+    return;
+  }
 
   const room = rooms.get(client.roomId);
   if (!room) return;
@@ -250,24 +270,21 @@ function handleDisconnect(ws: WebSocket, client: ClientConnection) {
 /**
  * Intercambiar claves públicas entre ambos clientes
  */
-function broadcastPeerJoined(room: Room, excludeWs: WebSocket) {
+function broadcastPeerJoined(room: Room) {
   const clients = Array.from(room.clients.entries());
 
   // Enviar clave del otro a cada uno
   clients.forEach(([ws, client]) => {
-    if (ws !== excludeWs) {
-      // Buscar clave del "otro"
-      const other = clients.find(([c]) => c !== ws);
-      if (other) {
-        const otherKey = other[1].publicKey;
-        ws.send(
-          JSON.stringify({
-            type: "peer_joined",
-            theirPublicKey: otherKey,
-          })
-        );
-        console.log(`📤 Clave pública intercambiada para ${client.roomId}`);
-      }
+    const other = clients.find(([otherWs]) => otherWs !== ws);
+    if (other) {
+      const otherKey = other[1].publicKey;
+      ws.send(
+        JSON.stringify({
+          type: "peer_joined",
+          theirPublicKey: otherKey,
+        })
+      );
+      console.log(`📤 Clave pública intercambiada para ${client.roomId}`);
     }
   });
 }

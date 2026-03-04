@@ -14,10 +14,12 @@ import CryptoManager from "./crypto";
 import type {
   ClientToServerMessage,
   ServerToClientMessage,
-} from "../shared/protocol";
+} from "./protocol.js";
+import { MAX_MESSAGE_SIZE } from "./protocol.js";
 
 export interface ChatClientCallbacks {
   onPeerJoined?: () => void;
+  onPeerDisconnected?: () => void;
   onMessageReceived?: (text: string, timestamp: number) => void;
   onTyping?: (isTyping: boolean) => void;
   onError?: (error: string) => void;
@@ -35,6 +37,10 @@ export class ChatClient {
 
   constructor(callbacks?: ChatClientCallbacks) {
     this.callbacks = callbacks || {};
+  }
+
+  onMessage(callback: (text: string, timestamp: number) => void): void {
+    this.callbacks.onMessageReceived = callback;
   }
 
   /**
@@ -105,11 +111,21 @@ export class ChatClient {
    */
   private async handleMessage(data: string) {
     try {
-      const msg = JSON.parse(data) as ServerToClientMessage;
+      const parsed = JSON.parse(data) as unknown;
+      if (!this.isValidServerMessage(parsed)) {
+        throw new Error("Invalid server message format");
+      }
+
+      const msg = parsed as ServerToClientMessage;
 
       switch (msg.type) {
         case "peer_joined":
           await this.handlePeerJoined(msg);
+          break;
+        case "peer_disconnected":
+          if (this.callbacks.onPeerDisconnected) {
+            this.callbacks.onPeerDisconnected();
+          }
           break;
         case "message":
           await this.handleEncryptedMessage(msg);
@@ -123,6 +139,36 @@ export class ChatClient {
     } catch (err) {
       console.error("❌ Error procesando mensaje:", err);
     }
+  }
+
+  private isValidServerMessage(message: unknown): message is ServerToClientMessage {
+    if (!message || typeof message !== "object") return false;
+
+    const msg = message as Record<string, unknown>;
+    if (typeof msg.type !== "string") return false;
+
+    switch (msg.type) {
+      case "peer_joined":
+        return typeof msg.theirPublicKey === "string" && this.isValidBase64(msg.theirPublicKey);
+      case "peer_disconnected":
+        return true;
+      case "message":
+        return (
+          typeof msg.iv === "string" &&
+          typeof msg.ciphertext === "string" &&
+          this.isValidBase64(msg.iv) &&
+          this.isValidBase64(msg.ciphertext)
+        );
+      case "typing":
+        return typeof msg.isTyping === "boolean";
+      default:
+        return false;
+    }
+  }
+
+  private isValidBase64(value: string): boolean {
+    if (value.length === 0 || value.length % 4 !== 0) return false;
+    return /^[A-Za-z0-9+/]+={0,2}$/.test(value);
   }
 
   /**
@@ -187,8 +233,18 @@ export class ChatClient {
         throw new Error("WebSocket not connected");
       }
 
+      const normalized = text.trim();
+      if (!normalized) {
+        throw new Error("Empty message is not allowed");
+      }
+
+      const sizeInBytes = new TextEncoder().encode(normalized).length;
+      if (sizeInBytes > MAX_MESSAGE_SIZE) {
+        throw new Error("Message exceeds maximum allowed size");
+      }
+
       // Cifrar
-      const encrypted = await this.crypto.encrypt(text);
+      const encrypted = await this.crypto.encrypt(normalized);
 
       // Enviar
       const msg: ClientToServerMessage = {

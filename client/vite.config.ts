@@ -1,16 +1,22 @@
 import { defineConfig } from 'vite';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+import { resolve } from 'node:path';
 
 export default defineConfig({
-  plugins: [basicSsl()],
   server: {
     port: 3000,
-    https: true,
-    strictPort: false
+    strictPort: false,
+    https: false,
+    host: '127.0.0.1'
   },
   build: {
     target: 'ES2020',
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        chat: resolve(__dirname, 'chat.html')
+      }
+    }
   }
 });

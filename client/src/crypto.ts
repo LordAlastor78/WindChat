@@ -14,8 +14,8 @@
  * 3. Limpiar claves al destruir
  */
 
-import type { MessagePayload } from "../shared/protocol";
-import { IV_SIZE, KEY_SIZE } from "../shared/protocol";
+import type { MessagePayload } from "./protocol.js";
+import { IV_SIZE, KEY_SIZE } from "./protocol.js";
 
 export interface EncryptedData {
   iv: string;

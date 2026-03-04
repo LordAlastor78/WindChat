@@ -94,10 +94,10 @@ export function initializeTranslations(): void {
   if (headerInfo) headerInfo.textContent = t('headerInfo');
   
   // Update login screen
-  const loginTitle = document.querySelector('.login-screen h2');
+  const loginTitle = document.getElementById('loginTitle');
   if (loginTitle) loginTitle.textContent = t('loginTitle');
   
-  const loginSubtitle = document.querySelector('.login-screen p');
+  const loginSubtitle = document.getElementById('loginSubtitle');
   if (loginSubtitle) loginSubtitle.textContent = t('loginSubtitle');
   
   const roomInput = document.getElementById('roomInputCreate') as HTMLInputElement;

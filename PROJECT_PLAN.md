@@ -156,33 +156,33 @@ type ServerToClientMessage = PeerJoinedMessage | EncryptedMessage | TypingIndica
 # ✅ CHECKLIST PRE-IMPLEMENTACIÓN
 
 ## 🔒 Seguridad criptográfica
-- [ ] IV de 12 bytes aleatorio **POR MENSAJE**
-- [ ] HKDF con salt = hash(roomId)
-- [ ] Info context: "WindChat AES-256-GCM Key"
-- [ ] Timestamp **DENTRO** del ciphertext
-- [ ] Exportar claves en formato `raw`
-- [ ] GCM para autenticación integrada
-- [ ] Limpiar claves al destruir
+- [x] IV de 12 bytes aleatorio **POR MENSAJE**
+- [x] HKDF con salt = hash(roomId)
+- [x] Info context: "WindChat AES-256-GCM Key"
+- [x] Timestamp **DENTRO** del ciphertext
+- [x] Exportar claves en formato `raw`
+- [x] GCM para autenticación integrada
+- [x] Limpiar claves al destruir
 
 ## ⚠️ Limitaciones documentadas
-- [ ] No hay forward secrecy por mensaje (trade-off MVP)
-- [ ] Misma clave AES toda la sesión
-- [ ] Salt determinístico (no aleatorio)
-- [ ] Metadata visible: quién habla con quién, timing
+- [x] No hay forward secrecy por mensaje (trade-off MVP)
+- [x] Misma clave AES toda la sesión
+- [x] Salt determinístico (no aleatorio)
+- [x] Metadata visible: quién habla con quién, timing
 
 ## 🔐 Servidor
-- [ ] Máximo 2 conexiones hard limit
-- [ ] Validar tamaño <10 MB
-- [ ] No almacenar nada
-- [ ] Timeout inactivos (30s)
-- [ ] Rechazar 3ra conexión
+- [x] Máximo 2 conexiones hard limit
+- [x] Validar tamaño <10 MB
+- [x] No almacenar nada
+- [x] Timeout inactivos (30s)
+- [x] Rechazar 3ra conexión
 
 ## 🖥️ Cliente
-- [ ] Sanitizar DOM con `textContent` (NO `innerHTML`)
-- [ ] Validar formato mensajes
-- [ ] Try-catch en decrypt
-- [ ] Feedback claro de errores
-- [ ] Destruir claves al cerrar
+- [x] Sanitizar DOM con `textContent` (NO `innerHTML`)
+- [x] Validar formato mensajes
+- [x] Try-catch en decrypt
+- [x] Feedback claro de errores
+- [x] Destruir claves al cerrar
 
 ---
 
@@ -208,101 +208,101 @@ type ServerToClientMessage = PeerJoinedMessage | EncryptedMessage | TypingIndica
 
 ## PASO 1: Estructura base (~20 minutos)
 
-- [ ] Crear carpetas: `server/`, `client/`, `shared/`
-- [ ] Archivo `package.json` workspace root
-- [ ] `tsconfig.json` base
-- [ ] `tsconfig.json` para server/
-- [ ] `tsconfig.json` para client/
-- [ ] Copiar tus archivos HTML a `client/public/`
+- [x] Crear carpetas: `server/`, `client/`, `shared/`
+- [x] Archivo `package.json` workspace root
+- [x] `tsconfig.json` base
+- [x] `tsconfig.json` para server/
+- [x] `tsconfig.json` para client/
+- [x] Copiar tus archivos HTML a `client/public/`
 
 ## PASO 2: Tipos compartidos + Protocol (~30 minutos)
 
-- [ ] Crear `shared/protocol.ts` con tipos exactos (HandshakeMessage, EncryptedMessage, etc)
-- [ ] Documentar en comentarios qué es cada campo
-- [ ] Validación de estructura en comentarios
+- [x] Crear `shared/protocol.ts` con tipos exactos (HandshakeMessage, EncryptedMessage, etc)
+- [x] Documentar en comentarios qué es cada campo
+- [x] Validación de estructura en comentarios
 
 ## PASO 3: Módulo crypto.ts (~45 minutos)
 
-- [ ] Clase `CryptoManager`
-  - [ ] `generateKeyPair()` → ArrayBuffer raw
-  - [ ] `deriveSharedKey(theirPublic, roomId)` → void
-  - [ ] `encrypt(plaintext)` → {iv, ciphertext}
-  - [ ] `decrypt(iv, ciphertext)` → MessagePayload
-  - [ ] `destroy()` → limpiar claves
-- [ ] Helper functions de base64 ↔ ArrayBuffer
-- [ ] Manejo de errores con try-catch
-- [ ] Comentarios detallados en cada función
+- [x] Clase `CryptoManager`
+  - [x] `generateKeyPair()` → ArrayBuffer raw
+  - [x] `deriveSharedKey(theirPublic, roomId)` → void
+  - [x] `encrypt(plaintext)` → {iv, ciphertext}
+  - [x] `decrypt(iv, ciphertext)` → MessagePayload
+  - [x] `destroy()` → limpiar claves
+- [x] Helper functions de base64 ↔ ArrayBuffer
+- [x] Manejo de errores con try-catch
+- [x] Comentarios detallados en cada función
 
 ## PASO 4: Servidor server.ts (~60 minutos)
 
-- [ ] Importar `ws` y tipos
-- [ ] Estructura de rooms: `Map<string, Set<WebSocket>>`
-- [ ] Listener: `ws.on('message', ...)`
-  - [ ] Parsear JSON + validar
-  - [ ] Handle "join" → guardar y enviar a peer
-  - [ ] Handle "message" → broadcasr (solo 2 usuarios)
-  - [ ] Handle "typing" → relay
-- [ ] Listener: `ws.on('close', ...)` → limpiar
-- [ ] Validaciones:
-  - [ ] Max 2 conexiones por room
-  - [ ] Tamaño mensaje <10MB
-  - [ ] Formato válido
-- [ ] Error handling
-- [ ] `package.json` con dependencias
+- [x] Importar `ws` y tipos
+- [x] Estructura de rooms: `Map<string, Set<WebSocket>>`
+- [x] Listener: `ws.on('message', ...)`
+  - [x] Parsear JSON + validar
+  - [x] Handle "join" → guardar y enviar a peer
+  - [x] Handle "message" → broadcasr (solo 2 usuarios)
+  - [x] Handle "typing" → relay
+- [x] Listener: `ws.on('close', ...)` → limpiar
+- [x] Validaciones:
+  - [x] Max 2 conexiones por room
+  - [x] Tamaño mensaje <10MB
+  - [x] Formato válido
+- [x] Error handling
+- [x] `package.json` con dependencias
 
 ## PASO 5: Cliente client.ts (~75 minutos)
 
-- [ ] Clase `ChatClient`
-  - [ ] `connect(roomId)` → conectar WS + handshake
-  - [ ] `sendMessage(text)` → cifrar + enviar
-  - [ ] `onMessage(callback)` → callback para mensajes
-  - [ ] Listeners:
-    - [ ] "peer_joined" → guardar publicKey + derivar shared
-    - [ ] "message" → descifrar + callback
-    - [ ] "disconnect" → cerrar
-- [ ] Integrar `CryptoManager`
-- [ ] Manejo de errores
-- [ ] Destruir al cerrar
+- [x] Clase `ChatClient`
+  - [x] `connect(roomId)` → conectar WS + handshake
+  - [x] `sendMessage(text)` → cifrar + enviar
+  - [x] `onMessage(callback)` → callback para mensajes
+  - [x] Listeners:
+    - [x] "peer_joined" → guardar publicKey + derivar shared
+    - [x] "message" → descifrar + callback
+    - [x] "disconnect" → cerrar
+- [x] Integrar `CryptoManager`
+- [x] Manejo de errores
+- [x] Destruir al cerrar
 
 ## PASO 6: UI ui.ts (~60 minutos)
 
-- [ ] Parseado de HTML actual
-- [ ] Función `renderMessage(payload, isMe)` → DOM
-- [ ] Función `addMessage(text, isMe)`
-- [ ] Event listeners:
-  - [ ] Input mensaje + Enter
-  - [ ] Botón enviar
-  - [ ] Typing indicator
-- [ ] Mostrar estado (conectando, conectado, error)
-- [ ] Sanitización con `textContent`
+- [x] Parseado de HTML actual
+- [x] Función `renderMessage(payload, isMe)` → DOM
+- [x] Función `addMessage(text, isMe)`
+- [x] Event listeners:
+  - [x] Input mensaje + Enter
+  - [x] Botón enviar
+  - [x] Typing indicator
+- [x] Mostrar estado (conectando, conectado, error)
+- [x] Sanitización con `textContent`
 
 ## PASO 7: main.ts + Vite config (~30 minutos)
 
-- [ ] Entry point `client/src/main.ts`
-- [ ] Inicializar ChatClient
-- [ ] Setup UI listeners
-- [ ] Listar temas (claro/oscuro)
-- [ ] `vite.config.ts` básico
+- [x] Entry point `client/src/main.ts`
+- [x] Inicializar ChatClient
+- [x] Setup UI listeners
+- [x] Listar temas (claro/oscuro)
+- [x] `vite.config.ts` básico
 
 ## PASO 8: Testing local (~45 minutos)
 
-- [ ] Build cliente: `npm run build`
-- [ ] Start servidor: `npm run dev:server`
-- [ ] Open localhost:3000 (server) + otra ventana
+- [x] Build cliente: `npm run build`
+- [x] Start servidor: `npm run dev:server`
+- [x] Open localhost:3000 (server) + otra ventana
 - [ ] Probar:
-  - [ ] Conexión y handshake
-  - [ ] Generación de roomID
-  - [ ] Intercambio de claves
-  - [ ] Enviar mensaje cifrado
-  - [ ] Recibir y descifrar
-  - [ ] Múltiples mensajes
-  - [ ] 3ra conexión rechazada
-  - [ ] Desconexión limpia
+  - [x] Conexión y handshake
+  - [x] Generación de roomID
+  - [x] Intercambio de claves
+  - [x] Enviar mensaje cifrado
+  - [x] Recibir y descifrar
+  - [x] Múltiples mensajes
+  - [x] 3ra conexión rechazada
+  - [x] Desconexión limpia
 
 ## PASO 9: Deploy Cloudflare Tunnel (~20 minutos)
 
 - [ ] Instalar Cloudflare CLI
-- [ ] `npm run build:server`
+- [x] `npm run build:server`
 - [ ] `npm install -g wrangler` (opcional)
 - [ ] Crear tunnel públicamente
 - [ ] Update UI con URL pública
