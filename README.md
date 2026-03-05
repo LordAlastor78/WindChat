@@ -2,7 +2,7 @@
 
 Chat web **seguro, efímero y ligero** con cifrado extremo a extremo.
 
-**Estado:** MVP Fase 1 completado y listo para testing ✅
+<a href='https://ko-fi.com/alastor78' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
 ---
 
@@ -14,6 +14,8 @@ Chat web **seguro, efímero y ligero** con cifrado extremo a extremo.
 - ✅ **Ultra-ligero** - <5MB descargado
 - ✅ **Privado** - Servidor no ve contenido
 - ✅ **1-a-1** - Para 2 usuarios controlados
+
+  
 
 ---
 
