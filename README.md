@@ -90,10 +90,10 @@ SERVIDOR NUNCA VE: el mensaje, timestamp, ni contexto
 .\setup.ps1
 
 # Después (diariamente)
-.\dev.ps1
+.\run.ps1
 ```
 
-### Alternativa: npm comandos
+### Alternativa: npm comandos  ( más sencillo el run.ps1 , los incluye ) 
 
 **Terminal 1:**
 ```bash
