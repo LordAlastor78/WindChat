@@ -26,7 +26,10 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         EnvironmentInfo = @{}
         ConnectivityTests = @{}
         LocalServerStatus = $false
-        QuickTunnelResult = @{}
+        QuickTunnelResult = @{
+            Success = $false
+            URL = ""
+        }
         DiagnosisConclusion = ""
     }
 
@@ -414,7 +417,14 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         Log-Section "FASE 6 --- ANALISIS AUTOMATICO DE ERRORES"
 
         if ($quickTunnelSuccess) {
-            Log-Message "[OK] Quick Tunnel se creo exitosamente" "OK" "Green"
+            Log-Message "[OK] Quick Tunnel se creo exitosamente!" "OK" "Green"
+            Log-Message "" "INFO" "White"
+            Log-Message "DETALLES DE LA CONEXION:" "INFO" "Cyan"
+            Log-Message "  -> Tunnel registrado en edge de Cloudflare" "OK" "Green"
+            Log-Message "  -> Protocolo: http2" "INFO" "White"
+            Log-Message "  -> URL publica: $($diagnosticData.QuickTunnelResult.URL)" "OK" "Green"
+            Log-Message "  -> Servidor origen: http://127.0.0.1:8080" "INFO" "White"
+            Log-Message "" "INFO" "White"
             $diagnosticData.DiagnosisConclusion = "EXITO: Quick Tunnel funcionando correctamente"
         } else {
             Log-Message "[FAIL] Quick Tunnel fallo en todos los intentos" "ERROR" "Red"
@@ -491,7 +501,13 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         Log-Message "  Total intentos: $($diagnosticData.Attempts)" "INFO" "White"
         Log-Message "  Exitosos: $($diagnosticData.Successes)" "INFO" "White"
         Log-Message "  Fallidos: $($diagnosticData.Failures)" "INFO" "White"
-        Log-Message "  Tiempo promedio: $avgTime ms" "INFO" "White"
+        
+        if ($diagnosticData.Successes -gt 0) {
+            $successTime = "{0:F2}" -f ($diagnosticData.Times | Select-Object -First 1)
+            Log-Message "  Tiempo creacion del tunnel: $successTime ms (~$([int]($successTime/1000))s)" "INFO" "Green"
+        } else {
+            Log-Message "  Tiempo promedio de fallo: $avgTime ms" "INFO" "White"
+        }
         Log-Message ""
 
         Log-Message "ESTADO DEL ENTORNO:" "INFO" "Cyan"
@@ -510,8 +526,19 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         Log-Message "RECOMENDACIONES:" "INFO" "Cyan"
         
         if ($quickTunnelSuccess) {
-            Log-Message "  [OK] Tu conexion esta funcionando correctamente." "INFO" "Green"
+            Log-Message "  [OK] Tu conexion esta funcionando correctamente!" "OK" "Green"
             Log-Message "  Puedes usar Cloudflare Quick Tunnel sin problemas." "INFO" "Green"
+            Log-Message "" 
+            if ($diagnosticData.QuickTunnelResult.URL) {
+                Log-Message "  URL del ultimo tunnel creado:" "INFO" "Cyan"
+                Log-Message "    $($diagnosticData.QuickTunnelResult.URL)" "OK" "Green"
+                Log-Message ""
+                Log-Message "  Para usar el modo Cloudflare:" "INFO" "Cyan"
+                Log-Message "    1. Ejecuta opcion [7] en el menu principal" "INFO" "White"
+                Log-Message "    2. Espera 5-10 segundos a que se cree el tunnel" "INFO" "White"
+                Log-Message "    3. Copia la URL https://xxx.trycloudflare.com" "INFO" "White"
+                Log-Message "    4. Abre: https://xxx.trycloudflare.com/chat.html" "INFO" "White"
+            }
         } else {
             if ($diagnosticData.Errors -contains "HTTP_TIMEOUT" -or $diagnosticData.Errors -contains "PROCESS_TIMEOUT") {
                 Log-Message "  1. Desactiva temporalmente tu VPN/Proxy" "INFO" "Yellow"
@@ -538,6 +565,14 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                 Log-Message "  3. Verifica que no hay errores en startup del servidor" "INFO" "Yellow"
             }
             
+            if (-not ($diagnosticData.Errors -contains "DNS_ERROR" -or $diagnosticData.Errors -contains "LOCAL_SERVER_DOWN" -or $diagnosticData.Errors -contains "TLS_ERROR")) {
+                Log-Message "  1. Desactiva temporalmente tu VPN/Proxy" "INFO" "Yellow"
+                Log-Message "  2. Agrega excepciones en tu firewall para cloudflared.exe" "INFO" "Yellow"
+                Log-Message "  3. Intenta desde una red diferente (WiFi, datos)" "INFO" "Yellow"
+                Log-Message "  4. Verifica si tu ISP bloquea Cloudflare" "INFO" "Yellow"
+            }
+            
+            Log-Message "" "INFO" "White"
             Log-Message "  ACCION INMEDIATA:" "INFO" "Red"
             Log-Message "  -> Revisa el archivo de log completo para mas detalles" "INFO" "Red"
             $logResolved = Resolve-Path $LogPath -ErrorAction SilentlyContinue
