@@ -1,6 +1,6 @@
-# WindChat - Plataforma de Mensajería Cifrada End-to-End
+# WindChat - End-to-End Encrypted Messaging Platform
 
-**WindChat** es una solución de mensajería web instantánea con cifrado extremo a extremo (E2EE) certificado por estándares criptográficos modernos. Implementa un sistema de comunicación seguro, efímero y de arquitectura zero-knowledge donde el servidor actúa únicamente como relay de mensajes sin capacidad de descifrar el contenido.
+**WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server acts only as a message relay and cannot decrypt content.
 
 <div align="center">
 <img src="./WindChat.png" alt="WindChat Logo" width="230">
@@ -8,342 +8,340 @@
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
-- [Resumen Ejecutivo](#resumen-ejecutivo)
-- [Características Técnicas](#características-técnicas)
-- [Arquitectura del Sistema](#arquitectura-del-sistema)
-- [Especificación Criptográfica](#especificación-criptográfica)
-- [Instalación y Configuración](#instalación-y-configuración)
-- [Despliegue en Producción](#despliegue-en-producción)
-- [Pruebas y Validación](#pruebas-y-validación)
-- [Seguridad y Auditoría](#seguridad-y-auditoría)
-- [Limitaciones Conocidas](#limitaciones-conocidas)
-- [Roadmap y Desarrollo Futuro](#roadmap-y-desarrollo-futuro)
-- [Contribución y Licencia](#contribución-y-licencia)
-
----
-
-## Resumen Ejecutivo
-
-WindChat proporciona un canal de comunicación bidireccional con las siguientes garantías:
-
-- **Confidencialidad absoluta**: Los mensajes son cifrados en el cliente usando AES-256-GCM antes de la transmisión
-- **Autenticación criptográfica**: Cada mensaje incluye un tag de autenticación que garantiza integridad
-- **Arquitectura zero-knowledge**: El servidor no almacena ni puede acceder al contenido de las comunicaciones
-- **Ephemeral by design**: No existe persistencia de datos; todas las comunicaciones residen exclusivamente en memoria
-- **Footprint mínimo**: Implementación ligera con menos de 5MB de recursos descargables
-
-### Casos de Uso
-
-- Comunicaciones confidenciales entre dos partes
-- Intercambio de información sensible sin persistencia
-- Entornos que requieren compliance con regulaciones de privacidad (GDPR, HIPAA)
-- Prototipado de sistemas de mensajería segura
+- [Executive Summary](#executive-summary)
+- [Technical Features](#technical-features)
+- [System Architecture](#system-architecture)
+- [Cryptographic Specification](#cryptographic-specification)
+- [Installation and Configuration](#installation-and-configuration)
+- [Production Deployment](#production-deployment)
+- [Testing and Validation](#testing-and-validation)
+- [Security and Audit](#security-and-audit)
+- [Known Limitations](#known-limitations)
+- [Roadmap and Future Development](#roadmap-and-future-development)
+- [Contributing and License](#contributing-and-license)
 
 ---
 
-## Características Técnicas
+## Executive Summary
 
-### Seguridad
+WindChat provides a bidirectional communication channel with the following guarantees:
 
-| Componente | Implementación | Estándar |
-|------------|----------------|----------|
-| Cifrado simétrico | AES-256-GCM | NIST FIPS 197, NIST SP 800-38D |
-| Intercambio de claves | ECDH P-256 | NIST FIPS 186-4, RFC 6090 |
-| Derivación de claves | HKDF-SHA-256 | RFC 5869 |
-| Vector de inicialización | 96 bits aleatorios (crypto.getRandomValues) | NIST SP 800-38D |
-| Autenticación | GCM Authentication Tag (128 bits) | NIST SP 800-38D |
+- **Full confidentiality**: Messages are encrypted client-side with AES-256-GCM before transmission
+- **Cryptographic authentication**: Each message includes an authentication tag that guarantees integrity
+- **Zero-knowledge architecture**: The server does not store or access communication content
+- **Ephemeral by design**: No data persistence; all communications live only in memory
+- **Minimal footprint**: Lightweight implementation with less than 5 MB of downloadable assets
 
-### Infraestructura
+### Use Cases
 
-- **Backend**: Node.js con WebSocket (ws library)
-- **Frontend**: TypeScript, Vite, Web Crypto API nativa
-- **Protocolo**: WebSocket sobre TLS (WSS en producción)
-- **Arquitectura**: Monorepo con workspaces npm
-- **Testing**: Vitest con 36 test suites
-
-### Rendimiento
-
-- **Latencia de cifrado**: < 5ms por mensaje (promedio)
-- **Tamaño de bundle**: 33.42 KB (JavaScript), 22.25 KB (HTML)
-- **Capacidad**: 2 usuarios por sala (diseño intencional)
-- **Límite de mensaje**: 10 MB por defecto (configurable)
+- Confidential communication between two parties
+- Exchange of sensitive information without persistence
+- Environments requiring privacy compliance (GDPR, HIPAA)
+- Prototyping secure messaging systems
 
 ---
 
-[![Soporte al Proyecto](https://storage.ko-fi.com/cdn/kofi6.png?v=4)](https://ko-fi.com/alastor78)
+## Technical Features
 
+### Security
 
+| Component | Implementation | Standard |
+|-----------|----------------|----------|
+| Symmetric encryption | AES-256-GCM | NIST FIPS 197, NIST SP 800-38D |
+| Key exchange | ECDH P-256 | NIST FIPS 186-4, RFC 6090 |
+| Key derivation | HKDF-SHA-256 | RFC 5869 |
+| Initialization vector | 96 random bits (`crypto.getRandomValues`) | NIST SP 800-38D |
+| Authentication | GCM Authentication Tag (128 bits) | NIST SP 800-38D |
 
-## Arquitectura del Sistema
+### Infrastructure
 
-### Estructura del Proyecto
+- **Backend**: Node.js with WebSocket (`ws` library)
+- **Frontend**: TypeScript, Vite, native Web Crypto API
+- **Protocol**: WebSocket over TLS (WSS in production)
+- **Architecture**: Monorepo with npm workspaces
+- **Testing**: Vitest with 36 test suites
+
+### Performance
+
+- **Encryption latency**: < 5 ms per message (average)
+- **Bundle size**: 33.42 KB (JavaScript), 22.25 KB (HTML)
+- **Capacity**: 2 users per room (intentional design)
+- **Message limit**: 10 MB by default (configurable)
+
+---
+
+[![Support the Project](https://storage.ko-fi.com/cdn/kofi6.png?v=4)](https://ko-fi.com/alastor78)
+
+## System Architecture
+
+### Project Structure
 
 ```
 windchat/
-├── server/                    # Servidor WebSocket (Node.js + TypeScript)
+├── server/                    # WebSocket server (Node.js + TypeScript)
 │   ├── src/
-│   │   ├── index.ts          # Lógica principal del servidor
-│   │   └── protocol.ts       # Definiciones de protocolo del servidor
+│   │   ├── index.ts          # Main server logic
+│   │   └── protocol.ts       # Server protocol definitions
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── client/                    # Aplicación cliente (TypeScript + Vite)
+├── client/                    # Client application (TypeScript + Vite)
 │   ├── src/
-│   │   ├── main.ts           # Punto de entrada y orquestación
-│   │   ├── crypto.ts         # Módulo criptográfico (Web Crypto API)
-│   │   ├── websocket.ts      # Cliente WebSocket con reconexión automática
-│   │   ├── ui.ts             # Gestión de interfaz y DOM
-│   │   ├── protocol.ts       # Definiciones de protocolo del cliente
-│   │   └── i18n.ts           # Internacionalización
+│   │   ├── main.ts           # Entry point and orchestration
+│   │   ├── crypto.ts         # Cryptographic module (Web Crypto API)
+│   │   ├── websocket.ts      # WebSocket client with auto-reconnect
+│   │   ├── ui.ts             # UI and DOM management
+│   │   ├── protocol.ts       # Client protocol definitions
+│   │   └── i18n.ts           # Internationalization
 │   ├── public/
-│   │   ├── index.html        # HTML estático
+│   │   ├── index.html        # Static HTML
 │   │   └── manifest.json     # PWA manifest
-│   ├── chat.html             # Interfaz de chat
+│   ├── chat.html             # Chat interface
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── vite.config.ts
 │
-├── shared/                    # Definiciones de tipos compartidas
-│   └── protocol.ts           # Contrato de comunicación cliente-servidor
+├── shared/                    # Shared type definitions
+│   └── protocol.ts           # Client-server communication contract
 │
-├── run.ps1                   # Script de gestión para Windows
-├── setup.ps1                 # Script de instalación inicial
-└── package.json              # Configuración del workspace monorepo
+├── run.ps1                   # Windows management script
+├── setup.ps1                 # Initial setup script
+└── package.json              # Monorepo workspace configuration
 ```
 
-### Diagrama de Flujo de Comunicación
+### Communication Flow Diagram
 
 ```
 ┌─────────────┐                    ┌─────────────┐                    ┌─────────────┐
-│  Cliente A  │                    │   Servidor  │                    │  Cliente B  │
+│  Client A   │                    │   Server    │                    │  Client B   │
 │             │                    │ (WebSocket) │                    │             │
 └──────┬──────┘                    └──────┬──────┘                    └──────┬──────┘
        │                                  │                                  │
-       │ 1. Genera KeyPair P-256          │                                  │
+       │ 1. Generate P-256 key pair       │                                  │
        │────────────────────────────────> │                                  │
        │                                  │                                  │
-       │                                  │ 2. Genera KeyPair P-256          │
+       │                                  │ 2. Generate P-256 key pair       │
        │                                  │ <────────────────────────────────│
        │                                  │                                  │
-       │ 3. Intercambia claves públicas   │ 4. Intercambia claves públicas   │
+       │ 3. Exchange public keys          │ 4. Exchange public keys          │
        │ <────────────────────────────────│─────────────────────────────────>│
        │                                  │                                  │
-       │ 5. Deriva clave compartida (ECDH + HKDF)                            │
-       │                                  │   Deriva clave compartida (ECDH + HKDF) 
+       │ 5. Derive shared key (ECDH + HKDF)                                  │
+       │                                  │   Derive shared key (ECDH + HKDF)
        │                                  │                                  │
-       │ 6. Cifra mensaje con AES-GCM     │                                  │
+       │ 6. Encrypt message with AES-GCM  │                                  │
        │────────────────────────────────> │                                  │
-       │                                  │ 7. Relay ciego (sin descifrar)   │
+       │                                  │ 7. Blind relay (no decryption)   │
        │                                  │─────────────────────────────────>│
        │                                  │                                  │
-       │                                  │     8. Descifra con AES-GCM      │
+       │                                  │     8. Decrypt with AES-GCM      │
        │                                  │                                  │
 ```
 
-**Principio fundamental**: El servidor actúa como un relay opaco. Solo conoce metadatos de conexión (timestamp, tamaño del mensaje, identificadores de sala) pero nunca el contenido del mensaje.
+**Core principle**: The server is an opaque relay. It only sees connection metadata (timestamp, message size, room identifiers), never message content.
 
 ---
 
-## Especificación Criptográfica
+## Cryptographic Specification
 
-### Primitivas Criptográficas
+### Cryptographic Primitives
 
-| Componente | Algoritmo | Detalles Técnicos |
-|-----------|----------|-------------------|
-| **Intercambio de claves** | ECDH P-256 (secp256r1) | Curva elíptica de 256 bits, implementación nativa en Web Crypto API |
-| **Derivación de claves** | HKDF-SHA-256 | Key Derivation Function con SHA-256, salt derivado de hash(roomId) |
-| **Cifrado simétrico** | AES-256-GCM | Advanced Encryption Standard con Galois/Counter Mode, clave de 256 bits |
-| **Vector de inicialización** | Random 96 bits | Generado con crypto.getRandomValues() por mensaje, nunca reutilizado |
-| **Autenticación** | GCM Authentication Tag | Tag de 128 bits incluido en el ciphertext, valida integridad |
-| **Codificación** | Base64 | Para serialización de datos binarios en JSON |
-| **Timestamp** | Incluido en plaintext | Cifrado junto con el mensaje, no visible para el servidor |
+| Component | Algorithm | Technical Details |
+|-----------|-----------|-------------------|
+| **Key exchange** | ECDH P-256 (`secp256r1`) | 256-bit elliptic curve, native Web Crypto API implementation |
+| **Key derivation** | HKDF-SHA-256 | Key Derivation Function with SHA-256, salt derived from `hash(roomId)` |
+| **Symmetric encryption** | AES-256-GCM | Advanced Encryption Standard with Galois/Counter Mode, 256-bit key |
+| **Initialization vector** | Random 96 bits | Generated with `crypto.getRandomValues()` per message, never reused |
+| **Authentication** | GCM Authentication Tag | 128-bit tag included in ciphertext, validates integrity |
+| **Encoding** | Base64 | For serializing binary data in JSON |
+| **Timestamp** | Included in plaintext | Encrypted together with message, not visible to the server |
 
-### Protocolo Criptográfico Detallado
+### Detailed Cryptographic Protocol
 
-#### Fase 1: Establecimiento de Conexión
+#### Phase 1: Connection Establishment
 
-1. **Generación de Par de Claves**: Cada cliente genera un par de claves ECDH P-256
-2. **Exportación**: Claves públicas se exportan en formato raw y codifican en base64
-3. **Envío**: Ambos clientes envían sus claves públicas al servidor con el roomId
-4. **Intercambio**: El servidor retransmite las claves públicas entre clientes
+1. **Key pair generation**: Each client generates an ECDH P-256 key pair
+2. **Export**: Public keys are exported in raw format and encoded as Base64
+3. **Send**: Both clients send their public keys to the server with `roomId`
+4. **Exchange**: The server relays public keys between clients
 
-#### Fase 2: Derivación de Clave Compartida
+#### Phase 2: Shared Key Derivation
 
-5. **ECDH**: Cada cliente calcula el secreto compartido usando su clave privada y la clave pública del peer
-6. **HKDF**: El secreto compartido se deriva usando HKDF-SHA-256 con salt = hash(roomId) para obtener la clave AES-256
+5. **ECDH**: Each client computes the shared secret using its private key and peer public key
+6. **HKDF**: The shared secret is derived with HKDF-SHA-256 and `salt = hash(roomId)` to obtain the AES-256 key
 
-**Nota crítica**: El servidor nunca participa en el cálculo del secreto compartido. Solo actúa como intermediario para el intercambio de claves públicas.
+**Critical note**: The server never participates in shared secret calculation. It only relays public keys.
 
-#### Fase 3: Cifrado y Transmisión
+#### Phase 3: Encryption and Transmission
 
-7. **Cifrado**: 
-   - Se genera un IV aleatorio de 96 bits para cada mensaje
-   - El mensaje se cifra con AES-256-GCM usando la clave derivada
-   - El resultado incluye el ciphertext y el authentication tag
-   
-8. **Transmisión**: El paquete {iv, ciphertext} se envía al servidor en formato JSON
-9. **Relay**: El servidor retransmite el paquete sin modificarlo ni intentar descifrarlo
-10. **Descifrado**: El cliente receptor descifra usando la misma clave AES-256 y verifica el authentication tag
+7. **Encryption**:
+   - A random 96-bit IV is generated per message
+   - The message is encrypted with AES-256-GCM using the derived key
+   - Output includes ciphertext and authentication tag
 
-### Garantías Criptográficas
+8. **Transmission**: The `{iv, ciphertext}` packet is sent to the server as JSON
+9. **Relay**: The server relays the packet without modifying or attempting to decrypt it
+10. **Decryption**: The receiving client decrypts with the same AES-256 key and verifies the authentication tag
 
-- **Confidencialidad**: Protección contra lectura no autorizada mediante AES-256
-- **Integridad**: Detección de modificaciones mediante GCM authentication tag
-- **Autenticidad**: Verificación de origen mediante clave compartida
-- **Forward Secrecy**: No implementado en v1 stable (roadmap para v2.0)
-- **Zero-Knowledge Server**: El servidor no puede descifrar ningún contenido
+### Cryptographic Guarantees
+
+- **Confidentiality**: Protection against unauthorized reading using AES-256
+- **Integrity**: Modification detection through GCM authentication tags
+- **Authenticity**: Origin verification through shared key
+- **Forward secrecy**: Not implemented in v1 stable (planned for v2.0)
+- **Zero-knowledge server**: Server cannot decrypt any content
 
 ---
 
-## Instalación y Configuración
+## Installation and Configuration
 
-### Requisitos Previos
+### Prerequisites
 
-- **Node.js**: v18.0.0 o superior
-- **npm**: v8.0.0 o superior
-- **Sistema operativo**: Windows, macOS, o Linux
-- **Navegador**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+ (compatibilidad con Web Crypto API)
+- **Node.js**: v18.0.0 or higher
+- **npm**: v8.0.0 or higher
+- **Operating system**: Windows, macOS, or Linux
+- **Browser**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+ (Web Crypto API support)
 
-### Instalación Rápida (Windows)
+### Quick Setup (Windows)
 
-Para sistemas Windows, se incluyen scripts PowerShell automatizados:
+For Windows systems, automated PowerShell scripts are included:
 
 ```powershell
-# Instalación inicial (primera vez)
+# Initial setup (first time)
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 .\setup.ps1
 
-# Ejecución posterior
+# Later runs
 .\run.ps1
 ```
 
-El script `run.ps1` proporciona un menú interactivo con las siguientes opciones:
-- Iniciar servidor y cliente en modo desarrollo
-- Compilar para producción
-- Ejecutar tests
-- Gestión de procesos de Cloudflare Tunnel
+The `run.ps1` script provides an interactive menu with these options:
+- Start server and client in development mode
+- Build for production
+- Run tests
+- Manage Cloudflare Tunnel processes
 
-### Instalación Manual (Multiplataforma)
+### Manual Setup (Cross-platform)
 
-#### 1. Instalación de Dependencias
+#### 1. Install Dependencies
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/tu-usuario/windchat.git
+# Clone repository
+git clone https://github.com/your-user/windchat.git
 cd windchat
 
-# Instalar dependencias del workspace
+# Install workspace dependencies
 npm install
 
-# Instalar dependencias de servidor y cliente
+# Install server and client dependencies
 npm install --workspace=server --workspace=client
 ```
 
-#### 2. Configuración de Variables de Entorno
+#### 2. Configure Environment Variables
 
-Crear archivo de configuración (opcional):
+Create config file (optional):
 
 ```bash
 cp .env.example .env
 ```
 
-Editar `.env` según requerimientos:
+Edit `.env` as needed:
 
 ```bash
-# Puerto del servidor WebSocket
+# WebSocket server port
 PORT=8080
 
-# Límite de usuarios por sala
+# Room user limit
 MAX_USERS_PER_ROOM=2
 
-# Tamaño máximo de mensaje (bytes)
+# Max message size (bytes)
 MAX_MESSAGE_SIZE=10485760
 ```
 
-#### 3. Compilación del Proyecto
+#### 3. Build the Project
 
 ```bash
-# Compilar servidor
+# Build server
 npm run build --workspace=server
 
-# Compilar cliente
+# Build client
 npm run build --workspace=client
 ```
 
-#### 4. Ejecución en Modo Desarrollo
+#### 4. Run in Development Mode
 
-**Terminal 1 - Servidor:**
+**Terminal 1 - Server:**
 ```bash
 cd server
 npm run dev
 ```
 
-**Terminal 2 - Cliente:**
+**Terminal 2 - Client:**
 ```bash
 cd client
 npm run dev
 ```
 
-El servidor escuchará en `http://localhost:8080` y el cliente en `http://localhost:3000`.
+Server runs on `http://localhost:8080` and client on `http://localhost:3000`.
 
-### Validación de la Instalación
+### Installation Validation
 
-1. Abrir `http://localhost:3000` en el navegador A
-2. Hacer clic en "Crear / Conectar" para generar una sala
-3. Copiar el Room ID que aparece en la interfaz
-4. Abrir `http://localhost:3000` en el navegador B (pestaña de incógnito o navegador diferente)
-5. Pegar el Room ID y hacer clic en "Conectar"
-6. Verificar que ambos clientes se conectan y pueden intercambiar mensajes
+1. Open `http://localhost:3000` in browser A
+2. Click "Create / Connect" to generate a room
+3. Copy the Room ID shown in the UI
+4. Open `http://localhost:3000` in browser B (incognito tab or different browser)
+5. Paste the Room ID and click "Connect"
+6. Verify both clients connect and can exchange messages
 
-**Documentación adicional**: Consultar [QUICKSTART.md](QUICKSTART.md) para guías detalladas y [SCRIPTS.md](SCRIPTS.md) para información sobre scripts de gestión.
+**Extra docs**: See [QUICKSTART.md](QUICKSTART.md) for detailed guides and [SCRIPTS.md](SCRIPTS.md) for script details.
 
 ---
 
-## Despliegue en Producción
+## Production Deployment
 
-### Construcción de Artefactos
+### Build Artifacts
 
 ```bash
-# Construcción completa del proyecto
+# Full project build
 npm run build
 
-# O por separado
+# Or separately
 npm run build --workspace=server
 npm run build --workspace=client
 ```
 
-Resultados de la compilación:
-- **Servidor**: `server/dist/index.js` (aplicación Node.js compilada)
-- **Cliente**: `client/dist/` (assets estáticos listos para servir)
+Build output:
+- **Server**: `server/dist/index.js` (compiled Node.js app)
+- **Client**: `client/dist/` (static assets ready to serve)
 
-### Opciones de Despliegue
+### Deployment Options
 
-#### Opción 1: Servidor Dedicado (VPS/Cloud)
+#### Option 1: Dedicated Server (VPS/Cloud)
 
-**Requisitos del servidor:**
-- Node.js 18+ instalado
-- Puerto 8080 abierto (o configurado)
-- Certificado SSL para WSS (WebSocket Secure)
-- Reverse proxy recomendado (nginx/caddy)
+**Server requirements:**
+- Node.js 18+ installed
+- Port 8080 open (or configured)
+- SSL certificate for WSS (WebSocket Secure)
+- Reverse proxy recommended (nginx/caddy)
 
-**Configuración de nginx:**
+**nginx config:**
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name tu-dominio.com;
-    
+    server_name your-domain.com;
+
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    
-    # Cliente estático
+
+    # Static client
     location / {
         root /path/to/windchat/client/dist;
         try_files $uri $uri/ /index.html;
     }
-    
+
     # WebSocket proxy
     location /ws {
         proxy_pass http://localhost:8080;
@@ -357,27 +355,27 @@ server {
 }
 ```
 
-**Iniciar servidor:**
+**Start server:**
 
 ```bash
 cd server
 node dist/index.js
 
-# O con PM2 para gestión de procesos
+# Or with PM2 for process management
 npm install -g pm2
 pm2 start dist/index.js --name windchat-server
 pm2 startup
 pm2 save
 ```
 
-#### Opción 2: Cloudflare Tunnel (Recomendado para Desarrollo)
+#### Option 2: Cloudflare Tunnel (Recommended for Development)
 
-Cloudflare Tunnel proporciona HTTPS automático sin necesidad de configurar certificados.
+Cloudflare Tunnel provides automatic HTTPS without manual certificate setup.
 
-**1. Instalación de cloudflared:**
+**1. Install `cloudflared`:**
 
 ```bash
-# Windows (PowerShell como administrador)
+# Windows (PowerShell as administrator)
 choco install cloudflared
 
 # macOS
@@ -389,32 +387,32 @@ mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
 chmod +x /usr/local/bin/cloudflared
 ```
 
-**2. Construcción y ejecución:**
+**2. Build and run:**
 
 ```bash
-# Terminal 1: Compilar y ejecutar servidor
+# Terminal 1: Build and run server
 cd server
 npm run build
 node dist/index.js
 
-# Terminal 2: Crear tunnel
+# Terminal 2: Create tunnel
 cloudflared tunnel --url http://localhost:8080
 ```
 
-Cloudflared generará una URL pública:
+Cloudflared will generate a public URL:
 ```
 https://random-name-1234.trycloudflare.com
 ```
 
-**3. Configurar cliente para usar el tunnel:**
+**3. Configure client to use the tunnel:**
 
 ```bash
 VITE_SERVER_URL=https://random-name-1234.trycloudflare.com npm run dev:client
 ```
 
-#### Opción 3: Despliegue con Docker
+#### Option 3: Docker Deployment
 
-**Dockerfile para servidor:**
+**Server Dockerfile:**
 
 ```dockerfile
 FROM node:18-alpine
@@ -461,137 +459,136 @@ services:
     restart: unless-stopped
 ```
 
-### Consideraciones de Seguridad en Producción
+### Production Security Considerations
 
-1. **Usar HTTPS/WSS obligatoriamente**: Web Crypto API requiere contexto seguro
-2. **Rate limiting**: Implementar límites de conexión por IP
-3. **CORS configurado correctamente**: Restricción de orígenes permitidos
-4. **Headers de seguridad**:
+1. **Use HTTPS/WSS only**: Web Crypto API requires a secure context
+2. **Rate limiting**: Implement connection limits per IP
+3. **Correct CORS setup**: Restrict allowed origins
+4. **Security headers**:
    ```
    Content-Security-Policy: default-src 'self'
    X-Frame-Options: DENY
    X-Content-Type-Options: nosniff
    ```
-5. **Monitoreo**: Implementar logging y alertas para conexiones anómalas
-6. **Firewall**: Restringir acceso a puerto del servidor solo a través de proxy
+5. **Monitoring**: Add logging and alerts for unusual connections
+6. **Firewall**: Restrict server port access through proxy only
 
-### Configuración de Performance
+### Performance Configuration
 
-**Variables de entorno para producción:**
+**Recommended production env vars:**
 
 ```bash
 NODE_ENV=production
 PORT=8080
 MAX_USERS_PER_ROOM=2
 MAX_MESSAGE_SIZE=10485760  # 10MB
-LOG_LEVEL=error            # Reducir logging en producción
+LOG_LEVEL=error            # Reduce production logging
 ```
-
-
 
 ---
 
-## Pruebas y Validación
+## Testing and Validation
 
-### Suite de Tests Automatizados
+### Automated Test Suite
 
-El proyecto incluye 36 tests automatizados que validan:
+The project includes 36 automated tests that validate:
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 npm test
 
-# Ejecutar tests con UI interactiva
+# Run tests with interactive UI
 cd client
 npm run test:ui
 
-# Ejecutar tests con cobertura
+# Run tests with coverage
 npm run test:coverage
 ```
 
-**Categorías de tests:**
+**Test categories:**
 
-1. **Tests Criptográficos** (`crypto.test.ts`)
-   - Generación de pares de claves ECDH P-256
-   - Derivación correcta de claves compartidas
-   - Cifrado/descifrado con AES-256-GCM
-   - Unicidad de IVs
-   - Validación de authentication tags
+1. **Cryptographic tests** (`crypto.test.ts`)
+   - ECDH P-256 key pair generation
+   - Correct shared key derivation
+   - AES-256-GCM encryption/decryption
+   - IV uniqueness
+   - Authentication tag validation
 
-2. **Tests de Integración** (`integration.test.ts`)
-   - Handshake completo entre dos clientes
-   - Intercambio de claves públicas
-   - Transmisión de mensajes cifrados
-   - Descifrado correcto en el receptor
+2. **Integration tests** (`integration.test.ts`)
+   - Complete handshake between two clients
+   - Public key exchange
+   - Encrypted message transmission
+   - Correct receiver-side decryption
 
-3. **Tests de WebSocket** (`websocket.test.ts`)
-   - Establecimiento de conexión
-   - Reconexión automática con backoff exponencial
-   - Manejo de desconexiones
-   - Validación de límites de sala
+3. **WebSocket tests** (`websocket.test.ts`)
+   - Connection establishment
+   - Auto-reconnection with exponential backoff
+   - Disconnect handling
+   - Room limit validation
 
-### Checklist de Validación Manual
+### Manual Validation Checklist
 
-#### Seguridad Criptográfica
+#### Cryptographic Security
 
-- [ ] Claves ECDH P-256 se generan correctamente en ambos clientes
-- [ ] Claves públicas se intercambian a través del servidor
-- [ ] Ambos clientes derivan el mismo secreto compartido (validar en console)
-- [ ] Cada mensaje utiliza un IV único (verificar logs de console)
-- [ ] Authentication tags se validan correctamente
-- [ ] Mensajes manipulados fallan al descifrar
-- [ ] Servidor no registra contenido de mensajes en logs
+- [ ] ECDH P-256 keys are correctly generated on both clients
+- [ ] Public keys are exchanged through the server
+- [ ] Both clients derive the same shared secret (validate in console)
+- [ ] Each message uses a unique IV (check console logs)
+- [ ] Authentication tags are correctly validated
+- [ ] Tampered messages fail to decrypt
+- [ ] Server logs do not contain message content
 
-#### Funcionalidad de Red
+#### Network Behavior
 
-- [ ] Handshake WebSocket se completa sin errores
-- [ ] Máximo 2 usuarios pueden conectarse por sala
-- [ ] Tercera conexión a la misma sala es rechazada con error apropiado
-- [ ] Desconexión de un cliente notifica al otro
-- [ ] Reconexión automática funciona tras desconexión temporal
-- [ ] Mensajes se transmiten en orden correcto
-- [ ] Latencia de mensajes es aceptable (< 100ms en red local)
+- [ ] WebSocket handshake completes without errors
+- [ ] Maximum of 2 users can join each room
+- [ ] Third connection to same room is rejected with proper error
+- [ ] Client disconnection notifies the other side
+- [ ] Auto-reconnect works after temporary disconnect
+- [ ] Messages are delivered in order
+- [ ] Message latency is acceptable (< 100ms on local network)
 
-#### Interfaz de Usuario
+#### User Interface
 
-- [ ] Room ID se genera y se muestra correctamente
-- [ ] Botón de copiar Room ID funciona
-- [ ] Mensajes propios se muestran a la derecha
-- [ ] Mensajes del peer se muestran a la izquierda
-- [ ] Timestamps son precisos y legibles
-- [ ] Indicador "escribiendo..." aparece cuando el peer está escribiendo
-- [ ] Tema claro/oscuro funciona correctamente
-- [ ] Notificaciones de sonido funcionan (si están habilitadas)
-- [ ] Interfaz responsive en móvil
+- [ ] Room ID is generated and displayed correctly
+- [ ] Copy Room ID button works
+- [ ] Own messages are shown on the right
+- [ ] Peer messages are shown on the left
+- [ ] Timestamps are accurate and readable
+- [ ] "typing..." indicator appears while peer is typing
+- [ ] Light/dark theme works correctly
+- [ ] Sound notifications work (if enabled)
+- [ ] Mobile responsive interface works
 
-#### Seguridad de Producción
-- [ ] HTTPS/WSS están activos en producción (no HTTP/WS)
-- [ ] No hay datos sensibles en URL o parámetros GET
-- [ ] No se usa `innerHTML` para contenido dinámico (solo `textContent`)
-- [ ] Headers de seguridad CSP configurados
-- [ ] No hay warnings de Mixed Content en console
-- [ ] Certificados SSL son válidos y no auto-firmados
+#### Production Security
 
-### Debugging y Diagnóstico
+- [ ] HTTPS/WSS is active in production (not HTTP/WS)
+- [ ] No sensitive data is present in URL or GET parameters
+- [ ] `innerHTML` is not used for dynamic content (`textContent` only)
+- [ ] CSP security headers are configured
+- [ ] No Mixed Content warnings in console
+- [ ] SSL certificates are valid and not self-signed
 
-#### Logs de Consola del Cliente
+### Debugging and Diagnostics
 
-Abrir Chrome DevTools (F12) → Console para ver el flujo criptográfico:
+#### Client Console Logs
 
+Open Chrome DevTools (F12) -> Console to inspect cryptographic flow:
+
+```text
+KeyPair generated successfully
+Sending public key to server
+Peer public key received
+Shared secret derived successfully
+Message encrypted: IV=abc123...
+Message sent to server
+Message received from peer
+Message decrypted successfully
 ```
-✅ KeyPair generado exitosamente
-📤 Enviando clave pública al servidor
-🔑 Clave pública del peer recibida
-✅ Secreto compartido derivado con éxito
-🔒 Mensaje cifrado: IV=abc123...
-📤 Mensaje enviado al servidor
-📬 Mensaje recibido del peer
-🔓 Mensaje descifrado exitosamente
-```
 
-#### Inspección de Tráfico WebSocket
+#### WebSocket Traffic Inspection
 
-DevTools → Network → Filtrar por "WS" para ver frames:
+DevTools -> Network -> Filter by "WS" to inspect frames:
 
 ```json
 // Handshake
@@ -601,7 +598,7 @@ DevTools → Network → Filtrar por "WS" para ver frames:
   "roomId": "a1b2c3"
 }
 
-// Mensaje cifrado
+// Encrypted message
 {
   "type": "message",
   "iv": "dGVzdGl2MTIzNA==",
@@ -609,257 +606,252 @@ DevTools → Network → Filtrar por "WS" para ver frames:
 }
 ```
 
-**Nota**: El servidor nunca debe poder ver el contenido del mensaje en texto plano.
+**Note**: The server must never be able to view plaintext message content.
 
-#### Logs del Servidor
+#### Server Logs
 
-El servidor en modo desarrollo registra:
+In development mode, server logs include:
 
+```text
+[INFO] Client connected: id=abc123, room=room-xyz
+[INFO] Handshake received from client abc123
+[INFO] Key exchange completed in room room-xyz
+[INFO] Message relayed: from=abc123 to=def456 size=234 bytes
 ```
-[INFO] Cliente conectado: id=abc123, room=room-xyz
-[INFO] Handshake recibido de cliente abc123
-[INFO] Intercambio de claves completado en room room-xyz
-[INFO] Mensaje retransmitido: de=abc123 a=def456 size=234 bytes
-```
 
-**Importante**: No debe haber logs con contenido descifrado de mensajes.
+**Important**: No decrypted message content should appear in logs.
 
-### Análisis de Performance
+### Performance Analysis
 
-Para medir el rendimiento del cifrado:
+To benchmark encryption speed:
 
 ```javascript
-// En console del navegador
+// In browser console
 console.time('encrypt');
-await cryptoManager.encrypt('mensaje de prueba');
+await cryptoManager.encrypt('test message');
 console.timeEnd('encrypt');
-// Resultado esperado: < 5ms
+// Expected result: < 5ms
 ```
-
-
 
 ---
 
-## Seguridad y Auditoría
+## Security and Audit
 
-### Modelo de Amenazas
+### Threat Model
 
-#### Amenazas Mitigadas
+#### Mitigated Threats
 
-| Amenaza | Mitigación | Estado |
-|---------|--------------|--------|
-| **Man-in-the-Middle** | Intercambio ECDH + HTTPS/WSS obligatorio | ✅ Mitigado |
-| **Tampering de mensajes** | GCM Authentication Tag | ✅ Mitigado |
-| **Replay attacks** | IV único por mensaje + timestamps | ✅ Mitigado |
-| **Brute force de cifrado** | AES-256 (2^256 espacio de claves) | ✅ Mitigado |
-| **Compromiso del servidor** | Arquitectura zero-knowledge | ✅ Mitigado |
-| **Inyección XSS** | `textContent` solo, sin `innerHTML` | ✅ Mitigado |
-| **Ataques de sincronización** | Implementación en tiempo constante de GCM | ✅ Mitigado |
+| Threat | Mitigation | Status |
+|--------|------------|--------|
+| **Man-in-the-Middle** | ECDH exchange + mandatory HTTPS/WSS | Mitigated |
+| **Message tampering** | GCM Authentication Tag | Mitigated |
+| **Replay attacks** | Unique IV per message + timestamps | Mitigated |
+| **Encryption brute force** | AES-256 (`2^256` key space) | Mitigated |
+| **Server compromise** | Zero-knowledge architecture | Mitigated |
+| **XSS injection** | `textContent` only, no `innerHTML` | Mitigated |
+| **Timing attacks** | Constant-time GCM implementation | Mitigated |
 
-#### Amenazas No Mitigadas (Limitaciones Conocidas)
+#### Unmitigated Threats (Known Limitations)
 
-| Amenaza | Razón | Roadmap |
-|---------|--------|--------|
-| **Forward Secrecy por mensaje** | Complejidad vs MVP | v2.0 (Double Ratchet) |
-| **Autenticación de identidad** | Fuera del scope de MVP | v2.0 (Key fingerprints) |
-| **Análisis de metadata** | Inherente a cualquier E2EE | Mitigación parcial posible |
-| **Compromiso del endpoint** | No prevenible por software | Educación del usuario |
-| **Ataques de denegación de servicio** | Sin rate limiting implementado | v2.0 |
+| Threat | Reason | Roadmap |
+|--------|--------|---------|
+| **Per-message forward secrecy** | Complexity vs MVP | v2.0 (Double Ratchet) |
+| **Identity authentication** | Out of MVP scope | v2.0 (Key fingerprints) |
+| **Metadata analysis** | Inherent to any E2EE system | Partial mitigation possible |
+| **Endpoint compromise** | Not preventable in software alone | User education |
+| **Denial-of-service attacks** | No rate limiting implemented yet | v2.0 |
 
-### Características de Seguridad Implementadas
+### Implemented Security Features
 
-#### Generación de Números Aleatorios
+#### Random Number Generation
 
-- **Fuente**: `crypto.getRandomValues()` (Web Crypto API)
-- **Calidad**: Criptográficamente seguro (CSPRNG)
-- **Uso**: Generación de IVs, claves privadas
+- **Source**: `crypto.getRandomValues()` (Web Crypto API)
+- **Quality**: Cryptographically secure (CSPRNG)
+- **Usage**: IV generation, private keys
 
-#### Derivación de Claves
+#### Key Derivation
 
-- **Algoritmo**: HKDF-SHA-256 (RFC 5869)
-- **Salt**: Derivado de hash SHA-256 del Room ID
-- **Info**: Ninguno (campo vacío)
-- **Output**: 256 bits para AES-256
+- **Algorithm**: HKDF-SHA-256 (RFC 5869)
+- **Salt**: Derived from SHA-256 hash of Room ID
+- **Info**: None (empty field)
+- **Output**: 256 bits for AES-256
 
-#### Sanitización de Entrada
+#### Input Sanitization
 
-- **DOM**: Solo `textContent`, nunca `innerHTML` para contenido dinámico
-- **URL**: No se almacenan datos sensibles en parámetros GET
-- **Validación**: Tamaño máximo de mensaje aplicado en servidor
+- **DOM**: `textContent` only, never `innerHTML` for dynamic content
+- **URL**: No sensitive data in GET parameters
+- **Validation**: Max message size enforced on server
 
-#### Manejo de Claves
+#### Key Handling
 
-- **Almacenamiento**: Solo en memoria, nunca en localStorage/sessionStorage
-- **Ciclo de vida**: Claves destruidas al cerrar conexión
-- **Exportación**: Claves privadas nunca salen del cliente
-- **Formato**: Claves públicas en formato raw para intercambio
+- **Storage**: Memory only, never localStorage/sessionStorage
+- **Lifecycle**: Keys are destroyed when connection closes
+- **Export**: Private keys never leave the client
+- **Format**: Public keys exported in raw format for exchange
 
-### Recomendaciones de Seguridad para Usuarios
+### Security Recommendations for Users
 
-1. **Usar solo en conexiones HTTPS/WSS**: El navegador bloqueará Web Crypto API en HTTP
-2. **No compartir Room ID públicamente**: Es el único secreto compartido
-3. **Verificar identidad por canal alternativo**: No hay autenticación de identidad implementada
-4. **Usar en dispositivos confiables**: El endpoint puede estar comprometido
-5. **No confiar en persistencia**: Los mensajes no se guardan; son efímeros por diseño
+1. **Use only with HTTPS/WSS**: Browsers block Web Crypto API on HTTP
+2. **Do not share Room ID publicly**: It is the only shared secret
+3. **Verify identity out-of-band**: Identity authentication is not implemented
+4. **Use trusted devices**: Endpoints can be compromised
+5. **Do not expect persistence**: Messages are ephemeral by design
 
-### Auditoría y Compliance
+### Audit and Compliance
 
-**Estado de auditoría**: No auditado profesionalmente. Este es un proyecto de código abierto educativo.
+**Audit status**: Not professionally audited. This is an educational open-source project.
 
-**Código abierto**: Todo el código fuente está disponible para revisión en GitHub.
+**Open source**: All source code is available for public review on GitHub.
 
-**Estándares seguidos**:
+**Standards followed**:
 - NIST FIPS 197 (AES)
 - NIST FIPS 186-4 (ECDH)
 - RFC 5869 (HKDF)
 - RFC 6090 (ECC)
 - NIST SP 800-38D (GCM)
 
-**Nota importante**: Para entornos de producción críticos, se recomienda una auditoría de seguridad profesional antes del despliegue.
-
-
+**Important note**: For critical production environments, a professional security audit is strongly recommended before deployment.
 
 ---
 
-## Limitaciones Conocidas
+## Known Limitations
 
-WindChat v1 stable presenta las siguientes limitaciones conocidas:
+WindChat v1 stable has the following known limitations:
 
-### Limitaciones Técnicas
+### Technical Limitations
 
-| Limitación | Descripción | Impacto | Plan de Mitigación |
-|------------|--------------|---------|----------------------|
-| **Sin Forward Secrecy** | La misma clave AES se usa para todos los mensajes de una sesión | Si la clave se compromete, todos los mensajes de esa sesión pueden descifrarse | v2.0: Implementar Double Ratchet Algorithm |
-| **Sin autenticación de identidad** | No hay verificación de que el peer es quien dice ser | Vulnerable a MITM si el Room ID se intercepta | v2.0: Key fingerprints y verificación out-of-band |
-| **Metadata visible** | Servidor ve timestamps, tamaño de mensajes, patrones de comunicación | Análisis de tráfico posible | Parcialmente mitigable con padding |
-| **Sin persistencia** | Mensajes se pierden al cerrar la pestaña | No hay historial | Diseño intencional; v2.0 podría agregar IndexedDB local opcional |
-| **Máximo 2 usuarios** | Hard limit de diseño | No soporta chats grupales | v2.0: Chats grupales con claves por participante |
-| **Sin verificación de recepción** | No hay confirmación de que el mensaje fue recibido/leído | UX limitada | v2.0: Acknowledgements y read receipts |
+| Limitation | Description | Impact | Mitigation Plan |
+|------------|-------------|--------|-----------------|
+| **No forward secrecy** | Same AES key is used for all messages in one session | If key is compromised, all session messages can be decrypted | v2.0: Implement Double Ratchet Algorithm |
+| **No identity authentication** | No verification that peer is who they claim to be | Vulnerable to MITM if Room ID is intercepted | v2.0: Key fingerprints + out-of-band verification |
+| **Visible metadata** | Server can see timestamps, message size, communication patterns | Traffic analysis is possible | Partially mitigable with padding |
+| **No persistence** | Messages are lost when tab closes | No message history | Intentional design; v2.0 may add optional local IndexedDB |
+| **Max 2 users** | Hard design limit | No group chats | v2.0: Group chats with per-participant keys |
+| **No delivery/read verification** | No confirmation that message was received/read | Limited UX | v2.0: Acknowledgements and read receipts |
 
-### Limitaciones de Arquitectura ( aglunas por diseño intencional enfocado en la privacidad y seguridad)
+### Architecture Limitations (some are intentional for privacy/security focus)
 
-- **In-memory storage**: Todas las salas residen en memoria; reiniciar el servidor cierra todas las conexiones
-- **Single instance**: No hay distribución horizontal ni load balancing
-- **Sin rate limiting**: Vulnerable a ataques de denegación de servicio
-- **Sin monitoreo**: No hay métricas de rendimiento ni alertas integradas
+- **In-memory storage**: All rooms live in memory; restarting server closes all sessions
+- **Single instance**: No horizontal scaling or load balancing
+- **No rate limiting**: Vulnerable to denial-of-service attacks
+- **No monitoring**: No built-in performance metrics or alerts
 
-### Comparación con Soluciones Maduras
+### Comparison with Mature Solutions
 
-| Característica | WindChat v1.0 | Signal | WhatsApp |
-|----------------|---------------|--------|----------|
-| E2EE | ✅ AES-256-GCM | ✅ Signal Protocol | ✅ Signal Protocol |
-| Forward Secrecy | ❌ | ✅ Double Ratchet | ✅ Double Ratchet |
-| Persistencia | ❌ | ✅ | ✅ |
-| Chats grupales | ❌ | ✅ | ✅ |
-| Autenticación | ❌ | ✅ | ✅ |
-| Adjuntos | ❌ | ✅ | ✅ |
-| Open source | ✅ | ✅ (cliente) | ❌ |
-| Auditoría | ❌ | ✅ | ✅ (parcial) |
-
----
-
-## Roadmap y Desarrollo Futuro
-
-### Versión 2.0 (Q2-Q3 2026)
-
-**Prioridad Alta:**
-- [ ] **Double Ratchet Algorithm**: Implementar forward secrecy por mensaje
-- [ ] **Key Verification**: Fingerprints de claves públicas para verificación out-of-band
-- [ ] **Persistencia local**: IndexedDB para guardar historial cifrado en el cliente
-- [ ] **Adjuntos cifrados**: Soporte para imágenes, videos, y archivos (< 25MB)
-- [ ] **Rate limiting**: Protección contra abuso y DoS
-
-**Prioridad Media:**
-- [ ] **Read receipts**: Confirmación de recepción y lectura de mensajes
-- [ ] **Reacciones a mensajes**: Emojis y reacciones rápidas
-- [ ] **Responder mensajes**: Threading y quotes
-- [ ] **Notificaciones push**: Usando Service Workers (PWA)
-- [ ] **Chats grupales**: Soporte para 3-10 participantes
-
-**Prioridad Baja:**
-- [ ] **WebRTC P2P**: Modo P2P opcional sin servidor relay
-- [ ] **Videollamadas**: Integración de video cifrado
-- [ ] **Temas personalizables**: Sistema de themes avanzado
-- [ ] **Bots y automatización**: API para bots
-
-### Versión 3.0 (2027+)
-
-- [ ] **Distribución horizontal**: Redis para state sharing entre instancias
-- [ ] **App nativa**: Electron para desktop, React Native para móvil
-- [ ] **Autenticación de usuarios**: Sistema opcional de cuentas
-
+| Feature | WindChat v1.0 | Signal | WhatsApp |
+|---------|---------------|--------|----------|
+| E2EE | AES-256-GCM | Signal Protocol | Signal Protocol |
+| Forward secrecy | No | Double Ratchet | Double Ratchet |
+| Persistence | No | Yes | Yes |
+| Group chats | No | Yes | Yes |
+| Authentication | No | Yes | Yes |
+| Attachments | No | Yes | Yes |
+| Open source | Yes | Yes (client) | No |
+| Audit | No | Yes | Yes (partial) |
 
 ---
 
-## Contribución y Licencia
+## Roadmap and Future Development
 
-### Cómo Contribuir
+### Version 2.0 (Q2-Q3 2026)
 
-Las contribuciones son bienvenidas. Por favor:
+**High priority:**
+- [ ] **Double Ratchet Algorithm**: Add per-message forward secrecy
+- [ ] **Key verification**: Public key fingerprints for out-of-band verification
+- [ ] **Local persistence**: IndexedDB for encrypted local history
+- [ ] **Encrypted attachments**: Support for images, videos, and files (< 25MB)
+- [ ] **Rate limiting**: Abuse and DoS protection
 
-1. **Fork** el repositorio
-2. **Crear branch** para tu feature: `git checkout -b feature/nueva-funcionalidad`
-3. **Commit** tus cambios: `git commit -am 'Agregar nueva funcionalidad'`
-4. **Push** al branch: `git push origin feature/nueva-funcionalidad`
-5. **Crear Pull Request** con descripción detallada
+**Medium priority:**
+- [ ] **Read receipts**: Delivery and read confirmations
+- [ ] **Message reactions**: Emoji quick reactions
+- [ ] **Reply to messages**: Threading and quotes
+- [ ] **Push notifications**: Service Worker based (PWA)
+- [ ] **Group chats**: Support for 3-10 participants
 
-**Lineamientos:**
-- Seguir el estilo de código existente
-- Agregar tests para nuevas funcionalidades
-- Actualizar documentación cuando sea necesario
-- Commits descriptivos en español o inglés
+**Low priority:**
+- [ ] **WebRTC P2P**: Optional peer-to-peer mode without relay server
+- [ ] **Video calls**: Encrypted video integration
+- [ ] **Custom themes**: Advanced theming system
+- [ ] **Bots and automation**: Bot API
 
-### Áreas de Contribución
+### Version 3.0 (2027+)
 
-**Seguridad**: Reportes de vulnerabilidades (usar GitHub Security Advisories)
-**Código**: Nuevas funcionalidades, bug fixes, optimizaciones
-**Documentación**: Mejoras al README, guías, tutoriales
-**Testing**: Nuevos tests, mejoras de cobertura
-**Diseño**: UI/UX improvements
-**Traducciones**: Internacionalización a otros idiomas
+- [ ] **Horizontal scaling**: Redis state sharing between instances
+- [ ] **Native app**: Electron desktop, React Native mobile
+- [ ] **User authentication**: Optional account system
 
-### Licencia
+---
+
+## Contributing and License
+
+### How to Contribute
+
+Contributions are welcome. Please:
+
+1. **Fork** the repository
+2. **Create a branch** for your feature: `git checkout -b feature/new-feature`
+3. **Commit** your changes: `git commit -am 'Add new feature'`
+4. **Push** the branch: `git push origin feature/new-feature`
+5. **Open a Pull Request** with a detailed description
+
+**Guidelines:**
+- Follow existing code style
+- Add tests for new functionality
+- Update docs when needed
+- Use descriptive commits in Spanish or English
+
+### Contribution Areas
+
+**Security**: Vulnerability reports (use GitHub Security Advisories)
+**Code**: New features, bug fixes, optimizations
+**Documentation**: README improvements, guides, tutorials
+**Testing**: New tests, better coverage
+**Design**: UI/UX improvements
+**Translations**: Internationalization into other languages
+
+### License
 
 **GNU Affero General Public License v3.0 (AGPL-3.0)**
 
 Copyright (c) 2026 WindChat Contributors
 
-Este proyecto se distribuye bajo los terminos de la licencia **GNU AGPL v3.0**.
+This project is distributed under the terms of the **GNU AGPL v3.0** license.
 
-Puedes consultar el texto oficial completo aqui:
+You can read the full official text here:
 
 - https://www.gnu.org/licenses/agpl-3.0.html
 - https://www.gnu.org/licenses/agpl-3.0.txt
 
-Resumen:
+Summary:
 
-- Permite usar, estudiar, modificar y redistribuir el software.
-- Obliga a mantener el codigo fuente disponible bajo la misma licencia.
-- Si se ofrece el software como servicio por red, tambien exige poner a disposicion el codigo fuente modificado a los usuarios de ese servicio.
-
----
-
-## Información del Proyecto
-
-**Fecha de inicio**: 4 de marzo de 2026  
-**Versión actual**: v1 stable  
-**Stack tecnológico**: Node.js, TypeScript, Web Crypto API, WebSocket, Vite  
-**Licencia**: GNU AGPL v3.0  
-**Mantenedor**: [@LordAlastor78](https://ko-fi.com/alastor78)
-
-**Propósito**: Proporcionar una implementación de referencia de mensajería E2EE con arquitectura zero-knowledge, priorizando simplicidad, transparencia y seguridad sobre prácticas criptográficas modernas.
-
-**Seguridad**: Cifrado extremo a extremo real sin base de datos ni persistencia. El servidor actúa como relay ciego sin capacidad de descifrar mensajes. Comparte tu info solo con realmente quierers hacerlo. Adiós a los mensajes que se quedan en la nube para siempre.
+- Allows using, studying, modifying, and redistributing the software.
+- Requires source code to remain available under the same license.
+- If offered as a network service, it also requires making modified source code available to service users.
 
 ---
 
-## Contacto y Soporte
+## Project Information
 
-[![Soporte al Proyecto](https://storage.ko-fi.com/cdn/kofi6.png?v=4)](https://ko-fi.com/alastor78)
+**Start date**: March 4, 2026
+**Current version**: v1 stable
+**Tech stack**: Node.js, TypeScript, Web Crypto API, WebSocket, Vite
+**License**: GNU AGPL v3.0
+**Maintainer**: [@LordAlastor78](https://ko-fi.com/alastor78)
+
+**Purpose**: Provide a reference implementation of E2EE messaging with zero-knowledge architecture, prioritizing simplicity, transparency, and modern cryptographic security practices.
+
+**Security**: True end-to-end encryption with no database and no persistence. The server is a blind relay with no ability to decrypt messages. Share information only with whoever you actually choose. No more messages left forever in the cloud.
+
+---
+
+## Contact and Support
+
+[![Support the Project](https://storage.ko-fi.com/cdn/kofi6.png?v=4)](https://ko-fi.com/alastor78)
 
 - **Issues**: [GitHub Issues](https://github.com/LordAlastor78/windchat/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/LordAlastor78/windchat/discussions)
-- **Soporte**: [![Ko-fi](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/alastor78)
+- **Support**: [![Ko-fi](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/alastor78)
 
-**Nota**: Esta versión se considera estable para uso general, pero puede contener fallos no detectados todavía. Para preguntas, sugerencias o reportes de bugs, por favor utiliza los canales de GitHub o apóyanos en Ko-fi para acelerar el desarrollo. ¡Gracias por tu interés en WindChat! 
+**Note**: This version is considered stable for general use, but it may still contain undetected bugs. For questions, suggestions, or bug reports, please use GitHub channels or support us on Ko-fi to speed up development. Thank you for your interest in WindChat.
 
