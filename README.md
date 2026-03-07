@@ -227,7 +227,7 @@ VITE_SERVER_URL=https://example-123.trycloudflare.com npm run dev:client
 - [ ] Claves públicas se intercambian
 - [ ] Ambos derivanEl mismo sharedSecret (silenciosamente)
 - [ ] IV es diferente en cada mensaje (check console)
-- [ ] Descifrado funciona exactamente
+
 
 ### Red
 - [ ] Handshake completo (check console)
@@ -304,7 +304,7 @@ Cada frame es un mensaje JSON:
 
 ## 🔒 Notas de seguridad
 
-### ✅ Está bien hecho
+### ✅ Características
 
 - IV generado con `crypto.getRandomValues()` (criptográficamente seguro)
 - HKDF para derivación (estándar IETF)
@@ -350,4 +350,4 @@ MIT
 **Versión:** 1.0.0 (MVP)  
 **Stack:** Node.js + TypeScript + Web Crypto + Vite  
 **Seguridad:** E2EE real, sin base de datos, servidor ciego  
-✅ **Listo para producir**
+
