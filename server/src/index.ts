@@ -155,12 +155,30 @@ function getSecurityHeaders(contentType: string): Record<string, string> {
 
 // HTTP Server para archivos estáticos
 const server = http.createServer((req, res) => {
-  console.log(`📥 HTTP ${req.method} ${req.url}`);
+  // Normalize URL: Remove any full URL that might be in the path (from Cloudflare tunnel)
+  let requestUrl = req.url || "/";
+  
+  // If the URL contains a protocol (http:// or https://), extract just the path
+  // This handles cases where Cloudflare tunnel paths might contain full URLs
+  if (requestUrl.includes("://")) {
+    try {
+      const urlObj = new URL("http://dummy" + requestUrl);
+      requestUrl = urlObj.pathname;
+    } catch (e) {
+      // If URL parsing fails, try to extract path after the domain
+      const match = requestUrl.match(/https?:\/\/[^/]+(\/.*)/) || requestUrl.match(/\/https?:\/\/[^/]+(\/.*)/) ;
+      if (match && match[1]) {
+        requestUrl = match[1];
+      }
+    }
+  }
+
+  console.log(`📥 HTTP ${req.method} ${requestUrl}`);
 
   // Ruta de archivos estáticos (build del cliente)
   const clientDistPath = path.join(__dirname, "../../client/dist");
   
-  let filePath = path.join(clientDistPath, req.url === "/" ? "index.html" : req.url || "");
+  let filePath = path.join(clientDistPath, requestUrl === "/" ? "index.html" : requestUrl);
   
   // Si es un directorio, buscar index.html
   if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {

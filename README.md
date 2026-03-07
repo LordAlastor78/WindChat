@@ -2,7 +2,7 @@
 
 Chat web **seguro, efímero y ligero** con cifrado extremo a extremo.
 
-**Estado:** MVP Fase 1 completado y listo para testing ✅
+<a href='https://ko-fi.com/alastor78' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
 ---
 
@@ -14,6 +14,8 @@ Chat web **seguro, efímero y ligero** con cifrado extremo a extremo.
 - ✅ **Ultra-ligero** - <5MB descargado
 - ✅ **Privado** - Servidor no ve contenido
 - ✅ **1-a-1** - Para 2 usuarios controlados
+
+  
 
 ---
 
@@ -88,10 +90,10 @@ SERVIDOR NUNCA VE: el mensaje, timestamp, ni contexto
 .\setup.ps1
 
 # Después (diariamente)
-.\dev.ps1
+.\run.ps1
 ```
 
-### Alternativa: npm comandos
+### Alternativa: npm comandos  ( más sencillo el run.ps1 , los incluye ) 
 
 **Terminal 1:**
 ```bash
@@ -225,7 +227,7 @@ VITE_SERVER_URL=https://example-123.trycloudflare.com npm run dev:client
 - [ ] Claves públicas se intercambian
 - [ ] Ambos derivanEl mismo sharedSecret (silenciosamente)
 - [ ] IV es diferente en cada mensaje (check console)
-- [ ] Descifrado funciona exactamente
+
 
 ### Red
 - [ ] Handshake completo (check console)
@@ -302,7 +304,7 @@ Cada frame es un mensaje JSON:
 
 ## 🔒 Notas de seguridad
 
-### ✅ Está bien hecho
+### ✅ Características
 
 - IV generado con `crypto.getRandomValues()` (criptográficamente seguro)
 - HKDF para derivación (estándar IETF)
@@ -348,4 +350,4 @@ MIT
 **Versión:** 1.0.0 (MVP)  
 **Stack:** Node.js + TypeScript + Web Crypto + Vite  
 **Seguridad:** E2EE real, sin base de datos, servidor ciego  
-✅ **Listo para producir**
+
