@@ -2,7 +2,7 @@
 
 **WindChat** es una solución de mensajería web instantánea con cifrado extremo a extremo (E2EE) certificado por estándares criptográficos modernos. Implementa un sistema de comunicación seguro, efímero y de arquitectura zero-knowledge donde el servidor actúa únicamente como relay de mensajes sin capacidad de descifrar el contenido.
 
-[![Soporte al Proyecto](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/alastor78)
+[![Soporte al Proyecto](https://storage.ko-fi.com/cdn/kofi6.png?v=4)](https://ko-fi.com/alastor78)
 
 ---
 
