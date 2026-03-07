@@ -2,7 +2,7 @@
 
 **WindChat** es una solución de mensajería web instantánea con cifrado extremo a extremo (E2EE) certificado por estándares criptográficos modernos. Implementa un sistema de comunicación seguro, efímero y de arquitectura zero-knowledge donde el servidor actúa únicamente como relay de mensajes sin capacidad de descifrar el contenido.
 
-![WindChat](https://github.com/LordAlastor78/WindChat/WindChat.png)
+![WindChat](https://raw.githubusercontent.com/LordAlastor78/WindChat/main/WindChat.png)
 
 ---
 
