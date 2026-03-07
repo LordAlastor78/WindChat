@@ -124,17 +124,30 @@ export class CryptoManager {
    * - Payload se serializa y se cifra COMPLETO (incluyendo timestamp)
    * - Retorna {iv, ciphertext} ambos en base64
    */
-  async encrypt(plaintext: string): Promise<EncryptedData> {
+  async encrypt(plaintextOrPayload: string | Partial<MessagePayload>): Promise<EncryptedData> {
     try {
       if (!this.sharedKey) {
         throw new Error("❌ Clave compartida no derivada. Llama deriveSharedKey() primero");
       }
 
       // Crear payload con timestamp DENTRO del cifrado
-      const payload: MessagePayload = {
-        text: plaintext,
-        timestamp: Date.now()
-      };
+      const payload: MessagePayload =
+        typeof plaintextOrPayload === "string"
+          ? {
+              id: crypto.randomUUID(),
+              type: "text",
+              text: plaintextOrPayload,
+              timestamp: Date.now(),
+            }
+          : {
+              id: plaintextOrPayload.id || crypto.randomUUID(),
+              type: plaintextOrPayload.type || "text",
+              text: plaintextOrPayload.text || "",
+              displayName: plaintextOrPayload.displayName,
+              reactionToId: plaintextOrPayload.reactionToId,
+              replyToId: plaintextOrPayload.replyToId,
+              timestamp: plaintextOrPayload.timestamp || Date.now(),
+            };
 
       // CRÍTICO: IV nuevo SIEMPRE
       const iv = window.crypto.getRandomValues(new Uint8Array(IV_SIZE));
@@ -188,7 +201,16 @@ export class CryptoManager {
 
       // Decodificar
       const decryptedText = new TextDecoder().decode(decryptedBuffer);
-      const payload: MessagePayload = JSON.parse(decryptedText);
+      const rawPayload = JSON.parse(decryptedText) as MessagePayload;
+      const payload: MessagePayload = {
+        id: rawPayload.id,
+        type: rawPayload.type || "text",
+        text: rawPayload.text,
+        displayName: rawPayload.displayName,
+        reactionToId: rawPayload.reactionToId,
+        replyToId: rawPayload.replyToId,
+        timestamp: rawPayload.timestamp,
+      };
 
       console.log("✅ Mensaje descifrado");
       return payload;

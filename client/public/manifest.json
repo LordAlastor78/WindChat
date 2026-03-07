@@ -1,0 +1,22 @@
+{
+  "name": "WindChat",
+  "short_name": "WindChat",
+  "description": "Chat cifrado extremo a extremo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#38bdf8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["social", "communication"],
+  "screenshots": [],
+  "shortcuts": [],
+  "prefer_related_applications": false
+}

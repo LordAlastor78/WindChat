@@ -865,6 +865,22 @@ function Toggle-CloudflareOnly {
     Write-Host ""
 }
 
+function Stop-ManagedProcessesOnExit {
+    Write-Host "[*] Cerrando procesos gestionados antes de salir..." -ForegroundColor Yellow
+
+    # 1) Siempre cerrar cloudflared para evitar tunnels huerfanos
+    Stop-CloudflareOnly
+
+    # 2) Preguntar si tambien apagar Node (server/client)
+    $stopNode = Read-Host "[?] Tambien detener procesos Node (server/client)? [S/n]"
+    if ([string]::IsNullOrWhiteSpace($stopNode) -or $stopNode.Trim().ToLower() -eq "s") {
+        Kill-NodeProcesses
+    } else {
+        Write-Host "[*] Se mantienen procesos Node activos" -ForegroundColor Cyan
+        Write-Host ""
+    }
+}
+
 function Get-ActiveClientPort {
     foreach ($port in @(3000, 3001)) {
         try {
@@ -939,6 +955,7 @@ while ($true) {
             Read-Host "[?] Pulsa Enter para continuar"
         }
         "0" {
+            Stop-ManagedProcessesOnExit
             Write-Host "[*] Saliendo..." -ForegroundColor Yellow
             exit 0
         }

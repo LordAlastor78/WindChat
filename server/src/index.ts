@@ -29,7 +29,6 @@ import type {
 import {
   MAX_MESSAGE_SIZE,
   MAX_USERS_PER_ROOM,
-  ROOM_TIMEOUT,
 } from "./protocol.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,18 +39,75 @@ interface ClientConnection {
   ws: WebSocket;
   roomId?: string;
   publicKey?: string;
+  displayName?: string;
 }
 
 // Estructura de room
 interface Room {
   clients: Map<WebSocket, ClientConnection>;
-  timeout?: NodeJS.Timeout;
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
 // Map global: roomId → Room
 const rooms = new Map<string, Room>();
+
+// ============== RATE LIMITING ==============
+// Configuración
+const RATE_LIMIT_WINDOW = 1000; // 1 segundo
+const MAX_MESSAGES_PER_WINDOW = 10; // máximo 10 mensajes/segundo
+const MAX_JOINS_PER_WINDOW = 3; // máximo 3 joins/segundo (anti spam reconnect)
+
+// Estructura: WebSocket → array de timestamps
+const messageTimestamps = new Map<WebSocket, number[]>();
+const joinTimestamps = new Map<WebSocket, number[]>();
+
+/**
+ * Verificar rate limit para un cliente
+ * @returns true si está dentro del límite, false si excede
+ */
+function checkRateLimit(
+  ws: WebSocket,
+  type: "message" | "join"
+): boolean {
+  const now = Date.now();
+  const timestamps = type === "message" ? messageTimestamps : joinTimestamps;
+  const maxMessages = type === "message" ? MAX_MESSAGES_PER_WINDOW : MAX_JOINS_PER_WINDOW;
+  
+  // Obtener timestamps del cliente
+  let clientTimestamps = timestamps.get(ws);
+  if (!clientTimestamps) {
+    clientTimestamps = [];
+    timestamps.set(ws, clientTimestamps);
+  }
+  
+  // Filtrar timestamps dentro de la ventana
+  const windowStart = now - RATE_LIMIT_WINDOW;
+  const recentTimestamps = clientTimestamps.filter(t => t > windowStart);
+  
+  // Verificar si excede el límite
+  if (recentTimestamps.length >= maxMessages) {
+    // Actualizar el Map con timestamps filtrados para prevenir memory leak
+    timestamps.set(ws, recentTimestamps);
+    return false; // Límite excedido
+  }
+  
+  // Añadir timestamp actual y actualizar
+  recentTimestamps.push(now);
+  timestamps.set(ws, recentTimestamps);
+  
+  return true; // Dentro del límite
+}
+
+/**
+ * Limpiar timestamps de un cliente desconectado
+ */
+function cleanupRateLimit(ws: WebSocket): void {
+  messageTimestamps.delete(ws);
+  joinTimestamps.delete(ws);
+}
+
+// ============================================
 
 // MIME types
 const mimeTypes: Record<string, string> = {
@@ -65,6 +121,37 @@ const mimeTypes: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
 };
+
+/**
+ * Headers de seguridad para todas las respuestas HTTP
+ */
+function getSecurityHeaders(contentType: string): Record<string, string> {
+  return {
+    "Content-Type": contentType,
+    // CSP: Content Security Policy - Prevenir XSS y ataques de inyección
+    "Content-Security-Policy": [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'", // unsafe-inline necesario para Vite HMR en dev
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "img-src 'self' data: blob:",
+      "connect-src 'self' ws: wss:", // WebSocket connections
+      "worker-src 'self' blob:", // Service workers y web workers
+      "manifest-src 'self'", // PWA manifest
+      "frame-ancestors 'none'", // No permitir iframes
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+    // Prevenir MIME type sniffing
+    "X-Content-Type-Options": "nosniff",
+    // Prevenir clickjacking (redundante con frame-ancestors pero compatible con navegadores viejos)
+    "X-Frame-Options": "DENY",
+    // Configurar el header Referrer para privacidad
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    // Permissions Policy - Deshabilitar APIs innecesarias
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+  };
+}
 
 // HTTP Server para archivos estáticos
 const server = http.createServer((req, res) => {
@@ -82,7 +169,7 @@ const server = http.createServer((req, res) => {
 
   // Verificar si existe
   if (!fs.existsSync(filePath)) {
-    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.writeHead(404, getSecurityHeaders("text/plain"));
     res.end("404 Not Found");
     return;
   }
@@ -93,12 +180,12 @@ const server = http.createServer((req, res) => {
   
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.writeHead(500, getSecurityHeaders("text/plain"));
       res.end("500 Internal Server Error");
       return;
     }
     
-    res.writeHead(200, { "Content-Type": contentType });
+    res.writeHead(200, getSecurityHeaders(contentType));
     res.end(data);
   });
 });
@@ -160,6 +247,7 @@ wss.on("connection", (ws: WebSocket) => {
   });
 
   ws.on("close", () => {
+    cleanupRateLimit(ws);
     handleDisconnect(ws, client);
   });
 
@@ -179,6 +267,17 @@ function handleJoin(
   client: ClientConnection
 ) {
   const { roomId, publicKey } = msg;
+  const displayName =
+    typeof msg.displayName === "string" && msg.displayName.trim().length > 0
+      ? msg.displayName.trim().slice(0, 24)
+      : "Anon";
+
+  // Rate limit check
+  if (!checkRateLimit(ws, "join")) {
+    console.warn("⚠️ Rate limit excedido en join");
+    ws.close(1008, "Rate limit exceeded");
+    return;
+  }
 
   // Validar
   if (
@@ -211,6 +310,7 @@ function handleJoin(
   // Guardar cliente
   client.roomId = roomId;
   client.publicKey = publicKey;
+  client.displayName = displayName;
   room.clients.set(ws, client);
 
   console.log(`✅ Cliente se unió a room ${roomId}. Total: ${room.clients.size}`);
@@ -219,16 +319,6 @@ function handleJoin(
   if (room.clients.size === 2) {
     broadcastPeerJoined(room);
     console.log(`👥 Room ${roomId} activa (2/2 clientes)`);
-
-    // Limpiar room al timeout
-    if (room.timeout) clearTimeout(room.timeout);
-    room.timeout = setTimeout(() => {
-      console.log(`⏰ Room ${roomId} timeout. Limpiando...`);
-      room.clients.forEach((_, clientWs) => {
-        clientWs.close(1000, "Room timeout");
-      });
-      rooms.delete(roomId);
-    }, ROOM_TIMEOUT);
   }
 }
 
@@ -244,6 +334,12 @@ function handleMessage(
   if (!client.roomId) {
     console.warn("⚠️ Mensaje de cliente no unido a room");
     return;
+  }
+
+  // Rate limit check
+  if (!checkRateLimit(ws, "message")) {
+    console.warn("⚠️ Rate limit excedido en mensaje");
+    return; // Silenciosamente ignorar (no cerrar conexión)
   }
 
   const room = rooms.get(client.roomId);
@@ -281,6 +377,11 @@ function handleMessage(
 function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
   if (!client.roomId) return;
 
+  // Rate limit check (menos estricto, usa el límite de mensajes)
+  if (!checkRateLimit(ws, "message")) {
+    return; // Silenciosamente ignorar
+  }
+
   if (typeof msg?.isTyping !== "boolean") {
     return;
   }
@@ -299,6 +400,9 @@ function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
  * Handler: Desconexión
  */
 function handleDisconnect(ws: WebSocket, client: ClientConnection) {
+  // Limpiar rate limit
+  cleanupRateLimit(ws);
+  
   if (!client.roomId) return;
 
   const room = rooms.get(client.roomId);
@@ -309,7 +413,6 @@ function handleDisconnect(ws: WebSocket, client: ClientConnection) {
 
   // Si room vacía, eliminar
   if (room.clients.size === 0) {
-    if (room.timeout) clearTimeout(room.timeout);
     rooms.delete(client.roomId);
     console.log(`🗑️ Room ${client.roomId} eliminada (vacía)`);
   }
@@ -338,6 +441,7 @@ function broadcastPeerJoined(room: Room) {
         JSON.stringify({
           type: "peer_joined",
           theirPublicKey: otherKey,
+          theirDisplayName: other[1].displayName || "Anon",
         })
       );
       console.log(`📤 Clave pública intercambiada para ${client.roomId}`);

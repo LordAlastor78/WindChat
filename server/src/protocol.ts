@@ -15,11 +15,13 @@ export interface HandshakeMessage {
   type: "join";
   roomId: string;           // ej: "abc123xyz" (random 128 bits B64)
   publicKey: string;        // base64 encoded raw P-256 public key
+  displayName?: string;
 }
 
 export interface PeerJoinedMessage {
   type: "peer_joined";
   theirPublicKey: string;   // base64 encoded raw P-256 public key
+  theirDisplayName?: string;
 }
 
 export interface PeerDisconnectedMessage {
@@ -43,7 +45,12 @@ export interface EncryptedMessage {
  * Solo visible después de descifrar
  */
 export interface MessagePayload {
+  id?: string;
+  type?: "text" | "reaction";
   text: string;
+  displayName?: string;
+  reactionToId?: string;
+  replyToId?: string;
   timestamp: number;        // milisegundos desde epoch
 }
 
@@ -79,5 +86,4 @@ export const PROTOCOL_VERSION = "1.0.0";
 export const IV_SIZE = 12;              // bytes
 export const KEY_SIZE = 256;            // bits
 export const MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-export const ROOM_TIMEOUT = 30000;      // 30 segundos
 export const MAX_USERS_PER_ROOM = 2;    // Hard limit

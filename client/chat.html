@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WindChat - Chat</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Chat cifrado extremo a extremo" />
+    <meta name="theme-color" content="#38bdf8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WindChat" />
+    <link rel="manifest" href="/manifest.json" />
 
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -48,11 +56,11 @@
             min-height: 100vh;
         }
 
-        .hidden { display: none; }
+        .hidden { display: none !important; }
 
         .app {
             width: 100%;
-            max-width: 1100px;
+            max-width: none;
             height: 100vh;
             background: var(--chat-bg);
             display: flex;
@@ -70,10 +78,71 @@
             background: var(--chat-bg);
         }
 
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .lang-selector {
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 0.5rem 0.65rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
         .chat-brand {
             font-weight: 600;
             font-size: 1.2rem;
             color: var(--accent);
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            padding: 0.35rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            display: inline-block;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        .connection-status.connected .status-dot {
+            background: #10b981;
+        }
+
+        .connection-status.connecting .status-dot {
+            background: #f59e0b;
+        }
+
+        .connection-status.disconnected .status-dot {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%,
+            100% { opacity: 1; }
+            50% { opacity: 0.35; }
         }
 
         .theme-toggle {
@@ -85,10 +154,107 @@
             color: var(--text-primary);
         }
 
+        .notif-toggle {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            font-size: 1rem;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .sound-toggle {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            font-size: 1rem;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
         .chat-container {
             flex: 1;
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+
+        .room-info-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--card-bg);
+            font-size: 0.82rem;
+        }
+
+        .room-info-left {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+        }
+
+        .room-id-value {
+            font-family: 'Fira Code', monospace;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .room-copy-btn {
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 0.35rem 0.6rem;
+            cursor: pointer;
+            font-size: 0.78rem;
+        }
+
+        .room-copy-btn:hover {
+            background: var(--card-bg);
+        }
+
+        .new-messages-indicator {
+            position: absolute;
+            left: 50%;
+            bottom: 78px;
+            transform: translateX(-50%);
+            border: 1px solid var(--accent-strong);
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: white;
+            border-radius: 999px;
+            padding: 0.45rem 0.8rem;
+            font-size: 0.78rem;
+            font-family: 'Fira Code', monospace;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 10px 24px rgba(14, 165, 233, 0.32);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 25;
+        }
+
+        .new-messages-indicator.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
         }
 
         .messages {
@@ -106,6 +272,12 @@
             border-radius: 15px;
             position: relative;
             font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
         }
 
         .message.me {
@@ -119,12 +291,96 @@
             background: var(--message-other);
         }
 
+        .message-sender {
+            font-size: 0.72rem;
+            font-weight: 600;
+            opacity: 0.75;
+        }
+
+        .message.me .message-sender {
+            display: none;
+        }
+
+        .message-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+
+        .message-meta {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 0.05rem;
+        }
+
+        .message-timestamp {
+            font-size: 0.68rem;
+            opacity: 0.72;
+            letter-spacing: 0.01em;
+            user-select: none;
+        }
+
+        .message.me .message-timestamp {
+            opacity: 0.82;
+        }
+
+        .reply-preview {
+            border-left: 3px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.35rem 0.55rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.12rem;
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .message.me .reply-preview {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .reply-sender {
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.85;
+        }
+
+        .reply-text {
+            font-size: 0.76rem;
+            opacity: 0.9;
+        }
+
         .input-area {
             display: flex;
             align-items: center;
             padding: 1rem;
             border-top: 1px solid var(--border-color);
             gap: 0.5rem;
+        }
+
+        .reply-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8rem;
+            margin: 0 1rem;
+            padding: 0.65rem 0.8rem;
+            border-left: 4px solid var(--accent);
+            border-radius: 10px;
+            background: var(--card-bg);
+            font-size: 0.8rem;
+        }
+
+        .reply-bar.visible {
+            display: flex;
+        }
+
+        .reply-close {
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1rem;
         }
 
         .input-area input {
@@ -137,11 +393,26 @@
         }
 
         .icon-btn {
-            background: none;
-            border: none;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid var(--accent-strong);
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
             cursor: pointer;
-            font-size: 1.2rem;
-            color: var(--accent);
+            font-size: 1.25rem;
+            color: white;
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.06);
+            filter: brightness(1.05);
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .typing {
@@ -149,6 +420,25 @@
             opacity: 0.7;
             padding-left: 1.5rem;
             padding-bottom: 0.5rem;
+        }
+
+        .audio-prompt {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.78);
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.78rem;
+            z-index: 2500;
+            display: none;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .audio-prompt.visible {
+            display: block;
         }
 
         .login-screen {
@@ -175,6 +465,37 @@
             color: var(--text-primary);
         }
 
+        .context-menu {
+            position: fixed;
+            display: none;
+            flex-direction: column;
+            min-width: 170px;
+            background: var(--chat-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+            z-index: 2000;
+        }
+
+        .context-menu.visible {
+            display: flex;
+        }
+
+        .context-menu button {
+            border: none;
+            background: transparent;
+            text-align: left;
+            padding: 0.7rem 0.8rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .context-menu button:hover {
+            background: var(--card-bg);
+        }
+
         .btn-primary {
             padding: 0.9rem 2rem;
             border-radius: 10px;
@@ -190,31 +511,232 @@
             background: var(--accent-strong);
             transform: translateY(-2px);
         }
+
+        /* File upload */
+        .file-attach-btn {
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            opacity: 0.7;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .file-attach-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .file-preview {
+            padding: 0.8rem;
+            margin: 0.5rem 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .file-preview-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-preview-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-preview-size {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .file-cancel-btn {
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.3rem 0.5rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .file-cancel-btn:hover {
+            opacity: 1;
+        }
+
+        .file-progress {
+            margin-top: 0.5rem;
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .file-progress-bar {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        .message-file {
+            margin-top: 0.5rem;
+            padding: 0.8rem;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            max-width: 300px;
+        }
+
+        [data-theme="dark"] .message-file {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .message-file-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+            word-break: break-word;
+        }
+
+        .message-file-size {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-file-image {
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+        }
+
+        .message-file-download {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .message-file-download:hover {
+            background: var(--accent-strong);
+        }
+
+        /* Animaciones para banner de reconexión */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+            to {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+        }
     </style>
 </head>
 <body data-theme="light">
 
 <div class="app" id="chatApp">
     <div class="chat-header">
-        <div class="chat-brand">WindChat</div>
-        <button class="theme-toggle">Cambiar Tema</button>
+        <div class="chat-header-left">
+            <div class="chat-brand">WindChat</div>
+            <div id="connectionStatus" class="connection-status disconnected" aria-live="polite">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span id="connectionStatusText" data-i18n="statusDisconnected">Desconectado</span>
+            </div>
+        </div>
+        <div class="header-controls">
+            <label for="langSelector" class="hidden" data-i18n="languageLabel">Idioma</label>
+            <select id="langSelector" class="lang-selector" aria-label="Language selector">
+                <option value="es" data-i18n="languageEs">ES</option>
+                <option value="en" data-i18n="languageEn">EN</option>
+            </select>
+            <button id="enableNotifications" class="notif-toggle" data-i18n="notifEnableTitle" data-i18n-attr="title" title="Activar notificaciones">🔕</button>
+            <button id="soundToggle" class="sound-toggle" data-i18n="soundEnableTitle" data-i18n-attr="title" title="Activar sonidos">🔇</button>
+            <button id="themeToggle" class="theme-toggle" data-i18n="themeToggle">Tema</button>
+        </div>
     </div>
 
     <div class="login-screen" id="loginScreen">
-        <h2>Conéctate de forma segura</h2>
-        <input type="text" id="username" placeholder="Room ID o crea uno..." />
-        <button class="btn-primary">Comenzar Ahora</button>
+        <h2 data-i18n="chatLoginTitle">Conéctate de forma segura</h2>
+        <input type="text" id="displayName" data-i18n="displayNamePlaceholder" data-i18n-attr="placeholder" placeholder="Tu nombre (opcional)" maxlength="24" />
+        <input type="text" id="username" data-i18n="usernamePlaceholder" data-i18n-attr="placeholder" placeholder="Room ID o crea uno..." />
+        <button class="btn-primary" data-i18n="loginStartButton">Comenzar ahora</button>
     </div>
 
     <div class="chat-container hidden" id="chatContainer">
+        <div class="room-info-bar">
+            <div class="room-info-left">
+                <span data-i18n="roomIdLabel">🆔 RoomID:</span>
+                <span id="roomIdValue" class="room-id-value">-</span>
+            </div>
+            <button id="copyRoomBtn" class="room-copy-btn" data-i18n="copyButton">Copiar</button>
+        </div>
         <div class="messages" id="messages"></div>
+        <button id="newMessagesIndicator" class="new-messages-indicator" type="button" aria-live="polite" title="Ir al ultimo mensaje"></button>
         <div class="typing" id="typingIndicator"></div>
+        <div class="reply-bar" id="replyBar">
+            <span id="replyText"></span>
+            <button id="replyClose" class="reply-close" data-i18n="cancelReplyTitle" data-i18n-attr="title" title="Cancelar respuesta">✕</button>
+        </div>
+        <div id="filePreview" class="file-preview hidden">
+            <div class="file-preview-info">
+                <span>📎</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div class="file-preview-name" id="filePreviewName"></div>
+                    <div class="file-preview-size" id="filePreviewSize"></div>
+                </div>
+            </div>
+            <button id="fileCancelBtn" class="file-cancel-btn" title="Cancelar">✕</button>
+            <div class="file-progress hidden" id="fileProgress">
+                <div class="file-progress-bar" id="fileProgressBar" style="width: 0%"></div>
+            </div>
+        </div>
         <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Escribe un mensaje..." />
+            <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.zip" style="display: none;" />
+            <button id="attachFileBtn" class="file-attach-btn" title="Adjuntar archivo">📎</button>
+            <input type="text" id="messageInput" data-i18n="messageInputPlaceholder" data-i18n-attr="placeholder" placeholder="Escribe un mensaje..." />
             <button class="icon-btn">➤</button>
         </div>
     </div>
 </div>
+
+<div id="messageContextMenu" class="context-menu">
+    <button data-action="copy" data-i18n="contextCopy">📋 Copiar</button>
+    <button data-action="reply" data-i18n="contextReply">↩️ Responder</button>
+    <button data-action="react-like" data-i18n="contextReactLike">👍 Reacción: 👍</button>
+    <button data-action="react-heart" data-i18n="contextReactHeart">❤️ Reacción: ❤️</button>
+</div>
+
+<div id="audioPrompt" class="audio-prompt" data-i18n="audioPrompt">Toca en cualquier lugar para habilitar sonidos</div>
 
 <script type="module" src="/src/main.ts"></script>
 
