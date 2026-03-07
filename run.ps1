@@ -757,6 +757,20 @@ function Test-PublicTunnelHealth {
     )
 
     $trimmedUrl = $PublicUrl.Trim().TrimEnd("/")
+    
+    # Detectar y corregir URL duplicada (https://.../ https://...)
+    if ($trimmedUrl -match "(https?://[^/]+)(?:/\1)") {
+        Write-Host "[!] URL duplicada detectada, corrigiendo..." -ForegroundColor Yellow
+        $trimmedUrl = $matches[1]
+    }
+    
+    # Si contiene dos URLs, extraer solo la última (o la primera válida)
+    $urlMatches = [regex]::Matches($trimmedUrl, "https?://[^/]+")
+    if ($urlMatches.Count -gt 1) {
+        Write-Host "[!] Múltiples URLs detectadas, usando la primera..." -ForegroundColor Yellow
+        $trimmedUrl = $urlMatches[0].Value
+    }
+    
     if ($trimmedUrl -notmatch "^https?://") {
         Write-Host "[ERROR] URL invalida. Debe empezar por http:// o https://" -ForegroundColor Red
         return
