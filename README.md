@@ -2,7 +2,7 @@
 
 
 
-**WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server acts only as a message relay and cannot decrypt content.
+**WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server can be hosted on your OWN computer, and deployed quickly in seconds. This is not a normal web-chat. Its YOUR own, personal, and private web - chat. 
 
 <div align="center">
 <img src="./WindChat.png" alt="WindChat Logo" width="230">
@@ -34,7 +34,7 @@ WindChat provides a bidirectional communication channel with the following guara
 
 - **Full confidentiality**: Messages are encrypted client-side with AES-256-GCM before transmission
 - **Cryptographic authentication**: Each message includes an authentication tag that guarantees integrity
-- **Zero-knowledge architecture**: The server does not store or access communication content
+- **Ephemeral as wind**: This app uses ur own PC as server thanks cloudflare temp / quick tunnels. Nothing permantly here. When u close the sever , all wipes.
 - **Ephemeral by design**: No data persistence; all communications live only in memory
 - **Minimal footprint**: Lightweight implementation with less than 5 MB of downloadable assets
 
@@ -71,7 +71,7 @@ WindChat provides a bidirectional communication channel with the following guara
 
 - **Encryption latency**: < 5 ms per message (average)
 - **Bundle size**: 33.42 KB (JavaScript), 22.25 KB (HTML)
-- **Capacity**: 2 users per room (intentional design)
+- **Capacity**: 2 users per room (intentional design : u, and ur partner)
 - **Message limit**: 10 MB by default (configurable)
 
 ---
@@ -144,7 +144,7 @@ windchat/
        │                                  │                                  │
 ```
 
-**Core principle**: The server is an opaque relay. It only sees connection metadata (timestamp, message size, room identifiers), never message content.
+**Core principle**: This app focuses on your self-hosted server. The key idea is that everything is temporary: the rooms, the URL used to access the chat, and even the server itself. It is designed to start when needed, share information, and then shut down as if it had never existed — secure and private.
 
 ---
 
@@ -186,7 +186,7 @@ windchat/
    - Output includes ciphertext and authentication tag
 
 8. **Transmission**: The `{iv, ciphertext}` packet is sent to the server as JSON
-9. **Relay**: The server relays the packet without modifying or attempting to decrypt it
+9. **Relay**: The server relays the packet without modifying or attempting to decrypt it (but its on your OWN computer so this feature if its deployed on a permanent domain and u offer to unknown people, as in future versions it will be avaliable for give it a try without install the project.
 10. **Decryption**: The receiving client decrypts with the same AES-256 key and verifies the authentication tag
 
 ### Cryptographic Guarantees
@@ -299,7 +299,7 @@ Server runs on `http://localhost:8080` and client on `http://localhost:3000`.
 5. Paste the Room ID and click "Connect"
 6. Verify both clients connect and can exchange messages
 
-**Extra docs**: See [QUICKSTART.md](QUICKSTART.md) for detailed guides and [SCRIPTS.md](SCRIPTS.md) for script details.
+
 
 ---
 
@@ -623,7 +623,7 @@ In development mode, server logs include:
 [INFO] Message relayed: from=abc123 to=def456 size=234 bytes
 ```
 
-**Important**: No decrypted message content should appear in logs.
+
 
 ### Performance Analysis
 
@@ -696,7 +696,7 @@ console.timeEnd('encrypt');
 ### Security Recommendations for Users
 
 1. **Use only with HTTPS/WSS**: Browsers block Web Crypto API on HTTP
-2. **Do not share Room ID publicly**: It is the only shared secret
+2. **Do not share Room ID publicly**: It is the only shared secret, acts as password of the room. 
 3. **Verify identity out-of-band**: Identity authentication is not implemented
 4. **Use trusted devices**: Endpoints can be compromised
 5. **Do not expect persistence**: Messages are ephemeral by design
@@ -730,7 +730,7 @@ WindChat v1 stable has the following known limitations:
 | **No identity authentication** | No verification that peer is who they claim to be | Vulnerable to MITM if Room ID is intercepted | v2.0: Key fingerprints + out-of-band verification |
 | **Visible metadata** | Server can see timestamps, message size, communication patterns | Traffic analysis is possible | Partially mitigable with padding |
 | **No persistence** | Messages are lost when tab closes | No message history | Intentional design; v2.0 may add optional local IndexedDB |
-| **Max 2 users** | Hard design limit | No group chats | v2.0: Group chats with per-participant keys |
+| **Max 2 users** | Hard design limit | No group chats | v2.0: Group chats with per-participant keys ( this feature add posible vulnerabilities. Ex.: third unknown join a room of two if they get the roomID, would needed more steps of verification) |
 | **No delivery/read verification** | No confirmation that message was received/read | Limited UX | v2.0: Acknowledgements and read receipts |
 
 ### Architecture Limitations (some are intentional for privacy/security focus)
@@ -845,7 +845,7 @@ Summary:
 
 **Purpose**: Provide a reference implementation of E2EE messaging with zero-knowledge architecture, prioritizing simplicity, transparency, and modern cryptographic security practices.
 
-**Security**: True end-to-end encryption with no database and no persistence. The server is a blind relay with no ability to decrypt messages. Share information only with whoever you actually choose. No more messages left forever in the cloud.
+**Security**: True end-to-end encryption with no database and no persistence. The server is a blind relay with no ability to decrypt messages, but the key is host u in ur own device. Share information only with whoever you actually choose. No more messages left forever in the cloud. Ur server, ur chat, ur info. 
 
 ---
 
@@ -857,5 +857,5 @@ Summary:
 - **Discussions**: [GitHub Discussions](https://github.com/LordAlastor78/windchat/discussions)
 - **Support**: [![Ko-fi](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/alastor78)
 
-**Note**: This version is considered stable for general use, but it may still contain undetected bugs. For questions, suggestions, or bug reports, please use GitHub channels or support us on Ko-fi to speed up development. Thank you for your interest in WindChat.
+**Note**: This version is considered stable for general use, but it may still contain undetected bugs. For questions, suggestions, or bug reports, please use GitHub channels or support us on Ko-fi to speed up development. Thank you for your interest in WindChat. 
 
