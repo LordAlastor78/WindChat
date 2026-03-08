@@ -1,10 +1,14 @@
 # WindChat - End-to-End Encrypted Messaging Platform
 
+
+
 **WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server acts only as a message relay and cannot decrypt content.
 
 <div align="center">
 <img src="./WindChat.png" alt="WindChat Logo" width="230">
 </div>
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&duration=6000&pause=2000&center=true&vCenter=true&width=585&height=90&lines=Fast+%2C+Private+and+Secure.+Ephemeral+as+wind)](https://git.io/typing-svg)
 
 ---
 
