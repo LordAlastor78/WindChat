@@ -151,6 +151,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!soundManager.isInitialized()) {
     audioPrompt?.classList.add("visible");
+    
+    // Auto-hide the audio prompt after 8 seconds
+    setTimeout(() => {
+      audioPrompt?.classList.remove("visible");
+    }, 8000);
   }
 
   document.addEventListener("windchat:languagechange", updateNotificationButton);
@@ -588,7 +593,7 @@ document.addEventListener("DOMContentLoaded", () => {
           joinedMessage.style.textAlign = "center";
           joinedMessage.style.opacity = "0.85";
           joinedMessage.style.fontSize = "0.9rem";
-          joinedMessage.textContent = "✅ La otra persona se ha unido al chat.";
+          joinedMessage.textContent = t("peerJoinedMessage");
           messagesContainer.appendChild(joinedMessage);
 
           messageInput.disabled = false;
@@ -605,7 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const disconnectedMessage = document.createElement("div");
           disconnectedMessage.style.textAlign = "center";
           disconnectedMessage.style.opacity = "0.7";
-          disconnectedMessage.textContent = "El otro usuario se desconectó.";
+          disconnectedMessage.textContent = t("peerDisconnectedMessage");
           messagesContainer.appendChild(disconnectedMessage);
         },
         onMessageReceived: (payload: MessagePayload) => {
@@ -662,7 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
         onTyping: (isTyping: boolean) => {
           const typingDiv = document.getElementById("typingIndicator");
           if (typingDiv) {
-            typingDiv.textContent = isTyping ? "escribiendo..." : "";
+            typingDiv.textContent = isTyping ? t("typingIndicator") : "";
           }
         },
         onError: (error: string) => {

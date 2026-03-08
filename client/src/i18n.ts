@@ -26,7 +26,9 @@ const translations: Record<Lang, Record<string, string>> = {
     waitingForPeer: '⏳ Esperando al otro usuario...',
     connected: '✅ Conectado',
     peerConnected: '✅ Usuario conectado',
+    peerJoinedMessage: '✅ La otra persona se ha unido al chat.',
     peerDisconnected: '❌ Usuario desconectado',
+    peerDisconnectedMessage: 'El otro usuario se desconectó.',
     typingIndicator: '✏️ escribiendo...',
     
     // Status Messages
@@ -92,7 +94,9 @@ const translations: Record<Lang, Record<string, string>> = {
     waitingForPeer: '⏳ Waiting for other user...',
     connected: '✅ Connected',
     peerConnected: '✅ User connected',
+    peerJoinedMessage: '✅ The other person has joined the chat.',
     peerDisconnected: '❌ User disconnected',
+    peerDisconnectedMessage: 'The other user disconnected.',
     typingIndicator: '✏️ typing...',
     
     // Status Messages
