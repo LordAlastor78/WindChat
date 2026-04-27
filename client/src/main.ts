@@ -54,7 +54,7 @@ if ('serviceWorker' in navigator) {
         console.log('✅ Service Worker registrado:', registration.scope);
       })
       .catch((error) => {
-        console.warn('⚠️ Error al registrar Service Worker:', error);
+        console.warn('⚠️ Failed to register Service Worker:', error);
       });
   });
 }
@@ -145,13 +145,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.body.addEventListener("pointerdown", () => {
     initializeAudio().catch((err) => {
-      console.warn("No se pudo inicializar audio", err);
+      console.warn("Audio initialization failed", err);
     });
   }, { once: true });
 
   if (!soundManager.isInitialized()) {
     audioPrompt?.classList.add("visible");
-    
+
     // Auto-hide the audio prompt after 8 seconds
     setTimeout(() => {
       audioPrompt?.classList.remove("visible");
@@ -222,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   let isConnecting = false;
-  
+
   loginBtn.addEventListener("click", () => handleChatLogin());
   usernameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function handleChatLogin() {
     if (isConnecting) {
-      console.warn("[!] Ya estas conectando, espera...");
+      console.warn("[!] Connection is already in progress, please wait...");
       return;
     }
 
@@ -253,11 +253,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loginBtn) loginBtn.disabled = true;
     usernameInput.disabled = true;
     if (displayNameInput) displayNameInput.disabled = true;
-    
+
     try {
       await connectToChat(roomId);
     } catch (err) {
-      console.error("[ERROR] Fallo al conectar:", err);
+      console.error("[ERROR] Connection failed:", err);
     } finally {
       // CRITICAL: Siempre resetear el flag, incluso si hubo error
       isConnecting = false;
@@ -297,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
             copyRoomBtn.textContent = t("copyButton");
           }, 1200);
         } catch (err) {
-          console.warn("No se pudo copiar Room ID", err);
+          console.warn("Failed to copy Room ID", err);
         }
       });
 
@@ -305,7 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const serverUrl = `${wsProtocol}//${window.location.host}`;
 
-      console.log(`[+] Conectando a: ${serverUrl}`);
+      console.log(`[+] Connecting to: ${serverUrl}`);
       const newMessagesIndicator = document.getElementById("newMessagesIndicator") as HTMLButtonElement | null;
       const replyBar = document.getElementById("replyBar") as HTMLDivElement | null;
       const replyText = document.getElementById("replyText") as HTMLSpanElement | null;
@@ -418,11 +418,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ) as HTMLDivElement | null;
 
         if (!target) {
-          return { sender: "Mensaje", text: "mensaje original no disponible" };
+          return { sender: t("messageLabel"), text: t("messageUnavailable") };
         }
 
-        const sourceText = target.getAttribute("data-message-text") || "mensaje";
-        const sourceSender = target.getAttribute("data-message-sender") || "Usuario";
+        const sourceText = target.getAttribute("data-message-text") || t("messageLabel");
+        const sourceSender = target.getAttribute("data-message-sender") || t("userLabel");
         return { sender: sourceSender, text: sourceText };
       };
 
@@ -557,7 +557,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
           document.body.appendChild(reconnectBanner);
         }
-        reconnectBanner.innerHTML = `⚠️ Reconectando... (intento ${attempt}/${maxAttempts})`;
+        reconnectBanner.innerHTML = t("reconnectingBanner", { attempt, maxAttempts });
       };
 
       const hideReconnectBanner = () => {
@@ -572,7 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       chatClient = new ChatClient({
         onConnected: () => {
-          console.log("[OK] Conectado al servidor");
+          console.log("[OK] Connected to server");
           updateConnectionStatus("connected");
           hideReconnectBanner();
           resetUnreadIndicator();
@@ -584,7 +584,7 @@ document.addEventListener("DOMContentLoaded", () => {
           messagesContainer.appendChild(waitingMessage);
         },
         onPeerJoined: () => {
-          console.log("[OK] Usuario conectado - Chat listo");
+          console.log("[OK] User connected - Chat ready");
           updateConnectionStatus("connected");
           resetUnreadIndicator();
           messagesContainer.textContent = "";
@@ -601,7 +601,7 @@ document.addEventListener("DOMContentLoaded", () => {
           messageInput.focus();
         },
         onPeerDisconnected: () => {
-          console.log("[!] Peer desconectado");
+          console.log("[!] Peer disconnected");
           updateConnectionStatus("disconnected");
           resetUnreadIndicator();
           messageInput.disabled = true;
@@ -676,53 +676,53 @@ document.addEventListener("DOMContentLoaded", () => {
           messagesContainer.textContent = "";
           const errorMessage = document.createElement("div");
           errorMessage.style.color = "red";
-          errorMessage.textContent = `Error: ${error}`;
+          errorMessage.textContent = `${t("genericErrorPrefix")}: ${error}`;
           messagesContainer.appendChild(errorMessage);
         },
         onDisconnected: () => {
-          console.warn("Desconectado");
+          console.warn("Disconnected");
           updateConnectionStatus("disconnected");
           messageInput.disabled = true;
           sendButton.disabled = true;
         },
         onReconnecting: (attempt: number, maxAttempts: number) => {
-          console.log(`[RECONECTANDO] Intento ${attempt}/${maxAttempts}`);
+          console.log(`[RECONNECTING] Attempt ${attempt}/${maxAttempts}`);
           updateConnectionStatus("connecting");
           showReconnectBanner(attempt, maxAttempts);
           messageInput.disabled = true;
           sendButton.disabled = true;
         },
         onReconnected: () => {
-          console.log("[✅] Reconectado exitosamente");
+          console.log("[✅] Reconnected successfully");
           updateConnectionStatus("connected");
           hideReconnectBanner();
           resetUnreadIndicator();
-          
+
           const reconnectedMessage = document.createElement("div");
           reconnectedMessage.style.textAlign = "center";
           reconnectedMessage.style.opacity = "0.85";
           reconnectedMessage.style.fontSize = "0.9rem";
           reconnectedMessage.style.color = "#10b981";
-          reconnectedMessage.textContent = "✅ Reconectado. Esperando al otro usuario...";
+          reconnectedMessage.textContent = t("reconnectedWaiting");
           messagesContainer.appendChild(reconnectedMessage);
         },
         onReconnectFailed: () => {
-          console.error("[❌] Reconexión fallida");
+          console.error("[❌] Reconnection failed");
           updateConnectionStatus("disconnected");
           hideReconnectBanner();
           resetUnreadIndicator();
-          
+
           messagesContainer.textContent = "";
           const failedMessage = document.createElement("div");
           failedMessage.style.textAlign = "center";
           failedMessage.style.color = "#ef4444";
           failedMessage.style.fontSize = "0.95rem";
           failedMessage.innerHTML = `
-            ❌ Reconexión fallida.<br>
-            <small style="opacity: 0.8;">Por favor, recarga la página.</small>
+            ${t("reconnectFailedTitle")}<br>
+            <small style="opacity: 0.8;">${t("reconnectFailedSubtitle")}</small>
           `;
           messagesContainer.appendChild(failedMessage);
-          
+
           messageInput.disabled = true;
           sendButton.disabled = true;
         },
@@ -762,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
           try {
             await navigator.clipboard.writeText(selectedMessageText);
           } catch (err) {
-            console.warn("No se pudo copiar el mensaje", err);
+            console.warn("Failed to copy message", err);
           }
         }
 
@@ -774,7 +774,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (action === "react-like") {
           if (chatClient && selectedMessageId) {
             chatClient.sendReaction("👍", selectedMessageId).catch((err) => {
-              console.error("No se pudo enviar reacción", err);
+              console.error("Failed to send reaction", err);
             });
           }
         }
@@ -782,7 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (action === "react-heart") {
           if (chatClient && selectedMessageId) {
             chatClient.sendReaction("❤️", selectedMessageId).catch((err) => {
-              console.error("No se pudo enviar reacción", err);
+              console.error("Failed to send reaction", err);
             });
           }
         }
@@ -821,7 +821,7 @@ document.addEventListener("DOMContentLoaded", () => {
             replyTo?.id || undefined
           );
         } catch (err) {
-          console.error("No se pudo enviar el mensaje", err);
+          console.error("Failed to send message", err);
           return;
         }
 
@@ -858,7 +858,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.addEventListener("beforeunload", (e: BeforeUnloadEvent) => {
         stopTimestampRefresh();
         document.removeEventListener("windchat:languagechange", handleLanguageChanged);
-        
+
         // Si hay conexión activa, pedir confirmación
         if (chatClient && chatClient.isConnected()) {
           const message = t('confirmClose');
@@ -866,7 +866,7 @@ document.addEventListener("DOMContentLoaded", () => {
           e.returnValue = message; // Estándar moderno (Chrome ignora el mensaje custom)
           return message; // Compatibilidad con navegadores antiguos
         }
-        
+
         // Limpiar recursos al cerrar
         if (chatClient) chatClient.disconnect();
       });
@@ -878,7 +878,7 @@ document.addEventListener("DOMContentLoaded", () => {
         errorContainer.textContent = "";
         const errorMessage = document.createElement("div");
         errorMessage.style.color = "red";
-        errorMessage.textContent = `Error: ${err}`;
+        errorMessage.textContent = `${t("genericErrorPrefix")}: ${err}`;
         errorContainer.appendChild(errorMessage);
       }
     }

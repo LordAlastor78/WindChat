@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspaces",
     "build": "npm run build --workspaces",
+    "healthcheck": "powershell -ExecutionPolicy Bypass -File ./healthcheck.ps1",
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
     "build:server": "npm run build -w server",

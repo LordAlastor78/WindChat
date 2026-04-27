@@ -1,13 +1,13 @@
 # WindChat - Control & Manager Script
-# Menu para controlar lanzar servidor, cliente y procesos
-# Uso: .\run.ps1
+# Menu to control server, client, and related processes
+# Usage: .\run.ps1
 
-# ===== FUNCION DE DIAGNOSTICO AVANZADO CLOUDFLARE QUICK TUNNEL =====
+# ===== ADVANCED CLOUDFLARE QUICK TUNNEL DIAGNOSTICS FUNCTION =====
 function Invoke-CloudflaredQuickTunnelDiagnostic {
     <#
     .SYNOPSIS
-        Script de diagnostico completo y profesional para Cloudflare Quick Tunnel.
-        Realiza 7 fases de analisis para identificar por que falla la conexion.
+        Complete and professional diagnostic script for Cloudflare Quick Tunnel.
+        Runs 7 analysis phases to identify why the connection fails.
     #>
 
     param(
@@ -33,7 +33,7 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         DiagnosisConclusion = ""
     }
 
-    # Funcion auxiliar: escribir con timestamp en consola Y archivo
+    # Helper function: write timestamped messages to console and log file
     function Log-Message {
         param(
             [string]$Message,
@@ -61,45 +61,45 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         Remove-Item $LogPath -Force -ErrorAction SilentlyContinue
     }
 
-    Log-Section "INICIO DE DIAGNOSTICO CLOUDFLARE QUICK TUNNEL"
-    Log-Message "Ruta de log: $LogPath" "INFO" "Gray"
-    Log-Message "Servidor local: $LocalServerUrl" "INFO" "Gray"
+    Log-Section "CLOUDFLARE QUICK TUNNEL DIAGNOSTICS START"
+    Log-Message "Log path: $LogPath" "INFO" "Gray"
+    Log-Message "Local server: $LocalServerUrl" "INFO" "Gray"
     Log-Message ""
 
     try {
         # ===== FASE 1: INFORMACION DEL ENTORNO =====
-        Log-Section "FASE 1 --- INFORMACION DEL ENTORNO"
+        Log-Section "PHASE 1 --- ENVIRONMENT INFORMATION"
 
-        # Version de Windows
+        # Windows version
         $osVersion = [System.Environment]::OSVersion
-        Log-Message "Sistema Operativo: $osVersion" "INFO" "Yellow"
+        Log-Message "Operating System: $osVersion" "INFO" "Yellow"
         $diagnosticData.EnvironmentInfo.OS = $osVersion.ToString()
 
-        # Version de PowerShell
+        # PowerShell version
         $psVersion = $PSVersionTable.PSVersion
         Log-Message "PowerShell: $psVersion" "INFO" "Yellow"
         $diagnosticData.EnvironmentInfo.PowerShell = $psVersion.ToString()
 
-        # Version de cloudflared
+        # cloudflared version
         Log-Message "Ejecutando: cloudflared --version" "DEBUG" "Gray"
         $cloudflaredVersion = & cloudflared --version 2>&1
         Log-Message "Resultado: $cloudflaredVersion" "INFO" "Yellow"
         $diagnosticData.EnvironmentInfo.Cloudflared = $cloudflaredVersion
 
-        # IP publica
-        Log-Message "Obteniendo IP publica desde https://api.ipify.org..." "DEBUG" "Gray"
+        # Public IP
+        Log-Message "Getting public IP desde https://api.ipify.org..." "DEBUG" "Gray"
         try {
             $ipifyResponse = Invoke-WebRequest -UseBasicParsing -Uri "https://api.ipify.org?format=json" -TimeoutSec 10 -ErrorAction Stop 2>&1
             $publicIp = ($ipifyResponse.Content | ConvertFrom-Json).ip
-            Log-Message "IP publica: $publicIp" "INFO" "Yellow"
+            Log-Message "Public IP: $publicIp" "INFO" "Yellow"
             $diagnosticData.EnvironmentInfo.PublicIP = $publicIp
         } catch {
-            Log-Message "No se pudo obtener IP publica: $($_.Exception.Message)" "WARN" "Yellow"
+            Log-Message "Could not get Public IP: $($_.Exception.Message)" "WARN" "Yellow"
             $diagnosticData.EnvironmentInfo.PublicIP = "N/A"
         }
 
-        # Configuracion DNS
-        Log-Message "Configuracion DNS:" "DEBUG" "Gray"
+        # DNS configuration
+        Log-Message "DNS configuration:" "DEBUG" "Gray"
         $dnsConfig = Get-DnsClientServerAddress -ErrorAction SilentlyContinue
         if ($dnsConfig) {
             $dnsServers = $dnsConfig | Where-Object { $_.ServerAddresses.Count -gt 0 } | ForEach-Object { $_.ServerAddresses -join ", " } | Select-Object -First 3
@@ -108,11 +108,11 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
             }
             $diagnosticData.EnvironmentInfo.DNS = $dnsServers
         } else {
-            Log-Message "  No se pudo obtener configuracion DNS" "WARN" "Yellow"
+            Log-Message "  Could not retrieve DNS configuration" "WARN" "Yellow"
         }
 
         # Proxy Windows
-        Log-Message "Verificando proxy de Windows (netsh winhttp show proxy)..." "DEBUG" "Gray"
+        Log-Message "Checking Windows proxy (netsh winhttp show proxy)..." "DEBUG" "Gray"
         $proxyInfo = & netsh winhttp show proxy 2>&1
         $proxyInfoText = $proxyInfo | Out-String
         $proxyInfoText.Split([Environment]::NewLine) | Where-Object { $_.Trim() -ne "" } | ForEach-Object {
@@ -122,24 +122,24 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
         Log-Message ""
 
-        # ===== FASE 2: VERIFICACION DE CONECTIVIDAD CON CLOUDFLARE =====
-        Log-Section "FASE 2 --- VERIFICACION DE CONECTIVIDAD CON CLOUDFLARE"
+        # ===== PHASE 2: CLOUDFLARE CONNECTIVITY VERIFICATION =====
+        Log-Section "PHASE 2 --- CLOUDFLARE CONNECTIVITY VERIFICATION"
 
-        # Test de conectividad a api.trycloudflare.com
-        Log-Message "Test 1: Conectividad TCP a api.trycloudflare.com:443" "DEBUG" "Gray"
+        # Connectivity test to api.trycloudflare.com
+        Log-Message "Test 1: TCP connectivity a api.trycloudflare.com:443" "DEBUG" "Gray"
         $tcpTest1Start = Get-Date
         try {
             $tcpTest1 = Test-NetConnection -ComputerName "api.trycloudflare.com" -Port 443 -ErrorAction Stop -WarningAction SilentlyContinue
             $tcpTest1Duration = ((Get-Date) - $tcpTest1Start).TotalMilliseconds
             
             if ($tcpTest1.TcpTestSucceeded) {
-                Log-Message "  [OK] TCP conexion exitosa ($([int]$tcpTest1Duration)ms)" "OK" "Green"
+                Log-Message "  [OK] TCP connection successful ($([int]$tcpTest1Duration)ms)" "OK" "Green"
                 $diagnosticData.ConnectivityTests.TcpTriCloudflare = @{
                     Status = "OK"
                     Duration = $tcpTest1Duration
                 }
             } else {
-                Log-Message "  [FAIL] TCP conexion fallida" "ERROR" "Red"
+                Log-Message "  [FAIL] TCP connection failed" "ERROR" "Red"
                 $diagnosticData.ConnectivityTests.TcpTriCloudflare = @{ Status = "FAILED" }
                 $diagnosticData.Failures++
             }
@@ -148,21 +148,21 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
             $diagnosticData.ConnectivityTests.TcpTriCloudflare = @{ Status = "EXCEPTION"; Error = $_.Exception.Message }
         }
 
-        # Test de conectividad a api.cloudflare.com
-        Log-Message "Test 2: Conectividad TCP a api.cloudflare.com:443" "DEBUG" "Gray"
+        # Connectivity test to api.cloudflare.com
+        Log-Message "Test 2: TCP connectivity a api.cloudflare.com:443" "DEBUG" "Gray"
         $tcpTest2Start = Get-Date
         try {
             $tcpTest2 = Test-NetConnection -ComputerName "api.cloudflare.com" -Port 443 -ErrorAction Stop -WarningAction SilentlyContinue
             $tcpTest2Duration = ((Get-Date) - $tcpTest2Start).TotalMilliseconds
             
             if ($tcpTest2.TcpTestSucceeded) {
-                Log-Message "  [OK] TCP conexion exitosa ($([int]$tcpTest2Duration)ms)" "OK" "Green"
+                Log-Message "  [OK] TCP connection successful ($([int]$tcpTest2Duration)ms)" "OK" "Green"
                 $diagnosticData.ConnectivityTests.TcpApiCloudflare = @{
                     Status = "OK"
                     Duration = $tcpTest2Duration
                 }
             } else {
-                Log-Message "  [FAIL] TCP conexion fallida" "ERROR" "Red"
+                Log-Message "  [FAIL] TCP connection failed" "ERROR" "Red"
                 $diagnosticData.ConnectivityTests.TcpApiCloudflare = @{ Status = "FAILED" }
             }
         } catch {
@@ -171,7 +171,7 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
         }
 
         # Test HTTP directo a api.trycloudflare.com
-        Log-Message "Test 3: Peticion HTTP GET a https://api.trycloudflare.com" "DEBUG" "Gray"
+        Log-Message "Test 3: HTTP GET request a https://api.trycloudflare.com" "DEBUG" "Gray"
         $httpTest1Start = Get-Date
         try {
             $httpTest1 = Invoke-WebRequest -UseBasicParsing -Uri "https://api.trycloudflare.com" -TimeoutSec 15 -ErrorAction Stop 2>&1
@@ -188,16 +188,16 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
             $errorMsg = $_.Exception.Message
             
             if ($errorMsg -match "timeout|timed out") {
-                Log-Message "  [FAIL] TIMEOUT despues de $([int]$httpTest1Duration)ms" "ERROR" "Red"
+                Log-Message "  [FAIL] TIMEOUT after $([int]$httpTest1Duration)ms" "ERROR" "Red"
                 $diagnosticData.Errors += "HTTP_TIMEOUT"
             } elseif ($errorMsg -match "TLS|SSL") {
-                Log-Message "  [FAIL] ERROR TLS/SSL despues de $([int]$httpTest1Duration)ms: $errorMsg" "ERROR" "Red"
+                Log-Message "  [FAIL] TLS/SSL ERROR after $([int]$httpTest1Duration)ms: $errorMsg" "ERROR" "Red"
                 $diagnosticData.Errors += "TLS_ERROR"
             } elseif ($errorMsg -match "Unable to resolve") {
-                Log-Message "  [FAIL] ERROR DNS: no se puede resolver dominio" "ERROR" "Red"
+                Log-Message "  [FAIL] DNS ERROR: domain could not be resolved" "ERROR" "Red"
                 $diagnosticData.Errors += "DNS_ERROR"
             } else {
-                Log-Message "  [FAIL] ERROR HTTP despues de $([int]$httpTest1Duration)ms: $errorMsg" "ERROR" "Red"
+                Log-Message "  [FAIL] ERROR HTTP after $([int]$httpTest1Duration)ms: $errorMsg" "ERROR" "Red"
                 $diagnosticData.Errors += "HTTP_ERROR"
             }
             
@@ -211,11 +211,11 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
         Log-Message ""
 
-        # ===== FASE 3: VERIFICACION DE FIREWALL LOCAL =====
-        Log-Section "FASE 3 --- VERIFICACION DE FIREWALL LOCAL"
+        # ===== PHASE 3: LOCAL FIREWALL VERIFICATION =====
+        Log-Section "PHASE 3 --- LOCAL FIREWALL VERIFICATION"
 
-        # Estado del Firewall
-        Log-Message "Estado del Firewall de Windows Defender..." "DEBUG" "Gray"
+        # Firewall status
+        Log-Message "Windows Defender Firewall status..." "DEBUG" "Gray"
         try {
             $fwProfile = Get-NetFirewallProfile -ErrorAction SilentlyContinue
             if ($fwProfile) {
@@ -225,50 +225,50 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                 }
             }
         } catch {
-            Log-Message "  No se pudo obtener estado del firewall: $($_.Exception.Message)" "WARN" "Yellow"
+            Log-Message "  Could not get firewall status: $($_.Exception.Message)" "WARN" "Yellow"
         }
 
         # Verificar si cloudflared esta permitido
-        Log-Message "Verificando si cloudflared esta en excepciones del firewall..." "DEBUG" "Gray"
+        Log-Message "Checking whether cloudflared has firewall exceptions..." "DEBUG" "Gray"
         try {
             $cloudflaredRules = Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue | Where-Object { $_.Program -match "cloudflared" }
             if ($cloudflaredRules) {
-                Log-Message "  [OK] cloudflared tiene reglas de firewall" "OK" "Green"
+                Log-Message "  [OK] cloudflared has firewall rules" "OK" "Green"
             } else {
-                Log-Message "  [!] cloudflared no tiene reglas explicitas (podria ser bloqueado)" "WARN" "Yellow"
+                Log-Message "  [!] cloudflared has no explicit rules (podria ser bloqueado)" "WARN" "Yellow"
             }
         } catch {
-            Log-Message "  No se pudo consultar reglas: $($_.Exception.Message)" "WARN" "Yellow"
+            Log-Message "  Could not query rules: $($_.Exception.Message)" "WARN" "Yellow"
         }
 
-        # Verificar puerto 8080
-        Log-Message "Verificando si el puerto 8080 esta en uso (netstat -ano)..." "DEBUG" "Gray"
+        # Check port 8080
+        Log-Message "Checking whether port 8080 is in use (netstat -ano)..." "DEBUG" "Gray"
         $netstatOutput = & netstat -ano 2>&1 | Select-String "8080"
         if ($netstatOutput) {
             $netstatOutput | ForEach-Object {
                 Log-Message "  $_" "INFO" "Yellow"
             }
         } else {
-            Log-Message "  Puerto 8080 no esta escuchando." "WARN" "Yellow"
+            Log-Message "  Port 8080 is not listening." "WARN" "Yellow"
         }
 
         Log-Message ""
 
-        # ===== FASE 4: VERIFICAR SERVIDOR LOCAL EN 8080 =====
-        Log-Section "FASE 4 --- VERIFICACION DEL SERVIDOR LOCAL EN 8080"
+        # ===== PHASE 4: VERIFY LOCAL SERVER ON 8080 =====
+        Log-Section "PHASE 4 --- LOCAL SERVER VERIFICATION ON 8080"
 
-        Log-Message "Intentando conectar a $LocalServerUrl..." "DEBUG" "Gray"
+        Log-Message "Trying to connect to $LocalServerUrl..." "DEBUG" "Gray"
         $localServerStart = Get-Date
         try {
             $localServerResponse = Invoke-WebRequest -UseBasicParsing -Uri $LocalServerUrl -TimeoutSec 5 -ErrorAction Stop 2>&1
             $localServerDuration = ((Get-Date) - $localServerStart).TotalMilliseconds
             
-            Log-Message "  [OK] Servidor local responde ($([int]$localServerDuration)ms)" "OK" "Green"
+            Log-Message "  [OK] Local server responds ($([int]$localServerDuration)ms)" "OK" "Green"
             Log-Message "  Status Code: $($localServerResponse.StatusCode)" "INFO" "Green"
             $diagnosticData.LocalServerStatus = $true
         } catch {
             $localServerDuration = ((Get-Date) - $localServerStart).TotalMilliseconds
-            Log-Message "  [FAIL] Servidor local NO responde ($([int]$localServerDuration)ms)" "ERROR" "Red"
+            Log-Message "  [FAIL] Local server does NOT respond ($([int]$localServerDuration)ms)" "ERROR" "Red"
             Log-Message "  Error: $($_.Exception.Message)" "ERROR" "Red"
             $diagnosticData.LocalServerStatus = $false
             $diagnosticData.Errors += "LOCAL_SERVER_DOWN"
@@ -276,8 +276,8 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
         Log-Message ""
 
-        # ===== FASE 5: EJECUCION CONTROLADA DE QUICK TUNNEL =====
-        Log-Section "FASE 5 --- EJECUCION CONTROLADA DE QUICK TUNNEL (3 INTENTOS)"
+        # ===== PHASE 5: CONTROLLED QUICK TUNNEL EXECUTION =====
+        Log-Section "PHASE 5 --- CONTROLLED QUICK TUNNEL EXECUTION (3 ATTEMPTS)"
 
         $maxAttempts = 3
         $attemptDelaySeconds = 10
@@ -297,11 +297,11 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
             Log-Message "Hora inicio: $(Get-Date -Format 'HH:mm:ss.fff')" "DEBUG" "Gray"
 
             try {
-                # Crear archivos temporales para capturar output
+                # Create temporary files to capture output
                 $outputFile = [System.IO.Path]::GetTempFileName()
                 $errorFile = [System.IO.Path]::GetTempFileName()
 
-                # Ejecutar cloudflared con redirreccion
+                # Run cloudflared with redirection
                 $process = Start-Process -FilePath "cloudflared" `
                     -ArgumentList "tunnel", "--protocol", "http2", "--url", $LocalServerUrl, "--loglevel", "debug" `
                     -NoNewWindow `
@@ -309,7 +309,7 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                     -RedirectStandardError $errorFile `
                     -PassThru
 
-                # cloudflared NO TERMINA cuando el tunnel funciona (se queda corriendo)
+                # cloudflared DOES NOT EXIT when tunnel works (it keeps running)
                 # Monitorear la salida cada segundo durante max 15 segundos
                 $monitorTimeout = 15
                 $tunnelDetected = $false
@@ -322,7 +322,7 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                     $stdOut = Get-Content $outputFile -Raw -ErrorAction SilentlyContinue
                     $stdErr = Get-Content $errorFile -Raw -ErrorAction SilentlyContinue
                     
-                    # Buscar mensaje de exito en stderr (cloudflared usa stderr para logs)
+                    # Look for success message in stderr (cloudflared uses stderr for logs)
                     if ($stdErr -match "Your quick Tunnel has been created" -or $stdErr -match "https://[a-z0-9\-]+\.trycloudflare\.com") {
                         $tunnelDetected = $true
                         $tunnelUrl = [regex]::Match($stdErr, "https://[a-z0-9\-]+\.trycloudflare\.com").Value
@@ -330,17 +330,17 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                     }
                     
                     # Detectar errores fatales
-                    if ($stdErr -match "failed to request quick Tunnel" -or $stdErr -match "context deadline exceeded") {
+                    if ($stdErr -match "failed to request quick tunnel" -or $stdErr -match "context deadline exceeded") {
                         break
                     }
                     
-                    # Si el proceso termino (error fatal), salir del loop
+                    # If process ended (fatal error), exit loop
                     if ($process.HasExited) {
                         break
                     }
                 }
                 
-                # Matar el proceso si sigue corriendo
+                # Kill process if still running
                 if (-not $process.HasExited) {
                     $process.Kill()
                     Start-Sleep -Milliseconds 500
@@ -371,9 +371,9 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
                 # Evaluar resultado
                 if ($tunnelDetected -and $tunnelUrl) {
-                    Log-Message "  [OK] TUNNEL CREADO EXITOSAMENTE!" "OK" "Green"
+                    Log-Message "  [OK] TUNNEL CREATED SUCCESSFULLY!" "OK" "Green"
                     Log-Message "  URL: $tunnelUrl" "OK" "Green"
-                    Log-Message "  Conexion registrada correctamente" "OK" "Green"
+                    Log-Message "  Connection registered successfully" "OK" "Green"
                     $quickTunnelSuccess = $true
                     $diagnosticData.Successes++
                     $diagnosticData.Times += $attemptDuration
@@ -382,7 +382,7 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                     $lastError = ""
                     break
                 } else {
-                    Log-Message "  [FAIL] INTENTO $attempt FALLO" "ERROR" "Red"
+                    Log-Message "  [FAIL] ATTEMPT $attempt FAILED" "ERROR" "Red"
                     $lastError = if ($stdErr) { $stdErr } elseif ($stdOut) { $stdOut } else { "No tunnel created" }
                     $diagnosticData.Failures++
                     $diagnosticData.Times += $attemptDuration
@@ -404,81 +404,81 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
                 $diagnosticData.Times += $attemptDuration
             }
 
-            # Pausa entre intentos (excepto despues del ultimo)
+            # Pause between attempts (except after the last one)
             if ($attempt -lt $maxAttempts -and -not $quickTunnelSuccess) {
-                Log-Message "Esperando $attemptDelaySeconds segundos antes del siguiente intento..." "DEBUG" "Yellow"
+                Log-Message "Waiting $attemptDelaySeconds seconds before next attempt..." "DEBUG" "Yellow"
                 Start-Sleep -Seconds $attemptDelaySeconds
             }
         }
 
         Log-Message ""
 
-        # ===== FASE 6: ANALISIS AUTOMATICO DE ERRORES =====
-        Log-Section "FASE 6 --- ANALISIS AUTOMATICO DE ERRORES"
+        # ===== PHASE 6: AUTOMATIC ERROR ANALYSIS =====
+        Log-Section "PHASE 6 --- AUTOMATIC ERROR ANALYSIS"
 
         if ($quickTunnelSuccess) {
-            Log-Message "[OK] Quick Tunnel se creo exitosamente!" "OK" "Green"
+            Log-Message "[OK] Quick Tunnel created successfully!" "OK" "Green"
             Log-Message "" "INFO" "White"
-            Log-Message "DETALLES DE LA CONEXION:" "INFO" "Cyan"
-            Log-Message "  -> Tunnel registrado en edge de Cloudflare" "OK" "Green"
+            Log-Message "CONNECTION DETAILS:" "INFO" "Cyan"
+            Log-Message "  -> Tunnel registered on Cloudflare edge" "OK" "Green"
             Log-Message "  -> Protocolo: http2" "INFO" "White"
-            Log-Message "  -> URL publica: $($diagnosticData.QuickTunnelResult.URL)" "OK" "Green"
-            Log-Message "  -> Servidor origen: http://127.0.0.1:8080" "INFO" "White"
+            Log-Message "  -> Public URL: $($diagnosticData.QuickTunnelResult.URL)" "OK" "Green"
+            Log-Message "  -> Origin server: http://127.0.0.1:8080" "INFO" "White"
             Log-Message "" "INFO" "White"
-            $diagnosticData.DiagnosisConclusion = "EXITO: Quick Tunnel funcionando correctamente"
+            $diagnosticData.DiagnosisConclusion = "SUCCESS: Quick Tunnel working correctly"
         } else {
-            Log-Message "[FAIL] Quick Tunnel fallo en todos los intentos" "ERROR" "Red"
+            Log-Message "[FAIL] Quick Tunnel failed on all attempts" "ERROR" "Red"
             
-            # Analizar tipo de error
+            # Analyze error type
             $analysisResult = ""
             
             if ($lastError -match "context deadline exceeded|Client\.Timeout exceeded") {
-                $analysisResult = "TIMEOUT DE CONTEXTO"
-                Log-Message "  -> Causa probable: Timeout de conexion a API" "INFO" "Yellow"
-                Log-Message "  -> Posibles razones:" "INFO" "Yellow"
-                Log-Message "     1. Rate limiting de Quick Tunnel" "INFO" "Yellow"
-                Log-Message "     2. Bloqueo de firewall/proxy" "INFO" "Yellow"
-                Log-Message "     3. Latencia alta de red" "INFO" "Yellow"
+                $analysisResult = "CONTEXT TIMEOUT"
+                Log-Message "  -> Likely cause: API connection timeout" "INFO" "Yellow"
+                Log-Message "  -> Possible reasons:" "INFO" "Yellow"
+                Log-Message "     1. Quick Tunnel rate limiting" "INFO" "Yellow"
+                Log-Message "     2. Firewall/proxy blocking" "INFO" "Yellow"
+                Log-Message "     3. High network latency" "INFO" "Yellow"
                 Log-Message "     4. ISP bloqueando Cloudflare" "INFO" "Yellow"
             }
             
             if ($lastError -match "TLS|SSL|handshake") {
-                $analysisResult = "ERROR TLS/SSL"
-                Log-Message "  -> Causa probable: Error en negociacion TLS" "INFO" "Yellow"
-                Log-Message "  -> Posibles razones:" "INFO" "Yellow"
-                Log-Message "     1. Inspeccion SSL de firewall/antivirus" "INFO" "Yellow"
+                $analysisResult = "TLS/SSL ERROR"
+                Log-Message "  -> Likely cause: TLS negotiation error" "INFO" "Yellow"
+                Log-Message "  -> Possible reasons:" "INFO" "Yellow"
+                Log-Message "     1. SSL inspection by firewall/antivirus" "INFO" "Yellow"
                 Log-Message "     2. Proxy corporate intermedio" "INFO" "Yellow"
                 Log-Message "     3. MITM (Man-in-the-Middle) attack" "INFO" "Yellow"
                 Log-Message "     4. Certificado no valido (proxy)" "INFO" "Yellow"
             }
             
             if ($lastError -match "Unable to resolve|Name.*did not resolve|Name.*unknown") {
-                $analysisResult = "ERROR DNS"
-                Log-Message "  -> Causa probable: No se puede resolver api.trycloudflare.com" "INFO" "Yellow"
-                Log-Message "  -> Posibles razones:" "INFO" "Yellow"
-                Log-Message "     1. Servidor DNS bloqueando Cloudflare" "INFO" "Yellow"
+                $analysisResult = "DNS ERROR"
+                Log-Message "  -> Likely cause: cannot resolve api.trycloudflare.com" "INFO" "Yellow"
+                Log-Message "  -> Possible reasons:" "INFO" "Yellow"
+                Log-Message "     1. DNS server is blocking Cloudflare" "INFO" "Yellow"
                 Log-Message "     2. ISP bloqueando resolucion DNS" "INFO" "Yellow"
-                Log-Message "     3. Configuracion de red incompleta" "INFO" "Yellow"
+                Log-Message "     3. Incomplete network configuration" "INFO" "Yellow"
             }
             
             if ($lastError -match "connection refused|Connection refused") {
-                $analysisResult = "CONEXION RECHAZADA"
-                Log-Message "  -> Causa probable: Servidor rechaza conexion" "INFO" "Yellow"
-                Log-Message "  -> Posibles razones:" "INFO" "Yellow"
-                Log-Message "     1. Firewall bloqueando puerto 443" "INFO" "Yellow"
-                Log-Message "     2. API de Cloudflare offline" "INFO" "Yellow"
+                $analysisResult = "CONNECTION REFUSED"
+                Log-Message "  -> Likely cause: server is refusing connection" "INFO" "Yellow"
+                Log-Message "  -> Possible reasons:" "INFO" "Yellow"
+                Log-Message "     1. Firewall blocking port 443" "INFO" "Yellow"
+                Log-Message "     2. Cloudflare API offline" "INFO" "Yellow"
             }
             
             if (-not $diagnosticData.LocalServerStatus) {
-                $analysisResult = "SERVIDOR LOCAL NO DISPONIBLE"
-                Log-Message "  -> El servidor en puerto 8080 no responde" "INFO" "Yellow"
-                Log-Message "  -> Cloudflared no puede conectarse al origen" "INFO" "Yellow"
+                $analysisResult = "LOCAL SERVER NOT AVAILABLE"
+                Log-Message "  -> Server on port 8080 is not responding" "INFO" "Yellow"
+                Log-Message "  -> Cloudflared cannot connect to origin" "INFO" "Yellow"
             }
             
             if (-not $analysisResult) {
-                $analysisResult = "ERROR DESCONOCIDO"
-                Log-Message "  -> No se puede determinar causa exacta" "INFO" "Yellow"
-                Log-Message "  -> Ultimo error: $lastError" "INFO" "Yellow"
+                $analysisResult = "UNKNOWN ERROR"
+                Log-Message "  -> Exact cause cannot be determined" "INFO" "Yellow"
+                Log-Message "  -> Last error: $lastError" "INFO" "Yellow"
             }
             
             $diagnosticData.DiagnosisConclusion = $analysisResult
@@ -486,8 +486,8 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
         Log-Message ""
 
-        # ===== FASE 7: RESUMEN FINAL =====
-        Log-Section "FASE 7 --- RESUMEN FINAL Y RECOMENDACIONES"
+        # ===== PHASE 7: FINAL SUMMARY =====
+        Log-Section "PHASE 7 --- FINAL SUMMARY AND RECOMMENDATIONS"
 
         $avgTime = if ($diagnosticData.Times.Count -gt 0) { 
             $avg = ($diagnosticData.Times | Measure-Object -Average).Average
@@ -498,100 +498,100 @@ function Invoke-CloudflaredQuickTunnelDiagnostic {
 
         Log-Message ""
         Log-Message "ESTADISTICAS:" "INFO" "Cyan"
-        Log-Message "  Total intentos: $($diagnosticData.Attempts)" "INFO" "White"
-        Log-Message "  Exitosos: $($diagnosticData.Successes)" "INFO" "White"
-        Log-Message "  Fallidos: $($diagnosticData.Failures)" "INFO" "White"
+        Log-Message "  Total attempts: $($diagnosticData.Attempts)" "INFO" "White"
+        Log-Message "  Successful: $($diagnosticData.Successes)" "INFO" "White"
+        Log-Message "  Failed: $($diagnosticData.Failures)" "INFO" "White"
         
         if ($diagnosticData.Successes -gt 0) {
             $successTime = "{0:F2}" -f ($diagnosticData.Times | Select-Object -First 1)
             Log-Message "  Tiempo creacion del tunnel: $successTime ms (~$([int]($successTime/1000))s)" "INFO" "Green"
         } else {
-            Log-Message "  Tiempo promedio de fallo: $avgTime ms" "INFO" "White"
+            Log-Message "  Average failure time: $avgTime ms" "INFO" "White"
         }
         Log-Message ""
 
         Log-Message "ESTADO DEL ENTORNO:" "INFO" "Cyan"
         $serverStatus = if ($diagnosticData.LocalServerStatus) { "[OK] ACTIVO" } else { "[FAIL] INACTIVO" }
-        Log-Message "  Servidor local 8080: $serverStatus" "INFO" "White"
+        Log-Message "  Local server 8080: $serverStatus" "INFO" "White"
         $tcpStatus = if ($diagnosticData.ConnectivityTests.TcpTriCloudflare.Status -eq "OK") { "[OK]" } else { "[FAIL]" }
-        Log-Message "  Conectividad TCP a Cloudflare: $tcpStatus" "INFO" "White"
+        Log-Message "  TCP connectivity a Cloudflare: $tcpStatus" "INFO" "White"
         $httpStatus = if ($diagnosticData.ConnectivityTests.HttpApiTriCloudflare.Status -eq "OK") { "[OK]" } else { "[FAIL]" }
         Log-Message "  HTTP a api.trycloudflare.com: $httpStatus" "INFO" "White"
         Log-Message ""
 
-        Log-Message "DIAGNOSTICO FINAL:" "INFO" "Cyan"
+        Log-Message "FINAL DIAGNOSIS:" "INFO" "Cyan"
         Log-Message "  $($diagnosticData.DiagnosisConclusion)" "INFO" "White"
         Log-Message ""
 
-        Log-Message "RECOMENDACIONES:" "INFO" "Cyan"
+        Log-Message "RECOMMENDATIONS:" "INFO" "Cyan"
         
         if ($quickTunnelSuccess) {
-            Log-Message "  [OK] Tu conexion esta funcionando correctamente!" "OK" "Green"
-            Log-Message "  Puedes usar Cloudflare Quick Tunnel sin problemas." "INFO" "Green"
+            Log-Message "  [OK] Your connection is working correctly!" "OK" "Green"
+            Log-Message "  You can use Cloudflare Quick Tunnel without issues." "INFO" "Green"
             Log-Message "" 
             if ($diagnosticData.QuickTunnelResult.URL) {
-                Log-Message "  URL del ultimo tunnel creado:" "INFO" "Cyan"
+                Log-Message "  URL of the last created tunnel:" "INFO" "Cyan"
                 Log-Message "    $($diagnosticData.QuickTunnelResult.URL)" "OK" "Green"
                 Log-Message ""
-                Log-Message "  Para usar el modo Cloudflare:" "INFO" "Cyan"
-                Log-Message "    1. Ejecuta opcion [7] en el menu principal" "INFO" "White"
-                Log-Message "    2. Espera 5-10 segundos a que se cree el tunnel" "INFO" "White"
+                Log-Message "  To use Cloudflare mode:" "INFO" "Cyan"
+                Log-Message "    1. Ejecuta option [7] en el menu principal" "INFO" "White"
+                Log-Message "    2. Wait 5-10 seconds for the tunnel to be created" "INFO" "White"
                 Log-Message "    3. Copia la URL https://xxx.trycloudflare.com" "INFO" "White"
                 Log-Message "    4. Abre: https://xxx.trycloudflare.com/chat.html" "INFO" "White"
             }
         } else {
             if ($diagnosticData.Errors -contains "HTTP_TIMEOUT" -or $diagnosticData.Errors -contains "PROCESS_TIMEOUT") {
-                Log-Message "  1. Desactiva temporalmente tu VPN/Proxy" "INFO" "Yellow"
-                Log-Message "  2. Agrega excepciones en tu firewall para cloudflared.exe" "INFO" "Yellow"
+                Log-Message "  1. Temporarily disable your VPN/Proxy" "INFO" "Yellow"
+                Log-Message "  2. Add firewall exceptions for cloudflared.exe" "INFO" "Yellow"
                 Log-Message "  3. Intenta desde una red diferente (WiFi, datos)" "INFO" "Yellow"
-                Log-Message "  4. Verifica si tu ISP bloquea Cloudflare" "INFO" "Yellow"
+                Log-Message "  4. Check whether your ISP blocks Cloudflare" "INFO" "Yellow"
             }
             
             if ($diagnosticData.Errors -contains "TLS_ERROR") {
-                Log-Message "  1. Tu firewall/antivirus esta inspeccionando HTTPS" "INFO" "Yellow"
-                Log-Message "  2. Desactiva inspeccion SSL temporalmente en tu proxy/firewall" "INFO" "Yellow"
+                Log-Message "  1. Your firewall/antivirus is inspecting HTTPS" "INFO" "Yellow"
+                Log-Message "  2. Temporarily disable SSL inspection in your proxy/firewall" "INFO" "Yellow"
                 Log-Message "  3. Si usas VPN, prueba desactivarla" "INFO" "Yellow"
             }
             
             if ($diagnosticData.Errors -contains "DNS_ERROR") {
-                Log-Message "  1. Cambia tu DNS a Public DNS (8.8.8.8, 1.1.1.1)" "INFO" "Yellow"
+                Log-Message "  1. Change your DNS to public DNS (8.8.8.8, 1.1.1.1)" "INFO" "Yellow"
                 Log-Message "  2. Usa: netsh interface ip set dns name='Ethernet' static 8.8.8.8" "INFO" "Yellow"
                 Log-Message "  3. O: netsh interface ip set dns name='WiFi' static 1.1.1.1" "INFO" "Yellow"
             }
             
             if ($diagnosticData.Errors -contains "LOCAL_SERVER_DOWN") {
-                Log-Message "  1. Asegurate de ejecutar el servidor Node.js primero" "INFO" "Yellow"
+                Log-Message "  1. Make sure to start Node.js server first" "INFO" "Yellow"
                 Log-Message "  2. Ejecuta 'npm run dev:server' en otra consola" "INFO" "Yellow"
-                Log-Message "  3. Verifica que no hay errores en startup del servidor" "INFO" "Yellow"
+                Log-Message "  3. Verify there are no server startup errors" "INFO" "Yellow"
             }
             
             if (-not ($diagnosticData.Errors -contains "DNS_ERROR" -or $diagnosticData.Errors -contains "LOCAL_SERVER_DOWN" -or $diagnosticData.Errors -contains "TLS_ERROR")) {
-                Log-Message "  1. Desactiva temporalmente tu VPN/Proxy" "INFO" "Yellow"
-                Log-Message "  2. Agrega excepciones en tu firewall para cloudflared.exe" "INFO" "Yellow"
+                Log-Message "  1. Temporarily disable your VPN/Proxy" "INFO" "Yellow"
+                Log-Message "  2. Add firewall exceptions for cloudflared.exe" "INFO" "Yellow"
                 Log-Message "  3. Intenta desde una red diferente (WiFi, datos)" "INFO" "Yellow"
-                Log-Message "  4. Verifica si tu ISP bloquea Cloudflare" "INFO" "Yellow"
+                Log-Message "  4. Check whether your ISP blocks Cloudflare" "INFO" "Yellow"
             }
             
             Log-Message "" "INFO" "White"
             Log-Message "  ACCION INMEDIATA:" "INFO" "Red"
-            Log-Message "  -> Revisa el archivo de log completo para mas detalles" "INFO" "Red"
+            Log-Message "  -> Review the full log file for more details" "INFO" "Red"
             $logResolved = Resolve-Path $LogPath -ErrorAction SilentlyContinue
-            Log-Message "  -> Ruta: $logResolved" "INFO" "Red"
+            Log-Message "  -> Path: $logResolved" "INFO" "Red"
         }
 
         Log-Message ""
         Log-Message "================================================================================" "DEBUG" "Cyan"
-        Log-Message "FIN DE DIAGNOSTICO - Archivo log guardado en: $LogPath" "DEBUG" "Cyan"
+        Log-Message "END OF DIAGNOSTICS - Log file saved at: $LogPath" "DEBUG" "Cyan"
         Log-Message "================================================================================" "DEBUG" "Cyan"
         Log-Message ""
 
     } catch {
-        Log-Message "[EXCEPCION GENERAL] $($_.Exception.Message)" "ERROR" "Red"
+        Log-Message "[GENERAL EXCEPTION] $($_.Exception.Message)" "ERROR" "Red"
         Log-Message "$($_.ScriptStackTrace)" "ERROR" "Red"
     }
 }
 
-# ===== FIN FUNCION DIAGNOSTICO =====
+# ===== END DIAGNOSTICS FUNCTION =====
 
 function Show-Menu {
     Write-Host ""
@@ -599,42 +599,42 @@ function Show-Menu {
     Write-Host "<<< WindChat - Control Menu >>>" -ForegroundColor Green
     Write-Host "================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "[1] Modo pruebas local (servidor + cliente)" -ForegroundColor Yellow
-    Write-Host "[2] Matar todos los procesos Node" -ForegroundColor Red
-    Write-Host "[3] Ver procesos en ejecucion" -ForegroundColor Cyan
-    Write-Host "[4] Limpiar puertos y reiniciar" -ForegroundColor Magenta
-    Write-Host "[5] Solo servidor (localhost:8080)" -ForegroundColor Green
-    Write-Host "[6] Solo cliente (localhost:3000)" -ForegroundColor Green
-    Write-Host "[7] Modo Cloudflare (server + client + tunnel)" -ForegroundColor Blue
-    Write-Host "[8] Solo Cloudflare (abrir/cerrar tunnel)" -ForegroundColor Blue
-    Write-Host "[9] Diagnostico Cloudflare Quick Tunnel (DEBUG)" -ForegroundColor Magenta
-    Write-Host "[0] Salir" -ForegroundColor Gray
+    Write-Host "[1] Local test mode (server + client)" -ForegroundColor Yellow
+    Write-Host "[2] Kill all Node processes" -ForegroundColor Red
+    Write-Host "[3] Show running processes" -ForegroundColor Cyan
+    Write-Host "[4] Clean ports and restart" -ForegroundColor Magenta
+    Write-Host "[5] Server only (localhost:8080)" -ForegroundColor Green
+    Write-Host "[6] Client only (localhost:3000)" -ForegroundColor Green
+    Write-Host "[7] Cloudflare mode (server + client + tunnel)" -ForegroundColor Blue
+    Write-Host "[8] Cloudflare only (open/close tunnel)" -ForegroundColor Blue
+    Write-Host "[9] Cloudflare Quick Tunnel diagnostics (DEBUG)" -ForegroundColor Magenta
+    Write-Host "[0] Exit" -ForegroundColor Gray
     Write-Host ""
 }
 
 function Kill-NodeProcesses {
-    Write-Host "[*] Buscando procesos Node.js..." -ForegroundColor Yellow
+    Write-Host "[*] Searching for Node.js processes..." -ForegroundColor Yellow
     
     $nodeProcs = Get-Process node -ErrorAction SilentlyContinue
     
     if ($nodeProcs) {
-        Write-Host "[+] Se encontraron $(($nodeProcs | Measure-Object).Count) procesos Node.js" -ForegroundColor Cyan
+        Write-Host "[+] Found $(($nodeProcs | Measure-Object).Count) Node.js processes" -ForegroundColor Cyan
         
         foreach ($proc in $nodeProcs) {
-            Write-Host "  - Matando PID $($proc.Id): $($proc.ProcessName)" -ForegroundColor Red
+            Write-Host "  - Killing PID $($proc.Id): $($proc.ProcessName)" -ForegroundColor Red
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
         }
         
-        Write-Host "[OK] Procesos eliminados" -ForegroundColor Green
+        Write-Host "[OK] Processes terminated" -ForegroundColor Green
     } else {
-        Write-Host "[*] No hay procesos Node.js en ejecucion" -ForegroundColor Cyan
+        Write-Host "[*] No Node.js processes are running" -ForegroundColor Cyan
     }
     
     Write-Host ""
 }
 
 function Show-RunningProcesses {
-    Write-Host "[*] Procesos Node.js en ejecucion:" -ForegroundColor Yellow
+    Write-Host "[*] Running Node.js processes:" -ForegroundColor Yellow
     Write-Host ""
     
     $nodeProcs = Get-Process node -ErrorAction SilentlyContinue
@@ -646,7 +646,7 @@ function Show-RunningProcesses {
     }
     
     Write-Host ""
-    Write-Host "[*] Puertos en uso:" -ForegroundColor Yellow
+    Write-Host "[*] Ports in use:" -ForegroundColor Yellow
     Write-Host ""
     
     $ports = netstat -ano -p tcp 2>$null | Select-String "3000|8080|3001" -ErrorAction SilentlyContinue
@@ -656,14 +656,14 @@ function Show-RunningProcesses {
             Write-Host "  $port" -ForegroundColor Cyan
         }
     } else {
-        Write-Host "  - Puertos 3000/8080/3001 libres" -ForegroundColor Green
+        Write-Host "  - Ports 3000/8080/3001 are free" -ForegroundColor Green
     }
     
     Write-Host ""
 }
 
 function Clean-PortsAndStart {
-    Write-Host "[*] Limpiando puertos..." -ForegroundColor Yellow
+    Write-Host "[*] Cleaning ports..." -ForegroundColor Yellow
     
     Kill-NodeProcesses
     
@@ -673,79 +673,79 @@ function Clean-PortsAndStart {
 }
 
 function Start-Dev {
-    Write-Host "[*] Iniciando WindChat..." -ForegroundColor Green
+    Write-Host "[*] Starting WindChat..." -ForegroundColor Green
     Write-Host ""
-    Write-Host "  * Abre: http://localhost:3000" -ForegroundColor Cyan
-    Write-Host "  * Servidor: http://localhost:8080" -ForegroundColor Cyan
+    Write-Host "  * Open: http://localhost:3000" -ForegroundColor Cyan
+    Write-Host "  * Server: http://localhost:8080" -ForegroundColor Cyan
     Write-Host ""
     
-    # Lanzar servidor en background
-    Write-Host "[*] Iniciando servidor..." -ForegroundColor Green
+    # Start server in background
+    Write-Host "[*] Starting server..." -ForegroundColor Green
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:server"
     
     Start-Sleep -Seconds 3
     
-    # Lanzar cliente
-    Write-Host "[*] Iniciando cliente..." -ForegroundColor Green
+    # Start client
+    Write-Host "[*] Starting client..." -ForegroundColor Green
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:client"
     
-    Write-Host "[OK] Procesos iniciados" -ForegroundColor Green
+    Write-Host "[OK] Processes started" -ForegroundColor Green
     Write-Host ""
 }
 
 function Start-CloudflareMode {
-    Write-Host "[*] Iniciando WindChat en modo Cloudflare..." -ForegroundColor Blue
+    Write-Host "[*] Starting WindChat in Cloudflare mode..." -ForegroundColor Blue
     Write-Host ""
 
     $cloudflaredCmd = Get-Command cloudflared -ErrorAction SilentlyContinue
     if (-not $cloudflaredCmd) {
-        Write-Host "[ERROR] cloudflared no esta instalado o no esta en PATH" -ForegroundColor Red
-        Write-Host "[!] Instala cloudflared y vuelve a intentar" -ForegroundColor Yellow
+        Write-Host "[ERROR] cloudflared is not installed or not in PATH" -ForegroundColor Red
+        Write-Host "[!] Install cloudflared and try again" -ForegroundColor Yellow
         Write-Host ""
         return
     }
 
-    Write-Host "  * Arquitectura: Servidor HIBRIDO (HTTP + WebSocket)" -ForegroundColor Cyan
-    Write-Host "  * Puerto local: 8080" -ForegroundColor Cyan
-    Write-Host "  * Se abriran 2 consolas: servidor + tunnel" -ForegroundColor Cyan
+    Write-Host "  * Architecture: HYBRID server (HTTP + WebSocket)" -ForegroundColor Cyan
+    Write-Host "  * Local port: 8080" -ForegroundColor Cyan
+    Write-Host "  * Two consoles will open: server + tunnel" -ForegroundColor Cyan
     Write-Host ""
 
-    Write-Host "[*] Compilando cliente..." -ForegroundColor Yellow
+    Write-Host "[*] Building client..." -ForegroundColor Yellow
     $buildOutput = npm run build -w client 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Fallo al compilar cliente" -ForegroundColor Red
+        Write-Host "[ERROR] Client build failed" -ForegroundColor Red
         Write-Host $buildOutput
         return
     }
-    Write-Host "[OK] Cliente compilado en client/dist/" -ForegroundColor Green
+    Write-Host "[OK] Client built in client/dist/" -ForegroundColor Green
     Write-Host ""
 
-    Write-Host "[*] Iniciando servidor hibrido (HTTP + WebSocket)..." -ForegroundColor Green
+    Write-Host "[*] Starting hybrid server (HTTP + WebSocket)..." -ForegroundColor Green
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:server"
 
     Start-Sleep -Seconds 5
 
-    Write-Host "[*] Iniciando tunnel Cloudflare (puerto 8080)..." -ForegroundColor Blue
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '================================' -ForegroundColor Cyan; Write-Host '>>> WINDCHAT TUNNEL PUBLICO <<<' -ForegroundColor Yellow; Write-Host '================================' -ForegroundColor Cyan; Write-Host ''; Write-Host 'Copia la URL https://... y abrela' -ForegroundColor Yellow; Write-Host 'Esa es tu URL publica para compartir' -ForegroundColor Green; Write-Host ''; cloudflared tunnel --protocol http2 --url http://127.0.0.1:8080; if (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host '[ERROR] El tunnel se cerro con error. Revisa red/firewall/VPN.' -ForegroundColor Red; Read-Host 'Pulsa Enter para cerrar esta ventana' }"
+    Write-Host "[*] Starting Cloudflare tunnel (port 8080)..." -ForegroundColor Blue
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '================================' -ForegroundColor Cyan; Write-Host '>>> WINDCHAT PUBLIC TUNNEL <<<' -ForegroundColor Yellow; Write-Host '================================' -ForegroundColor Cyan; Write-Host ''; Write-Host 'Copy the https://... URL and open it' -ForegroundColor Yellow; Write-Host 'That is your public URL to share' -ForegroundColor Green; Write-Host ''; cloudflared tunnel --protocol http2 --url http://127.0.0.1:8080; if (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host '[ERROR] Tunnel closed with error. Check network/firewall/VPN.' -ForegroundColor Red; Read-Host 'Press Enter to close this window' }"
 
     Write-Host ""
-    Write-Host "[OK] Modo Cloudflare completo iniciado" -ForegroundColor Green
+    Write-Host "[OK] Full Cloudflare mode started" -ForegroundColor Green
     Write-Host ""
-    Write-Host "=== INSTRUCCIONES ===" -ForegroundColor Cyan
-    Write-Host "1. Busca ventana 'WINDCHAT TUNNEL PUBLICO'" -ForegroundColor Yellow
-    Write-Host "2. Copia la URL: https://xxx.trycloudflare.com" -ForegroundColor Yellow
-    Write-Host "3. Abre: https://xxx.trycloudflare.com/chat.html" -ForegroundColor Yellow
-    Write-Host "4. Comparte esa URL con otra persona" -ForegroundColor Yellow
-    Write-Host "5. Ambos usan el MISMO roomID" -ForegroundColor Yellow
+    Write-Host "=== INSTRUCTIONS ===" -ForegroundColor Cyan
+    Write-Host "1. Find the 'WINDCHAT PUBLIC TUNNEL' window" -ForegroundColor Yellow
+    Write-Host "2. Copy the URL: https://xxx.trycloudflare.com" -ForegroundColor Yellow
+    Write-Host "3. Open: https://xxx.trycloudflare.com/chat.html" -ForegroundColor Yellow
+    Write-Host "4. Share that URL with another person" -ForegroundColor Yellow
+    Write-Host "5. Both users must use the SAME room ID" -ForegroundColor Yellow
     Write-Host "" 
-    Write-Host "[!] WebSocket se conecta automaticamente a la misma URL" -ForegroundColor Green
+    Write-Host "[!] WebSocket connects automatically to the same URL" -ForegroundColor Green
     Write-Host ""
 
-    $publicUrl = Read-Host "[?] Pega la URL publica (https://...trycloudflare.com) para health check automatico (Enter para omitir)"
+    $publicUrl = Read-Host "[?] Paste public URL (https://...trycloudflare.com) for automatic health check (press Enter to skip)"
     if ($publicUrl) {
         Test-PublicTunnelHealth -PublicUrl $publicUrl
     } else {
-        Write-Host "[*] Health check omitido por usuario" -ForegroundColor Gray
+        Write-Host "[*] Health check skipped by user" -ForegroundColor Gray
     }
     Write-Host ""
 }
@@ -760,19 +760,19 @@ function Test-PublicTunnelHealth {
     
     # Detectar y corregir URL duplicada (https://.../ https://...)
     if ($trimmedUrl -match "(https?://[^/]+)(?:/\1)") {
-        Write-Host "[!] URL duplicada detectada, corrigiendo..." -ForegroundColor Yellow
+        Write-Host "[!] Duplicate URL detected, fixing..." -ForegroundColor Yellow
         $trimmedUrl = $matches[1]
     }
     
-    # Si contiene dos URLs, extraer solo la última (o la primera válida)
+    # If it contains two URLs, extract only the first valid one
     $urlMatches = [regex]::Matches($trimmedUrl, "https?://[^/]+")
     if ($urlMatches.Count -gt 1) {
-        Write-Host "[!] Múltiples URLs detectadas, usando la primera..." -ForegroundColor Yellow
+        Write-Host "[!] Multiple URLs detected, using the first one..." -ForegroundColor Yellow
         $trimmedUrl = $urlMatches[0].Value
     }
     
     if ($trimmedUrl -notmatch "^https?://") {
-        Write-Host "[ERROR] URL invalida. Debe empezar por http:// o https://" -ForegroundColor Red
+        Write-Host "[ERROR] Invalid URL. It must start with http:// or https://" -ForegroundColor Red
         return
     }
 
@@ -780,7 +780,7 @@ function Test-PublicTunnelHealth {
     $wsUrl = $trimmedUrl -replace "^https", "wss" -replace "^http", "ws"
 
     Write-Host ""
-    Write-Host "[*] Ejecutando health check del tunnel publico..." -ForegroundColor Cyan
+    Write-Host "[*] Running public tunnel health check..." -ForegroundColor Cyan
     Write-Host "  HTTP: $chatUrl" -ForegroundColor Gray
     Write-Host "  WSS : $wsUrl" -ForegroundColor Gray
 
@@ -794,10 +794,10 @@ function Test-PublicTunnelHealth {
             $httpResponse = Invoke-WebRequest -UseBasicParsing -Uri $chatUrl -TimeoutSec 8
             if ($httpResponse.StatusCode -eq 200) {
                 $httpOk = $true
-                Write-Host "  [OK] HTTP /chat.html responde 200" -ForegroundColor Green
+                Write-Host "  [OK] HTTP /chat.html returned 200" -ForegroundColor Green
             }
         } catch {
-            Write-Host "  [..] HTTP aun no disponible" -ForegroundColor DarkYellow
+            Write-Host "  [..] HTTP not available yet" -ForegroundColor DarkYellow
         }
 
         try {
@@ -807,12 +807,12 @@ function Test-PublicTunnelHealth {
             $client.ConnectAsync([Uri]$wsUrl, $cts.Token).GetAwaiter().GetResult() | Out-Null
             if ($client.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
                 $wssOk = $true
-                Write-Host "  [OK] WebSocket WSS abre correctamente" -ForegroundColor Green
+                Write-Host "  [OK] WebSocket WSS opened successfully" -ForegroundColor Green
             }
             try { $client.Abort() } catch {}
             try { $client.Dispose() } catch {}
         } catch {
-            Write-Host "  [..] WSS aun no disponible" -ForegroundColor DarkYellow
+            Write-Host "  [..] WSS not available yet" -ForegroundColor DarkYellow
         }
 
         if ($httpOk -and $wssOk) {
@@ -824,17 +824,17 @@ function Test-PublicTunnelHealth {
 
     Write-Host ""
     if ($httpOk -and $wssOk) {
-        Write-Host "[OK] HEALTH CHECK SUPERADO" -ForegroundColor Green
-        Write-Host "[OK] Puedes compartir la URL con confianza" -ForegroundColor Green
+        Write-Host "[OK] HEALTH CHECK PASSED" -ForegroundColor Green
+        Write-Host "[OK] You can share the URL with confidence" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] HEALTH CHECK PARCIAL/FAIL" -ForegroundColor Yellow
+        Write-Host "[WARN] HEALTH CHECK PARTIAL/FAILED" -ForegroundColor Yellow
         if (-not $httpOk) {
-            Write-Host "  - HTTP /chat.html no estable" -ForegroundColor Yellow
+            Write-Host "  - HTTP /chat.html unstable" -ForegroundColor Yellow
         }
         if (-not $wssOk) {
-            Write-Host "  - WSS no conecto" -ForegroundColor Yellow
+            Write-Host "  - WSS did not connect" -ForegroundColor Yellow
         }
-        Write-Host "[TIP] Espera 10-20s y vuelve a ejecutar opcion [8]" -ForegroundColor Cyan
+        Write-Host "[TIP] Wait 10-20s and run option [8] again" -ForegroundColor Cyan
     }
 }
 
@@ -845,14 +845,14 @@ function Get-CloudflareProcesses {
 function Stop-CloudflareOnly {
     $cloudflareProcs = Get-CloudflareProcesses
     if ($cloudflareProcs) {
-        Write-Host "[*] Cerrando procesos cloudflared..." -ForegroundColor Yellow
+        Write-Host "[*] Stopping cloudflared processes..." -ForegroundColor Yellow
         foreach ($proc in $cloudflareProcs) {
-            Write-Host "  - Matando PID $($proc.Id): $($proc.ProcessName)" -ForegroundColor Red
+            Write-Host "  - Killing PID $($proc.Id): $($proc.ProcessName)" -ForegroundColor Red
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
         }
-        Write-Host "[OK] Tunnel Cloudflare detenido" -ForegroundColor Green
+        Write-Host "[OK] Cloudflare tunnel stopped" -ForegroundColor Green
     } else {
-        Write-Host "[*] No hay tunnel Cloudflare activo" -ForegroundColor Cyan
+        Write-Host "[*] No active Cloudflare tunnel" -ForegroundColor Cyan
     }
     Write-Host ""
 }
@@ -860,7 +860,7 @@ function Stop-CloudflareOnly {
 function Toggle-CloudflareOnly {
     $cloudflaredCmd = Get-Command cloudflared -ErrorAction SilentlyContinue
     if (-not $cloudflaredCmd) {
-        Write-Host "[ERROR] cloudflared no esta instalado o no esta en PATH" -ForegroundColor Red
+        Write-Host "[ERROR] cloudflared is not installed or not in PATH" -ForegroundColor Red
         Write-Host ""
         return
     }
@@ -871,26 +871,26 @@ function Toggle-CloudflareOnly {
         return
     }
 
-    Write-Host "[*] Iniciando solo tunnel Cloudflare..." -ForegroundColor Blue
-    Write-Host "  * URL local origen: http://127.0.0.1:8080" -ForegroundColor Cyan
-    Write-Host "  * Asegurate de tener servidor hibrido activo con opcion [5] o [7]" -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cloudflared tunnel --protocol http2 --url http://127.0.0.1:8080; if (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host '[ERROR] El tunnel se cerro con error. Revisa red/firewall/VPN.' -ForegroundColor Red; Read-Host 'Pulsa Enter para cerrar esta ventana' }"
-    Write-Host "[OK] Tunnel Cloudflare iniciado (revisa la consola nueva para URL)" -ForegroundColor Green
+    Write-Host "[*] Starting Cloudflare tunnel only..." -ForegroundColor Blue
+    Write-Host "  * Local origin URL: http://127.0.0.1:8080" -ForegroundColor Cyan
+    Write-Host "  * Make sure hybrid server is active with option [5] or [7]" -ForegroundColor Yellow
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cloudflared tunnel --protocol http2 --url http://127.0.0.1:8080; if (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host '[ERROR] Tunnel closed with error. Check network/firewall/VPN.' -ForegroundColor Red; Read-Host 'Press Enter to close this window' }"
+    Write-Host "[OK] Cloudflare tunnel started (check new console for URL)" -ForegroundColor Green
     Write-Host ""
 }
 
 function Stop-ManagedProcessesOnExit {
-    Write-Host "[*] Cerrando procesos gestionados antes de salir..." -ForegroundColor Yellow
+    Write-Host "[*] Stopping managed processes before exit..." -ForegroundColor Yellow
 
-    # 1) Siempre cerrar cloudflared para evitar tunnels huerfanos
+    # 1) Always stop cloudflared to avoid orphan tunnels
     Stop-CloudflareOnly
 
-    # 2) Preguntar si tambien apagar Node (server/client)
-    $stopNode = Read-Host "[?] Tambien detener procesos Node (server/client)? [S/n]"
-    if ([string]::IsNullOrWhiteSpace($stopNode) -or $stopNode.Trim().ToLower() -eq "s") {
+    # 2) Ask whether to stop Node processes as well (server/client)
+    $stopNode = Read-Host "[?] Also stop Node processes (server/client)? [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($stopNode) -or $stopNode.Trim().ToLower() -eq "y") {
         Kill-NodeProcesses
     } else {
-        Write-Host "[*] Se mantienen procesos Node activos" -ForegroundColor Cyan
+        Write-Host "[*] Keeping Node processes running" -ForegroundColor Cyan
         Write-Host ""
     }
 }
@@ -903,25 +903,25 @@ function Get-ActiveClientPort {
                 return $port
             }
         } catch {
-            # Probar siguiente puerto
+            # Try next port
         }
     }
 
-    Write-Host "[!] No se detecto cliente en 3000/3001. Usando 3000 por defecto." -ForegroundColor Yellow
+    Write-Host "[!] No client detected on 3000/3001. Using 3000 by default." -ForegroundColor Yellow
     return 3000
 }
 
 function Start-ServerOnly {
-    Write-Host "[*] Iniciando solo servidor..." -ForegroundColor Green
+    Write-Host "[*] Starting server only..." -ForegroundColor Green
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:server"
-    Write-Host "[OK] Servidor en localhost:8080" -ForegroundColor Green
+    Write-Host "[OK] Server on localhost:8080" -ForegroundColor Green
     Write-Host ""
 }
 
 function Start-ClientOnly {
-    Write-Host "[*] Iniciando solo cliente..." -ForegroundColor Green
+    Write-Host "[*] Starting client only..." -ForegroundColor Green
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:client"
-    Write-Host "[OK] Cliente en localhost:3000" -ForegroundColor Green
+    Write-Host "[OK] Client on localhost:3000" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -930,11 +930,11 @@ function Start-ClientOnly {
 while ($true) {
     Show-Menu
     
-    $choice = Read-Host "[?] Elige opcion"
+    $choice = Read-Host "[?] Choose an option"
     
     switch ($choice) {
         "1" {
-            Write-Host "[*] Matando procesos previos..." -ForegroundColor Yellow
+            Write-Host "[*] Killing previous processes..." -ForegroundColor Yellow
             Kill-NodeProcesses
             Start-Sleep -Seconds 2
             Start-Dev
@@ -955,7 +955,7 @@ while ($true) {
             Start-ClientOnly
         }
         "7" {
-            Write-Host "[*] Matando procesos previos..." -ForegroundColor Yellow
+            Write-Host "[*] Killing previous processes..." -ForegroundColor Yellow
             Kill-NodeProcesses
             Start-Sleep -Seconds 2
             Start-CloudflareMode
@@ -966,15 +966,15 @@ while ($true) {
         "9" {
             Write-Host ""
             Invoke-CloudflaredQuickTunnelDiagnostic
-            Read-Host "[?] Pulsa Enter para continuar"
+            Read-Host "[?] Press Enter to continue"
         }
         "0" {
             Stop-ManagedProcessesOnExit
-            Write-Host "[*] Saliendo..." -ForegroundColor Yellow
+            Write-Host "[*] Exiting..." -ForegroundColor Yellow
             exit 0
         }
         default {
-            Write-Host "[ERROR] Opcion no valida" -ForegroundColor Red
+            Write-Host "[ERROR] Invalid option" -ForegroundColor Red
         }
     }
 }

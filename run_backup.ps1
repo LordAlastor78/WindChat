@@ -1,1 +1,1 @@
-# Este es un archivo de respaldo - no se usa
+# This is a backup file - not used

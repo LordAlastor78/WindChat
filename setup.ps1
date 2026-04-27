@@ -1,42 +1,42 @@
 # WindChat - Setup Script
-# Uso: .\setup.ps1
+# Usage: .\setup.ps1
 
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host "<<< WindChat - Setup >>>" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "[*] Verificando Node.js..." -ForegroundColor Yellow
+Write-Host "[*] Checking Node.js..." -ForegroundColor Yellow
 $node = node --version
 $npm = npm --version
 Write-Host "[OK] Node: $node, npm: $npm" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "[*] Instalando dependencias root..." -ForegroundColor Yellow
+Write-Host "[*] Installing root dependencies..." -ForegroundColor Yellow
 npm install
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Error en instalación root" -ForegroundColor Red
+    Write-Host "[ERROR] Root install failed" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[*] Instalando dependencias servidor..." -ForegroundColor Yellow
+Write-Host "[*] Installing server dependencies..." -ForegroundColor Yellow
 npm install --workspace=server
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Error en instalación server" -ForegroundColor Red
+    Write-Host "[ERROR] Server install failed" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[*] Instalando dependencias cliente..." -ForegroundColor Yellow
+Write-Host "[*] Installing client dependencies..." -ForegroundColor Yellow
 npm install --workspace=client
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Error en instalación client" -ForegroundColor Red
+    Write-Host "[ERROR] Client install failed" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
-Write-Host "[OK] Setup completado!" -ForegroundColor Green
+Write-Host "[OK] Setup completed!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Proximos pasos:" -ForegroundColor Cyan
-Write-Host "  1. Ejecuta: .\dev.ps1" -ForegroundColor White
-Write-Host "  2. Abre: https://localhost:3000" -ForegroundColor White
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Run: .\dev.ps1" -ForegroundColor White
+Write-Host "  2. Open: https://localhost:3000" -ForegroundColor White
 Write-Host ""

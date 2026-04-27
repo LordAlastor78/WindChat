@@ -1,29 +1,29 @@
 # WindChat - Build Script
-# Genera archivos para producción
-# Uso: .\build.ps1
+# Generate production artifacts
+# Usage: .\build.ps1
 
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host "<<< WindChat - Build Production >>>" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "[*] Building servidor..." -ForegroundColor Yellow
+Write-Host "[*] Building server..." -ForegroundColor Yellow
 npm run build:server
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Error en build servidor" -ForegroundColor Red
+    Write-Host "[ERROR] Server build failed" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[*] Building cliente..." -ForegroundColor Yellow
+Write-Host "[*] Building client..." -ForegroundColor Yellow
 npm run build:client
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Error en build cliente" -ForegroundColor Red
+    Write-Host "[ERROR] Client build failed" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
-Write-Host "[OK] Build completado!" -ForegroundColor Green
+Write-Host "[OK] Build completed!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Archivos generados:" -ForegroundColor Cyan
-Write-Host "  * server/dist/index.js -> Deploy en servidor" -ForegroundColor White
-Write-Host "  * client/dist/ -> Deploy en CDN/webserver" -ForegroundColor White
+Write-Host "Generated files:" -ForegroundColor Cyan
+Write-Host "  * server/dist/index.js -> Deploy on server" -ForegroundColor White
+Write-Host "  * client/dist/ -> Deploy on CDN/webserver" -ForegroundColor White

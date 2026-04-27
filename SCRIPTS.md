@@ -1,208 +1,129 @@
-# 📋 WindChat Scripts - Guía completa
+# WindChat Scripts Reference
 
-Todos los scripts disponibles para desarrollar, testear y deployar WindChat.
+Complete guide for setup, development, build, and local health checks.
 
----
+## PowerShell Scripts (Windows)
 
-## 🚀 Scripts PowerShell (Windows)
-
-### 1. `.\setup.ps1` — Instalación inicial
-**Cuándo usarlo:** Primera vez que clonas el proyecto
+### 1. .\setup.ps1 - First-time installation
+Use when cloning the project for the first time.
 
 ```powershell
 .\setup.ps1
 ```
 
-Qué hace:
-- ✅ Verifica Node.js + npm
-- ✅ Instala dependencias root
-- ✅ Instala dependencias servidor
-- ✅ Instala dependencias cliente
+What it does:
+- Verifies Node.js and npm
+- Installs root dependencies
+- Installs server dependencies
+- Installs client dependencies
 
-**Salida esperada:**
-```
-✅ Setup completado!
-Próximos pasos:
-  1. Ejecuta: .\dev.ps1
-  2. Abre: https://localhost:3000
-```
-
----
-
-### 2. `.\dev.ps1` — Desarrollo completo
-**Cuándo usarlo:** Todos los días para desarrollar
+### 2. .\dev.ps1 - Daily development launcher
+Use for regular local development.
 
 ```powershell
 .\dev.ps1
 ```
 
-Qué hace:
-- ✅ Verifica si están instaladas dependencias (sino instala)
-- ✅ Lanza servidor en Terminal 1 (puerto 8080)
-- ✅ Lanza cliente en Terminal 2 (puerto 3000)
-- ✅ Muestra instrucciones
+What it does:
+- Installs dependencies if missing
+- Opens one terminal for server (port 8080)
+- Opens one terminal for client (port 3000)
+- Prints quick usage instructions
 
-**Salida esperada:**
-```
-🔌 Iniciando servidor...
-🖥️  Iniciando cliente...
-✅ WindChat en desarrollo. Abre las ventanas que se abrieron...
-```
-
-Automáticamente se abren 2 ventanas PowerShell.
-
----
-
-### 3. `.\build.ps1` — Build para producción
-**Cuándo usarlo:** Antes de deployar
+### 3. .\build.ps1 - Production build
+Use before deployment.
 
 ```powershell
 .\build.ps1
 ```
 
-Qué hace:
-- ✅ Compila TypeScript servidor → JavaScript
-- ✅ Bundlea cliente con Vite
-- ✅ Genera `server/dist/` + `client/dist/`
+What it does:
+- Builds TypeScript server
+- Builds Vite client
+- Generates server/dist and client/dist
 
-**Salida esperada:**
-```
-✅ ¡Build completado!
-Archivos generados:
-  • server/dist/index.js → Deploy en servidor
-  • client/dist/ → Deploy en CDN/webserver
-```
-
----
-
-## 📦 Scripts npm (cualquier OS)
-
-### Terminal 1: Servidor
-```bash
-npm run dev:server          # Dev con hot reload
-npm run build:server        # Build TypeScript
-npm run start               # Alias para dev:server
-```
-
-### Terminal 2: Cliente
-```bash
-npm run dev:client          # Dev con Vite
-npm run build:client        # Build cliente
-npm run client              # Alias para dev:client
-```
-
-### Ambos
-```bash
-npm run dev                 # Dev ambos
-npm run build               # Build ambos
-npm run setup               # Setup limpio (instalar deps)
-npm run test                # Build + start servidor
-```
-
----
-
-## 🔄 Flujo típico de desarrollo
+### 4. .\healthcheck.ps1 - Full local verification
+Use when you want one command to validate connectivity and tests.
 
 ```powershell
-# Día 1: Setup inicial
+.\healthcheck.ps1
+```
+
+What it checks:
+- Server build
+- Temporary server startup
+- TCP connectivity on 127.0.0.1:8080
+- HTTP 200 on /
+- Real WebSocket handshake with 2 simulated clients
+- Client build
+- Client tests (vitest run)
+- Automatic server teardown at the end
+
+npm shortcut:
+
+```bash
+npm run healthcheck
+```
+
+## npm Scripts (Cross-platform)
+
+### Server
+```bash
+npm run dev:server
+npm run build:server
+npm run start
+```
+
+### Client
+```bash
+npm run dev:client
+npm run build:client
+npm run client
+```
+
+### Monorepo
+```bash
+npm run dev
+npm run build
+npm run setup
+npm run test
+npm run healthcheck
+```
+
+## Typical Workflow
+
+```powershell
+# First time only
 .\setup.ps1
 
-# Día 2+: Desarrollo diario
+# Daily development
 .\dev.ps1
 
-# Test en navegador
-# Abre: https://localhost:3000
+# Validate local health
+npm run healthcheck
 
-# Cuando termines: Ctrl+C en ambas terminales
-```
-
----
-
-## 📦 Flujo compilación → Deploy
-
-```powershell
-# 1. Compilar
+# Build for deployment
 .\build.ps1
-
-# 2. Servidor
-cd server
-node dist/index.js
-
-# 3. En otra terminal: Exponer con CF Tunnel
-cloudflared tunnel --url http://localhost:8080
-
-# 4. Verás URL pública
-# https://abc123-tunnel.trycloudflare.com
-
-# 5. Deploy cliente en esa URL (nginx, etc.)
 ```
 
----
+## Quick Troubleshooting
 
-## 🆘 Troubleshooting
-
-### "Cannot find script setup.ps1"
-Tu PowerShell quizá tenga policy restrictiva.
-
+### Script execution policy issue
 ```powershell
-# Permite ejecución de scripts locales
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-### "Port 8080 already in use"
+### Port 8080 already in use
 ```powershell
-# Mata proceso en puerto 8080
 Get-Process -Id (Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue).OwningProcess | Stop-Process -Force -ErrorAction SilentlyContinue
 ```
 
-### "npm: The term 'npm' is not recognized"
-Node.js no está instalado. Descarga desde <https://nodejs.org> (v20+)
+### npm not recognized
+Install Node.js from https://nodejs.org (v20+ recommended).
 
-### "Cannot find module 'ws'"
+### Missing dependencies
 ```bash
 npm install
 npm install --workspace=server
 npm install --workspace=client
 ```
-
----
-
-## 📊 Matriz de uso
-
-| Tarea | Script | Terminal | Tiempo |
-|-------|--------|----------|--------|
-| Primer setup | `.\setup.ps1` | 1 | 2 min |
-| Dev diario | `.\dev.ps1` | 1 | <1 seg |
-| Build prod | `.\build.ps1` | 1 | 10 seg |
-| Solo servidor | `npm run dev:server` | 1 | <1 seg |
-| Solo cliente | `npm run dev:client` | 1 | <1 seg |
-| Deploy cloud | `.\build.ps1` + cf tunnel | 2 | 1 min |
-
----
-
-## 💡 Pro tips
-
-- **Hot reload:** Los cambios se ven automáticament (no necesitas restart)
-- **Console logs:** Abre F12 en navegador para ver crypto logs
-- **Múltiples salas:** Cada tab/navegador puede estar en sala diferente
-- **Tema:** Click botón 🌙 para cambiar claro/oscuro
-- **Dev tools:** DevTools → Network → WS filter para ver WebSocket
-
----
-
-## 🎯 Comandos memorables
-
-```powershell
-.\dev.ps1                   # ¡Esta es tu mejor amiga!
-.\setup.ps1                 # Solo primera vez
-.\build.ps1                 # Antes de deployar
-```
-
-```bash
-npm run dev                 # Setup manual completo
-Ctrl+C                      # Detener servidor/cliente
-```
-
----
-
-**Fin.** Cualquier issue, revisa [README.md](README.md) sección "🐛 Debugging"

@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WindChat - Secure WebChat</title>
-    
+
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Chat cifrado extremo a extremo" />
+    <meta name="description" content="End-to-end encrypted chat" />
     <meta name="theme-color" content="#38bdf8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -88,7 +89,19 @@
             color: var(--text-primary);
         }
 
-        .hidden { display: none; }
+        .lang-selector {
+            margin-left: 1rem;
+            padding: 0.4rem 0.55rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .hidden {
+            display: none;
+        }
 
         .landing {
             min-height: 100vh;
@@ -150,7 +163,7 @@
             padding: 2rem;
             border-radius: 16px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             transition: transform 0.2s;
         }
 
@@ -318,64 +331,73 @@
         }
     </style>
 </head>
+
 <body data-theme="light">
 
-<div class="landing" id="landingPage">
-    <div class="code-bg">
-        01010100 01010111 01001001 01001110 01000100 01000011 01001000 01000001 01010100
-        secure_connection();
-        encrypt(data);
-        firewall.active = true;
+    <div class="landing" id="landingPage">
+        <div class="code-bg">
+            01010100 01010111 01001001 01001110 01000100 01000011 01001000 01000001 01010100
+            secure_connection();
+            encrypt(data);
+            firewall.active = true;
+        </div>
+
+        <header>
+            <div class="logo">WindChat</div>
+            <div>
+                <nav>
+                    <a href="#features" data-i18n="landingSecurity">Security</a>
+                    <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer"
+                        data-i18n="landingContact">Contact</a>
+                </nav>
+                <label for="langSelector" class="hidden" data-i18n="languageLabel">Language</label>
+                <select id="langSelector" class="lang-selector" aria-label="Language selector">
+                    <option value="en" data-i18n="languageEn">EN</option>
+                    <option value="es" data-i18n="languageEs">ES</option>
+                </select>
+            </div>
+            <button class="theme-toggle" data-i18n="landingThemeToggle">Toggle theme</button>
+        </header>
+
+        <section class="hero">
+            <h1 data-i18n="landingHeroTitle">Secure communication in real time</h1>
+            <p data-i18n="landingHeroDescription">
+                WindChat combines speed, advanced encryption, and a smooth experience for developers and teams who
+                prioritize cybersecurity.
+            </p>
+            <div class="cta">
+                <button class="btn-primary" data-i18n="landingStartNow">Start now</button>
+            </div>
+        </section>
+
+        <div class="public-link" id="publicLinkBox" aria-live="polite">
+            <span data-i18n="landingPublicLinkLabel">Public link to share:</span>
+            <a id="publicLinkAnchor" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+
+        <section class="features" id="features">
+            <div class="card">
+                <h3 data-i18n="landingFeature1Title">End-to-End Encryption</h3>
+                <p data-i18n="landingFeature1Description">Advanced protection for every sent and received message.</p>
+            </div>
+            <div class="card">
+                <h3 data-i18n="landingFeature2Title">Comfort-first design</h3>
+                <p data-i18n="landingFeature2Description">Minimal interface focused on productivity and visual comfort.
+                </p>
+            </div>
+            <div class="card">
+                <h3 data-i18n="landingFeature3Title">Optimized for devs</h3>
+                <p data-i18n="landingFeature3Description">Technical typography, smooth UX, and a modern approach.</p>
+            </div>
+        </section>
+
+        <footer>
+            © 2026 WindChat · Secure Web Communication
+        </footer>
     </div>
 
-    <header>
-        <div class="logo">WindChat</div>
-        <div>
-            <nav>
-                <a href="#features">Seguridad</a>
-                <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer">Contacto</a>
-            </nav>
-        </div>
-        <button class="theme-toggle">Cambiar Tema</button>
-    </header>
-
-    <section class="hero">
-        <h1>Comunicacion Segura en Tiempo Real</h1>
-        <p>
-            WindChat combina velocidad, cifrado avanzado y una experiencia comoda
-            para desarrolladores y equipos que priorizan la ciberseguridad.
-        </p>
-        <div class="cta">
-            <button class="btn-primary">Comenzar Ahora</button>
-        </div>
-    </section>
-
-    <div class="public-link" id="publicLinkBox" aria-live="polite">
-        <span>Enlace público para compartir:</span>
-        <a id="publicLinkAnchor" href="#" target="_blank" rel="noopener noreferrer"></a>
-    </div>
-
-    <section class="features" id="features">
-        <div class="card">
-            <h3>Cifrado End-to-End</h3>
-            <p>Proteccion avanzada para cada mensaje enviado y recibido.</p>
-        </div>
-        <div class="card">
-            <h3>Diseño Comodo</h3>
-            <p>Interfaz minimalista enfocada en productividad y confort visual.</p>
-        </div>
-        <div class="card">
-            <h3>Optimizado para Devs</h3>
-            <p>Tipografia tecnica, experiencia fluida y enfoque moderno.</p>
-        </div>
-    </section>
-
-    <footer>
-        © 2026 WindChat · Secure Web Communication
-    </footer>
-</div>
-
-<script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/main.ts"></script>
 
 </body>
+
 </html>

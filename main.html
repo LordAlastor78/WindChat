@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -125,7 +126,7 @@
             padding: 2rem;
             border-radius: 16px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             transition: transform 0.2s;
         }
 
@@ -153,6 +154,7 @@
         }
     </style>
 </head>
+
 <body data-theme="light">
 
     <div class="code-bg">
@@ -166,37 +168,43 @@
         <div class="logo">WindChat</div>
         <div>
             <nav>
-                <a href="#">Inicio</a>
-                <a href="#features">Seguridad</a>
-                <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer">Contacto</a>
+                <a href="#" data-key="home">Home</a>
+                <a href="#features" data-key="security">Security</a>
+                <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer"
+                    data-key="contact">Contact</a>
             </nav>
+            <select id="langSelector" class="theme-toggle" aria-label="Language selector" style="margin-left: 1rem;">
+                <option value="en">EN</option>
+                <option value="es">ES</option>
+            </select>
         </div>
-        <button class="theme-toggle" onclick="toggleTheme()">Cambiar Tema</button>
+        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" data-key="toggleTheme">Toggle
+            Theme</button>
     </header>
 
     <section class="hero">
-        <h1>Comunicación Segura en Tiempo Real</h1>
-        <p>
-            WindChat combina velocidad, cifrado avanzado y una experiencia cómoda
-            para desarrolladores y equipos que priorizan la ciberseguridad.
+        <h1 data-key="heroTitle">Secure Communication in Real Time</h1>
+        <p data-key="heroDescription">
+            WindChat combines speed, advanced encryption, and a comfortable experience for developers and teams focused
+            on cybersecurity.
         </p>
         <div class="cta">
-            <button class="btn-primary">Comenzar Ahora</button>
+            <button class="btn-primary" data-key="startNow">Start Now</button>
         </div>
     </section>
 
     <section class="features" id="features">
         <div class="card">
-            <h3>Cifrado End-to-End</h3>
-            <p>Protección avanzada para cada mensaje enviado y recibido.</p>
+            <h3 data-key="feature1Title">End-to-End Encryption</h3>
+            <p data-key="feature1Description">Advanced protection for every message sent and received.</p>
         </div>
         <div class="card">
-            <h3>Diseño Cómodo</h3>
-            <p>Interfaz minimalista enfocada en productividad y confort visual.</p>
+            <h3 data-key="feature2Title">Comfort-first Design</h3>
+            <p data-key="feature2Description">Minimal interface focused on productivity and visual comfort.</p>
         </div>
         <div class="card">
-            <h3>Optimizado para Devs</h3>
-            <p>Tipografía técnica, experiencia fluida y enfoque moderno.</p>
+            <h3 data-key="feature3Title">Optimized for Devs</h3>
+            <p data-key="feature3Description">Technical typography, smooth UX, and a modern approach.</p>
         </div>
     </section>
 
@@ -205,6 +213,56 @@
     </footer>
 
     <script>
+        const translations = {
+            en: {
+                home: "Home",
+                security: "Security",
+                contact: "Contact",
+                toggleTheme: "Toggle Theme",
+                heroTitle: "Secure Communication in Real Time",
+                heroDescription: "WindChat combines speed, advanced encryption, and a comfortable experience for developers and teams focused on cybersecurity.",
+                startNow: "Start Now",
+                feature1Title: "End-to-End Encryption",
+                feature1Description: "Advanced protection for every message sent and received.",
+                feature2Title: "Comfort-first Design",
+                feature2Description: "Minimal interface focused on productivity and visual comfort.",
+                feature3Title: "Optimized for Devs",
+                feature3Description: "Technical typography, smooth UX, and a modern approach."
+            },
+            es: {
+                home: "Inicio",
+                security: "Seguridad",
+                contact: "Contacto",
+                toggleTheme: "Cambiar tema",
+                heroTitle: "Comunicación segura en tiempo real",
+                heroDescription: "WindChat combina velocidad, cifrado avanzado y una experiencia cómoda para desarrolladores y equipos enfocados en ciberseguridad.",
+                startNow: "Comenzar ahora",
+                feature1Title: "Cifrado End-to-End",
+                feature1Description: "Protección avanzada para cada mensaje enviado y recibido.",
+                feature2Title: "Diseño cómodo",
+                feature2Description: "Interfaz minimalista enfocada en productividad y confort visual.",
+                feature3Title: "Optimizado para devs",
+                feature3Description: "Tipografía técnica, experiencia fluida y enfoque moderno."
+            }
+        };
+
+        function setLanguage(lang) {
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-key]').forEach((el) => {
+                const key = el.getAttribute('data-key');
+                if (translations[lang] && translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+            localStorage.setItem('windchat_static_lang', lang);
+        }
+
+        const langSelector = document.getElementById('langSelector');
+        const savedLang = localStorage.getItem('windchat_static_lang') || 'en';
+        langSelector.value = savedLang;
+        setLanguage(savedLang);
+        langSelector.addEventListener('change', (e) => setLanguage(e.target.value));
+
         function toggleTheme() {
             const body = document.body;
             const currentTheme = body.getAttribute("data-theme");
@@ -213,4 +271,5 @@
     </script>
 
 </body>
+
 </html>

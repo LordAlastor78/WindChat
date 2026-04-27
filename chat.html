@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,7 +18,7 @@
             --accent-strong: #0ea5e9;
             --message-me: #38bdf8;
             --message-other: #e5e7eb;
-            --border-color: rgba(0,0,0,0.08);
+            --border-color: rgba(0, 0, 0, 0.08);
         }
 
         [data-theme="dark"] {
@@ -29,10 +30,14 @@
             --accent-strong: #0ea5e9;
             --message-me: #0ea5e9;
             --message-other: #374151;
-            --border-color: rgba(255,255,255,0.08);
+            --border-color: rgba(255, 255, 255, 0.08);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
             font-family: 'Fira Code', monospace;
@@ -53,10 +58,12 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         }
 
-        .hidden { display: none; }
+        .hidden {
+            display: none;
+        }
 
         header {
             padding: 1rem 1.5rem;
@@ -66,7 +73,11 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        .brand { font-weight: 600; font-size: 1.2rem; color: var(--accent); }
+        .brand {
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
 
         .theme-toggle {
             background: none;
@@ -169,100 +180,142 @@
             padding-left: 1.5rem;
             padding-bottom: 0.5rem;
         }
-
     </style>
 </head>
+
 <body data-theme="light">
 
-<div class="app">
+    <div class="app">
 
-    <header>
-        <div class="brand">WindChat</div>
-        <button class="theme-toggle" onclick="toggleTheme()">Tema</button>
-    </header>
+        <header>
+            <div class="brand">WindChat</div>
+            <select id="langSelector" class="theme-toggle" aria-label="Language selector" style="margin-right: 0.5rem;">
+                <option value="en">EN</option>
+                <option value="es">ES</option>
+            </select>
+            <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">Theme</button>
+        </header>
 
-    <!-- LOGIN -->
-    <div class="login-screen" id="loginScreen">
-        <h2>Conéctate de forma segura</h2>
-        <input type="text" id="username" placeholder="Introduce tu username" onkeypress="if(event.key==='Enter') startChat()" />
-        <button class="btn-primary" onclick="startChat()">Comenzar Ahora</button>
-    </div>
-
-    <!-- CHAT -->
-    <div class="chat-container hidden" id="chatContainer">
-        <div class="messages" id="messages"></div>
-        <div class="typing" id="typingIndicator"></div>
-        <div class="input-area">
-            <input type="file" id="fileInput" hidden="hidden" />
-            <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
-            <input type="text" id="messageInput" placeholder="Escribe un mensaje..." oninput="handleTyping()" onkeypress="if(event.key==='Enter') sendMessage()" />
-            <button class="icon-btn" onclick="sendMessage()">➤</button>
+        <!-- LOGIN -->
+        <div class="login-screen" id="loginScreen">
+            <h2 id="loginTitle">Connect securely</h2>
+            <input type="text" id="username" placeholder="Enter your username"
+                onkeypress="if(event.key==='Enter') startChat()" />
+            <button id="startBtn" class="btn-primary" onclick="startChat()">Start now</button>
         </div>
+
+        <!-- CHAT -->
+        <div class="chat-container hidden" id="chatContainer">
+            <div class="messages" id="messages"></div>
+            <div class="typing" id="typingIndicator"></div>
+            <div class="input-area">
+                <input type="file" id="fileInput" hidden="hidden" />
+                <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+                <input type="text" id="messageInput" placeholder="Type a message..." oninput="handleTyping()"
+                    onkeypress="if(event.key==='Enter') sendMessage()" />
+                <button class="icon-btn" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
+
     </div>
 
-</div>
+    <script>
+        let username = "";
+        const translations = {
+            en: {
+                theme: "Theme",
+                loginTitle: "Connect securely",
+                usernamePlaceholder: "Enter your username",
+                startNow: "Start now",
+                messagePlaceholder: "Type a message...",
+                typing: "Typing..."
+            },
+            es: {
+                theme: "Tema",
+                loginTitle: "Conéctate de forma segura",
+                usernamePlaceholder: "Introduce tu username",
+                startNow: "Comenzar ahora",
+                messagePlaceholder: "Escribe un mensaje...",
+                typing: "Escribiendo..."
+            }
+        };
 
-<script>
-    let username = "";
+        function applyLanguage(lang) {
+            document.documentElement.lang = lang;
+            document.getElementById("themeToggle").textContent = translations[lang].theme;
+            document.getElementById("loginTitle").textContent = translations[lang].loginTitle;
+            document.getElementById("username").placeholder = translations[lang].usernamePlaceholder;
+            document.getElementById("startBtn").textContent = translations[lang].startNow;
+            document.getElementById("messageInput").placeholder = translations[lang].messagePlaceholder;
+            localStorage.setItem("windchat_legacy_lang", lang);
+        }
 
-    function toggleTheme() {
-        const body = document.body;
-        const theme = body.getAttribute("data-theme");
-        body.setAttribute("data-theme", theme === "dark" ? "light" : "dark");
-    }
+        const langSelector = document.getElementById("langSelector");
+        const savedLang = localStorage.getItem("windchat_legacy_lang") || "en";
+        langSelector.value = savedLang;
+        applyLanguage(savedLang);
+        langSelector.addEventListener("change", (e) => applyLanguage(e.target.value));
 
-    function startChat() {
-        const input = document.getElementById("username");
-        if (!input.value.trim()) return;
-        username = input.value.trim();
-        document.getElementById("loginScreen").classList.add("hidden");
-        document.getElementById("chatContainer").classList.remove("hidden");
-        setTimeout(() => document.getElementById("messageInput").focus(), 100);
-    }
+        function toggleTheme() {
+            const body = document.body;
+            const theme = body.getAttribute("data-theme");
+            body.setAttribute("data-theme", theme === "dark" ? "light" : "dark");
+        }
 
-    function sendMessage() {
-        const input = document.getElementById("messageInput");
-        if (!input.value.trim()) return;
+        function startChat() {
+            const input = document.getElementById("username");
+            if (!input.value.trim()) return;
+            username = input.value.trim();
+            document.getElementById("loginScreen").classList.add("hidden");
+            document.getElementById("chatContainer").classList.remove("hidden");
+            setTimeout(() => document.getElementById("messageInput").focus(), 100);
+        }
 
-        const msg = document.createElement("div");
-        msg.classList.add("message", "me");
-        msg.innerText = input.value;
+        function sendMessage() {
+            const input = document.getElementById("messageInput");
+            if (!input.value.trim()) return;
 
-        document.getElementById("messages").appendChild(msg);
-        input.value = "";
-        scrollToBottom();
-    }
-
-    function handleTyping() {
-        const indicator = document.getElementById("typingIndicator");
-        indicator.innerText = "Escribiendo...";
-        clearTimeout(window.typingTimeout);
-        window.typingTimeout = setTimeout(() => {
-            indicator.innerText = "";
-        }, 1000);
-    }
-
-    function scrollToBottom() {
-        const messages = document.getElementById("messages");
-        messages.scrollTop = messages.scrollHeight;
-    }
-
-    document.getElementById("fileInput").addEventListener("change", (e) => {
-        if (e.target.files.length > 0) {
-            const file = e.target.files[0];
             const msg = document.createElement("div");
             msg.classList.add("message", "me");
-            msg.innerText = `📎 ${file.name}`;
+            msg.innerText = input.value;
+
             document.getElementById("messages").appendChild(msg);
-            e.target.value = "";
+            input.value = "";
             scrollToBottom();
         }
-    });
 
-    window.addEventListener("beforeunload", () => {
-        document.getElementById("messages").innerHTML = "";
-    });
-</script>
+        function handleTyping() {
+            const indicator = document.getElementById("typingIndicator");
+            const lang = document.documentElement.lang === "es" ? "es" : "en";
+            indicator.innerText = translations[lang].typing;
+            clearTimeout(window.typingTimeout);
+            window.typingTimeout = setTimeout(() => {
+                indicator.innerText = "";
+            }, 1000);
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById("messages");
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const msg = document.createElement("div");
+                msg.classList.add("message", "me");
+                msg.innerText = `📎 ${file.name}`;
+                document.getElementById("messages").appendChild(msg);
+                e.target.value = "";
+                scrollToBottom();
+            }
+        });
+
+        window.addEventListener("beforeunload", () => {
+            document.getElementById("messages").innerHTML = "";
+        });
+    </script>
 
 </body>
+
 </html>

@@ -9,18 +9,18 @@ const translations: Record<Lang, Record<string, string>> = {
     // Header
     headerInfo: 'Chat cifrado extremo a extremo',
     themeToggle: 'Tema',
-    
+
     // Login Screen
     loginTitle: 'Conectarse a WindChat',
     loginSubtitle: 'Crea una nueva sala o únete a una existente',
     roomInputPlaceholder: 'Deja vacío para crear nueva sala',
     createButton: 'Crear / Conectar',
-    
+
     // Room Info
     roomIdLabel: '🆔 RoomID:',
     copyButton: 'Copiar',
     roomCreated: '✅ Sala creada',
-    
+
     // Chat Screen
     messageInputPlaceholder: 'Escribe un mensaje...',
     waitingForPeer: '⏳ Esperando al otro usuario...',
@@ -30,7 +30,7 @@ const translations: Record<Lang, Record<string, string>> = {
     peerDisconnected: '❌ Usuario desconectado',
     peerDisconnectedMessage: 'El otro usuario se desconectó.',
     typingIndicator: '✏️ escribiendo...',
-    
+
     // Status Messages
     connecting: '🔗 Conectando...',
     connectionFailed: '❌ Falló la conexión',
@@ -63,6 +63,31 @@ const translations: Record<Lang, Record<string, string>> = {
     statusDisconnected: 'Desconectado',
     unreadMessagesIndicator: '↓ Nuevos mensajes ({n})',
     confirmClose: '¿Seguro que quieres salir? Se perderá la conexión.',
+    landingSecurity: 'Seguridad',
+    landingContact: 'Contacto',
+    landingThemeToggle: 'Cambiar tema',
+    landingHeroTitle: 'Comunicación segura en tiempo real',
+    landingHeroDescription:
+      'WindChat combina velocidad, cifrado avanzado y una experiencia cómoda para desarrolladores y equipos que priorizan la ciberseguridad.',
+    landingStartNow: 'Comenzar ahora',
+    landingPublicLinkLabel: 'Enlace público para compartir:',
+    landingFeature1Title: 'Cifrado End-to-End',
+    landingFeature1Description: 'Protección avanzada para cada mensaje enviado y recibido.',
+    landingFeature2Title: 'Diseño cómodo',
+    landingFeature2Description: 'Interfaz minimalista enfocada en productividad y confort visual.',
+    landingFeature3Title: 'Optimizado para devs',
+    landingFeature3Description: 'Tipografía técnica, experiencia fluida y enfoque moderno.',
+    jumpToLatestMessageTitle: 'Ir al último mensaje',
+    fileCancelTitle: 'Cancelar',
+    attachFileTitle: 'Adjuntar archivo',
+    reconnectingBanner: '⚠️ Reconectando... (intento {attempt}/{maxAttempts})',
+    reconnectedWaiting: '✅ Reconectado. Esperando al otro usuario...',
+    reconnectFailedTitle: '❌ Reconexión fallida.',
+    reconnectFailedSubtitle: 'Por favor, recarga la página.',
+    genericErrorPrefix: 'Error',
+    messageLabel: 'Mensaje',
+    messageUnavailable: 'mensaje original no disponible',
+    userLabel: 'Usuario',
 
     // Time labels
     justNow: 'Ahora',
@@ -77,18 +102,18 @@ const translations: Record<Lang, Record<string, string>> = {
     // Header
     headerInfo: 'End-to-end encrypted chat',
     themeToggle: 'Theme',
-    
+
     // Login Screen
     loginTitle: 'Connect to WindChat',
     loginSubtitle: 'Create a new room or join an existing one',
     roomInputPlaceholder: 'Leave empty to create new room',
     createButton: 'Create / Connect',
-    
+
     // Room Info
     roomIdLabel: '🆔 RoomID:',
     copyButton: 'Copy',
     roomCreated: '✅ Room created',
-    
+
     // Chat Screen
     messageInputPlaceholder: 'Type a message...',
     waitingForPeer: '⏳ Waiting for other user...',
@@ -98,7 +123,7 @@ const translations: Record<Lang, Record<string, string>> = {
     peerDisconnected: '❌ User disconnected',
     peerDisconnectedMessage: 'The other user disconnected.',
     typingIndicator: '✏️ typing...',
-    
+
     // Status Messages
     connecting: '🔗 Connecting...',
     connectionFailed: '❌ Connection failed',
@@ -131,6 +156,31 @@ const translations: Record<Lang, Record<string, string>> = {
     statusDisconnected: 'Disconnected',
     unreadMessagesIndicator: '↓ New messages ({n})',
     confirmClose: 'Are you sure you want to leave? The connection will be lost.',
+    landingSecurity: 'Security',
+    landingContact: 'Contact',
+    landingThemeToggle: 'Toggle theme',
+    landingHeroTitle: 'Secure communication in real time',
+    landingHeroDescription:
+      'WindChat combines speed, advanced encryption, and a smooth experience for developers and teams who prioritize cybersecurity.',
+    landingStartNow: 'Start now',
+    landingPublicLinkLabel: 'Public link to share:',
+    landingFeature1Title: 'End-to-End Encryption',
+    landingFeature1Description: 'Advanced protection for every sent and received message.',
+    landingFeature2Title: 'Comfort-first design',
+    landingFeature2Description: 'Minimal interface focused on productivity and visual comfort.',
+    landingFeature3Title: 'Optimized for devs',
+    landingFeature3Description: 'Technical typography, smooth UX, and a modern approach.',
+    jumpToLatestMessageTitle: 'Jump to latest message',
+    fileCancelTitle: 'Cancel',
+    attachFileTitle: 'Attach file',
+    reconnectingBanner: '⚠️ Reconnecting... (attempt {attempt}/{maxAttempts})',
+    reconnectedWaiting: '✅ Reconnected. Waiting for the other user...',
+    reconnectFailedTitle: '❌ Reconnection failed.',
+    reconnectFailedSubtitle: 'Please reload the page.',
+    genericErrorPrefix: 'Error',
+    messageLabel: 'Message',
+    messageUnavailable: 'original message not available',
+    userLabel: 'User',
 
     // Time labels
     justNow: 'Just now',
@@ -162,7 +212,8 @@ const resolveInitialLanguage = (): Lang => {
     // Ignore localStorage access failures and fall back to browser language.
   }
 
-  return detectBrowserLanguage();
+  // Project default language is English unless user explicitly selects another.
+  return 'en';
 };
 
 /**
@@ -226,27 +277,27 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
  */
 export function initializeTranslations(): void {
   const lang = detectLanguage();
-  
+
   // Set HTML lang attribute
   document.documentElement.lang = lang;
-  
+
   // Update header info
   const headerInfo = document.getElementById('headerInfo');
   if (headerInfo) headerInfo.textContent = t('headerInfo');
-  
+
   // Update login screen
   const loginTitle = document.getElementById('loginTitle');
   if (loginTitle) loginTitle.textContent = t('loginTitle');
-  
+
   const loginSubtitle = document.getElementById('loginSubtitle');
   if (loginSubtitle) loginSubtitle.textContent = t('loginSubtitle');
-  
+
   const roomInput = document.getElementById('roomInputCreate') as HTMLInputElement;
   if (roomInput) roomInput.placeholder = t('roomInputPlaceholder');
-  
+
   const createBtn = document.getElementById('createButton') as HTMLButtonElement;
   if (createBtn) createBtn.textContent = t('createButton');
-  
+
   // Generic data-i18n bindings for chat/main pages
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((element) => {
     const key = element.dataset.i18n as TranslationKey | undefined;

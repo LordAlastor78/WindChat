@@ -1,5 +1,5 @@
-# WindChat - Setup y Dev Script
-# Uso: .\dev.ps1
+# WindChat - Setup and Dev Script
+# Usage: .\dev.ps1
 
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host "<<< WindChat - Dev Launch >>>" -ForegroundColor Green
@@ -8,43 +8,43 @@ Write-Host ""
 
 # Verificar si es primera vez
 if (-Not (Test-Path ".\node_modules")) {
-    Write-Host "[*] Primera instalación detectada. Instalando dependencias..." -ForegroundColor Yellow
+    Write-Host "[*] First-time setup detected. Installing dependencies..." -ForegroundColor Yellow
     npm install
     npm install -w server
     npm install -w client
-    Write-Host "[OK] Dependencias instaladas" -ForegroundColor Green
+    Write-Host "[OK] Dependencies installed" -ForegroundColor Green
     Write-Host ""
 }
 
-Write-Host "[*] Iniciando WindChat..." -ForegroundColor Green
+Write-Host "[*] Starting WindChat..." -ForegroundColor Green
 Write-Host ""
-Write-Host "[+] Que se abrira:" -ForegroundColor Cyan
-Write-Host "  * Servidor WebSocket: http://localhost:8080" -ForegroundColor White
-Write-Host "  * Cliente: https://localhost:3000" -ForegroundColor White
+Write-Host "[+] What will open:" -ForegroundColor Cyan
+Write-Host "  * WebSocket server: http://localhost:8080" -ForegroundColor White
+Write-Host "  * Client: https://localhost:3000" -ForegroundColor White
 Write-Host ""
-Write-Host "[+] En el navegador:" -ForegroundColor Cyan
-Write-Host "  1. Abre https://localhost:3000" -ForegroundColor White
-Write-Host "  2. Click en 'Crear / Conectar'" -ForegroundColor White
-Write-Host "  3. Se genera un roomID" -ForegroundColor White
-Write-Host "  4. Abre otra ventana privada" -ForegroundColor White
-Write-Host "  5. Pega el mismo roomID y conecta" -ForegroundColor White
-Write-Host "  6. Ambos conectados! Prueba enviar mensajes" -ForegroundColor White
+Write-Host "[+] In the browser:" -ForegroundColor Cyan
+Write-Host "  1. Open https://localhost:3000" -ForegroundColor White
+Write-Host "  2. Click 'Create / Connect'" -ForegroundColor White
+Write-Host "  3. A room ID will be generated" -ForegroundColor White
+Write-Host "  4. Open another private window" -ForegroundColor White
+Write-Host "  5. Paste the same room ID and connect" -ForegroundColor White
+Write-Host "  6. Both users connected. Send test messages" -ForegroundColor White
 Write-Host ""
-Write-Host "[!] Para detener: Ctrl+C en ambas terminales" -ForegroundColor Yellow
+Write-Host "[!] To stop: Ctrl+C in both terminals" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Lanzar servidor en background
-Write-Host "[*] Iniciando servidor..." -ForegroundColor Green
+# Start server in background
+Write-Host "[*] Starting server..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; npm run dev:server"
 
-# Esperar a que el servidor inicie
+# Wait for server startup
 Start-Sleep -Seconds 3
 
-# Lanzar cliente
-Write-Host "[*] Iniciando cliente..." -ForegroundColor Green
+# Start client
+Write-Host "[*] Starting client..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; npm run dev:client"
 
-Write-Host "[OK] WindChat en desarrollo. Abre las ventanas que se abrieron..." -ForegroundColor Green
+Write-Host "[OK] WindChat dev mode started. Open the terminals that were launched..." -ForegroundColor Green
 Write-Host ""
