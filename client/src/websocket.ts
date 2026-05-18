@@ -44,6 +44,12 @@ export class ChatClient {
   private publicKeyB64?: string;
   private displayName = "Anon";
 
+  // ✅ NUEVA: Propiedades para heartbeat/ping-pong
+  private heartbeatInterval?: NodeJS.Timeout;
+  private readonly HEARTBEAT_INTERVAL = 30000; // 30 segundos
+  private readonly HEARTBEAT_TIMEOUT = 5000;   // 5 segundos timeout
+  private heartbeatPending = false;
+
   constructor(callbacks?: ChatClientCallbacks) {
     this.callbacks = callbacks || {};
   }
@@ -80,6 +86,9 @@ export class ChatClient {
         this.reconnectAttempts = 0;
         this.isReconnecting = false;
 
+        // ✅ NUEVA: Iniciar mecanismo de heartbeat
+        this.startHeartbeat();
+
         // Enviar handshake
         const handshake: ClientToServerMessage = {
           type: "join",
@@ -109,7 +118,10 @@ export class ChatClient {
 
       this.ws.onclose = (event) => {
         console.log(`👋 WebSocket cerrado (code: ${event.code})`);
-        
+
+        // ✅ NUEVA: Detener heartbeat cuando se cierra conexión
+        this.stopHeartbeat();
+
         // Solo omitir reconexión cuando fue una desconexión explícita del cliente
         if (!this.shouldReconnect) {
           console.log("Desconexión intencional, no se reconectará");
@@ -119,12 +131,12 @@ export class ChatClient {
           }
           return;
         }
-        
+
         // Si ya estamos reconectando, no iniciar otro intento
         if (this.isReconnecting) {
           return;
         }
-        
+
         // Intentar reconexión automática
         console.log("⚠️ Conexión perdida, intentando reconectar...");
         this.handleReconnection();
@@ -156,25 +168,26 @@ export class ChatClient {
         throw new Error("Invalid server message format");
       }
 
-      const msg = parsed as ServerToClientMessage;
+      // @ts-ignore - Manejo de tipo "pong" que fue agregado
+      const msg = parsed as (ServerToClientMessage | { type: "pong" });
 
-      switch (msg.type) {
-        case "peer_joined":
-          await this.handlePeerJoined(msg);
-          break;
-        case "peer_disconnected":
-          if (this.callbacks.onPeerDisconnected) {
-            this.callbacks.onPeerDisconnected();
-          }
-          break;
-        case "message":
-          await this.handleEncryptedMessage(msg);
-          break;
-        case "typing":
-          if (this.callbacks.onTyping) {
-            this.callbacks.onTyping(msg.isTyping);
-          }
-          break;
+      // ✅ Type guard explícito para TypeScript
+      if (msg.type === "peer_joined") {
+        await this.handlePeerJoined(msg);
+      } else if (msg.type === "peer_disconnected") {
+        if (this.callbacks.onPeerDisconnected) {
+          this.callbacks.onPeerDisconnected();
+        }
+      } else if (msg.type === "message") {
+        await this.handleEncryptedMessage(msg);
+      } else if (msg.type === "typing") {
+        if (this.callbacks.onTyping) {
+          this.callbacks.onTyping(msg.isTyping);
+        }
+      } else if (msg.type === "pong") {
+        // ✅ NUEVA: Manejar pong del servidor
+        this.heartbeatPending = false;
+        console.log("💓 Pong recibido, conexión activa");
       }
     } catch (err) {
       console.error("❌ Error procesando mensaje:", err);
@@ -208,6 +221,9 @@ export class ChatClient {
         );
       case "typing":
         return typeof msg.isTyping === "boolean";
+      // ✅ NUEVA: Validar pong
+      case "pong":
+        return true;
       default:
         return false;
     }
@@ -377,10 +393,55 @@ export class ChatClient {
   }
 
   /**
+   * ✅ NUEVA: Iniciar mecanismo de heartbeat/ping-pong
+   * Envía ping cada 30 segundos al servidor
+   * Si no recibe pong en 5 segundos, reconecta automáticamente
+   * Previene "zombie connections" cuando el servidor cae
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+      try {
+        // Enviar ping al servidor
+        this.ws.send(JSON.stringify({ type: "ping" }));
+        this.heartbeatPending = true;
+
+        // Timeout: si no recibimos pong en 5 segundos, reconectar
+        setTimeout(() => {
+          if (this.heartbeatPending && this.ws?.readyState === WebSocket.OPEN) {
+            console.warn("⚠️ Heartbeat timeout, reconectando...");
+            this.ws!.close();
+          }
+        }, this.HEARTBEAT_TIMEOUT);
+      } catch (err) {
+        console.error("❌ Error enviando heartbeat:", err);
+      }
+    }, this.HEARTBEAT_INTERVAL);
+
+    console.log("💓 Heartbeat iniciado (intervalo: 30s)");
+  }
+
+  /**
+   * ✅ NUEVA: Detener mecanismo de heartbeat
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+      this.heartbeatPending = false;
+      console.log("💓 Heartbeat detenido");
+    }
+  }
+
+  /**
    * Desconectar intencionalmente (sin reconexión)
    */
   disconnect(): void {
     this.shouldReconnect = false;
+    // ✅ NUEVA: Detener heartbeat al desconectar
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close(1000, "User disconnect");
     }
@@ -407,9 +468,9 @@ export class ChatClient {
 
     while (this.reconnectAttempts < this.maxReconnectAttempts && this.shouldReconnect) {
       this.reconnectAttempts++;
-      
+
       console.log(`🔄 Intento de reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-      
+
       // Notificar a la UI
       if (this.callbacks.onReconnecting) {
         this.callbacks.onReconnecting(this.reconnectAttempts, this.maxReconnectAttempts);
@@ -450,11 +511,11 @@ export class ChatClient {
 
         // Esperar a que se conecte
         const connected = await this.waitForConnection(this.ws);
-        
+
         if (connected) {
           // 5. Re-hacer handshake completo
           console.log("✅ Reconectado. Enviando nuevo handshake...");
-          
+
           const handshake: ClientToServerMessage = {
             type: "join",
             roomId: this.roomId,
@@ -463,10 +524,10 @@ export class ChatClient {
           };
 
           this.ws.send(JSON.stringify(handshake));
-          
+
           // Re-configurar handlers
           this.setupHandlers();
-          
+
           // Notificar éxito
           if (this.callbacks.onReconnected) {
             this.callbacks.onReconnected();
@@ -474,7 +535,7 @@ export class ChatClient {
           if (this.callbacks.onConnected) {
             this.callbacks.onConnected();
           }
-          
+
           this.isReconnecting = false;
           this.reconnectAttempts = 0;
           return;
@@ -487,7 +548,7 @@ export class ChatClient {
     // Si llegamos aquí, todos los intentos fallaron
     console.error("❌ Reconexión fallida después de todos los intentos");
     this.isReconnecting = false;
-    
+
     if (this.callbacks.onReconnectFailed) {
       this.callbacks.onReconnectFailed();
     }
@@ -536,7 +597,7 @@ export class ChatClient {
 
     this.ws.onclose = (event) => {
       console.log(`👋 WebSocket cerrado (code: ${event.code})`);
-      
+
       if (!this.shouldReconnect) {
         console.log("Desconexión intencional, no se reconectará");
         this.crypto.destroy();
@@ -545,11 +606,11 @@ export class ChatClient {
         }
         return;
       }
-      
+
       if (this.isReconnecting) {
         return;
       }
-      
+
       console.log("⚠️ Conexión perdida, intentando reconectar...");
       this.handleReconnection();
     };

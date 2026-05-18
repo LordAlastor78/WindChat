@@ -15,16 +15,15 @@
  * - No persiste en BD
  */
 
-import http from "http";
 import fs from "fs";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import WebSocket, { WebSocketServer } from "ws";
 import type {
-  ClientToServerMessage,
-  ServerToClientMessage,
-  HandshakeMessage,
   EncryptedMessage,
+  HandshakeMessage,
+  ServerToClientMessage
 } from "./protocol.js";
 import {
   MAX_MESSAGE_SIZE,
@@ -73,29 +72,29 @@ function checkRateLimit(
   const now = Date.now();
   const timestamps = type === "message" ? messageTimestamps : joinTimestamps;
   const maxMessages = type === "message" ? MAX_MESSAGES_PER_WINDOW : MAX_JOINS_PER_WINDOW;
-  
+
   // Obtener timestamps del cliente
   let clientTimestamps = timestamps.get(ws);
   if (!clientTimestamps) {
     clientTimestamps = [];
     timestamps.set(ws, clientTimestamps);
   }
-  
+
   // Filtrar timestamps dentro de la ventana
   const windowStart = now - RATE_LIMIT_WINDOW;
   const recentTimestamps = clientTimestamps.filter(t => t > windowStart);
-  
+
   // Verificar si excede el límite
   if (recentTimestamps.length >= maxMessages) {
     // Actualizar el Map con timestamps filtrados para prevenir memory leak
     timestamps.set(ws, recentTimestamps);
     return false; // Límite excedido
   }
-  
+
   // Añadir timestamp actual y actualizar
   recentTimestamps.push(now);
   timestamps.set(ws, recentTimestamps);
-  
+
   return true; // Dentro del límite
 }
 
@@ -157,7 +156,7 @@ function getSecurityHeaders(contentType: string): Record<string, string> {
 const server = http.createServer((req, res) => {
   // Normalize URL: Remove any full URL that might be in the path (from Cloudflare tunnel)
   let requestUrl = req.url || "/";
-  
+
   // If the URL contains a protocol (http:// or https://), extract just the path
   // This handles cases where Cloudflare tunnel paths might contain full URLs
   if (requestUrl.includes("://")) {
@@ -166,7 +165,7 @@ const server = http.createServer((req, res) => {
       requestUrl = urlObj.pathname;
     } catch (e) {
       // If URL parsing fails, try to extract path after the domain
-      const match = requestUrl.match(/https?:\/\/[^/]+(\/.*)/) || requestUrl.match(/\/https?:\/\/[^/]+(\/.*)/) ;
+      const match = requestUrl.match(/https?:\/\/[^/]+(\/.*)/) || requestUrl.match(/\/https?:\/\/[^/]+(\/.*)/);
       if (match && match[1]) {
         requestUrl = match[1];
       }
@@ -177,9 +176,9 @@ const server = http.createServer((req, res) => {
 
   // Ruta de archivos estáticos (build del cliente)
   const clientDistPath = path.join(__dirname, "../../client/dist");
-  
+
   let filePath = path.join(clientDistPath, requestUrl === "/" ? "index.html" : requestUrl);
-  
+
   // Si es un directorio, buscar index.html
   if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
     filePath = path.join(filePath, "index.html");
@@ -195,14 +194,14 @@ const server = http.createServer((req, res) => {
   // Leer y servir archivo
   const ext = path.extname(filePath);
   const contentType = mimeTypes[ext] || "application/octet-stream";
-  
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(500, getSecurityHeaders("text/plain"));
       res.end("500 Internal Server Error");
       return;
     }
-    
+
     res.writeHead(200, getSecurityHeaders(contentType));
     res.end(data);
   });
@@ -252,6 +251,15 @@ wss.on("connection", (ws: WebSocket) => {
           break;
         case "typing":
           handleTyping(ws, msg, client);
+          break;
+        // ✅ NUEVA: Handler para heartbeat/ping-pong
+        case "ping":
+          try {
+            ws.send(JSON.stringify({ type: "pong" }));
+            console.log("💓 Ping recibido, pong enviado");
+          } catch (err) {
+            console.error("❌ Error enviando pong:", err);
+          }
           break;
         case "disconnect":
           handleDisconnect(ws, client);
@@ -420,7 +428,7 @@ function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
 function handleDisconnect(ws: WebSocket, client: ClientConnection) {
   // Limpiar rate limit
   cleanupRateLimit(ws);
-  
+
   if (!client.roomId) return;
 
   const room = rooms.get(client.roomId);

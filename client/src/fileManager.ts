@@ -12,9 +12,9 @@
 
 import type { MessagePayload } from "./protocol.js";
 import {
-  MAX_FILE_SIZE,
-  FILE_CHUNK_SIZE,
   ALLOWED_FILE_TYPES,
+  FILE_CHUNK_SIZE,
+  MAX_FILE_SIZE,
 } from "./protocol.js";
 
 export interface FileTransfer {
@@ -195,7 +195,7 @@ export class FileManager {
 
     this.activeTransfers.set(fileId, transfer);
     console.log(`📥 Recibiendo archivo: ${transfer.name} (${transfer.size} bytes)`);
-    
+
     this.notifyDownloadProgress(fileId, 0);
   }
 
@@ -223,7 +223,7 @@ export class FileManager {
     try {
       const chunkBuffer = this.base64ToArrayBuffer(payload.chunkData);
       transfer.chunks.set(payload.chunkIndex, chunkBuffer);
-      
+
       // Solo incrementar contador si no era duplicado
       if (!isDuplicate) {
         transfer.receivedChunks++;
@@ -273,11 +273,17 @@ export class FileManager {
       if (this.callbacks.onFileReady) {
         this.callbacks.onFileReady(fileId, blob, transfer);
       }
+
+      // ✅ NUEVA: Programar limpieza automática después de 30 segundos
+      this.scheduleTransferCleanup(fileId);
     } catch (err) {
       console.error("❌ Error ensamblando archivo:", err);
       transfer.status = "error";
       transfer.error = String(err);
       this.notifyError(fileId, String(err));
+
+      // ✅ NUEVA: Limpiar también en caso de error
+      this.scheduleTransferCleanup(fileId, 5000); // Más rápido en error
     }
   }
 
@@ -286,6 +292,38 @@ export class FileManager {
    */
   private generateFileId(): string {
     return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * ✅ NUEVA: Programar limpieza automática de transferencia completada
+   * Se ejecuta después de 30 segundos para liberar memoria
+   * Previene memory leaks en chats de larga duración
+   */
+  private scheduleTransferCleanup(fileId: string, delayMs: number = 30000): void {
+    setTimeout(() => {
+      const transfer = this.activeTransfers.get(fileId);
+      if (transfer) {
+        console.log(`🧹 Limpiando transferencia completada: ${fileId}`);
+        this.activeTransfers.delete(fileId);
+      }
+    }, delayMs);
+  }
+
+  /**
+   * ✅ NUEVA: Validador de capacidad de transferencias
+   * Limita el número de transferencias simultáneas para prevenir DOS
+   */
+  private readonly MAX_CONCURRENT_TRANSFERS = 10;
+
+  private validateTransferCapacity(): boolean {
+    if (this.activeTransfers.size >= this.MAX_CONCURRENT_TRANSFERS) {
+      const error = `Máximo ${this.MAX_CONCURRENT_TRANSFERS} transferencias simultáneas`;
+      if (this.callbacks.onError) {
+        this.callbacks.onError("capacity-limit", error);
+      }
+      return false;
+    }
+    return true;
   }
 
   /**

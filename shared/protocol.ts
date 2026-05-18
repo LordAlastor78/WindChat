@@ -52,18 +52,18 @@ export interface MessagePayload {
   reactionToId?: string;
   replyToId?: string;
   timestamp: number;        // milisegundos desde epoch
-  
+
   // File metadata (type: "file_metadata")
   fileId?: string;          // UUID para identificar el archivo
   fileName?: string;        // Nombre original del archivo
   fileSize?: number;        // Tamaño total en bytes
   fileType?: string;        // MIME type (ej: "image/png")
   totalChunks?: number;     // Número total de chunks
-  
+
   // File chunk (type: "file_chunk")
   chunkIndex?: number;      // Índice del chunk (0-based)
   chunkData?: string;       // Base64 del chunk cifrado
-  
+
   // Progress tracking
   chunksReceived?: number;  // Cuántos chunks se han recibido
 }
@@ -80,19 +80,37 @@ export interface DisconnectMessage {
   reason?: string;
 }
 
+// ===== ✅ NUEVA: HEARTBEAT MESSAGES =====
+
+/**
+ * Ping enviado por el cliente para verificar conexión activa
+ */
+export interface PingMessage {
+  type: "ping";
+}
+
+/**
+ * Pong respondido por el servidor confirmando conexión activa
+ */
+export interface PongMessage {
+  type: "pong";
+}
+
 // ===== UNION TYPES =====
 
-export type ClientToServerMessage = 
-  | HandshakeMessage 
-  | EncryptedMessage 
-  | TypingIndicator 
-  | DisconnectMessage;
+export type ClientToServerMessage =
+  | HandshakeMessage
+  | EncryptedMessage
+  | TypingIndicator
+  | DisconnectMessage
+  | PingMessage;  // ✅ NUEVA: Agregar ping
 
-export type ServerToClientMessage = 
-  | PeerJoinedMessage 
+export type ServerToClientMessage =
+  | PeerJoinedMessage
   | PeerDisconnectedMessage
-  | EncryptedMessage 
-  | TypingIndicator;
+  | EncryptedMessage
+  | TypingIndicator
+  | PongMessage;  // ✅ NUEVA: Agregar pong
 
 // ===== CONSTANTS =====
 
