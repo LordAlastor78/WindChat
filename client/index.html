@@ -1,19 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es" dir="ltr">
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WindChat - Secure WebChat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>WindChat | Secure WebChat</title>
 
-    <!-- PWA Meta Tags -->
-    <meta name="description" content="End-to-end encrypted chat" />
-    <meta name="theme-color" content="#38bdf8" />
+    <meta name="description"
+        content="Chat efímero con cifrado extremo a extremo, interfaz moderna y experiencia PWA segura." />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#081120" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4fbff" media="(prefers-color-scheme: light)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WindChat" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WindChat" />
+    <meta property="og:description" content="Chat efímero con cifrado extremo a extremo y diseño moderno." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="WindChat" />
+    <meta name="twitter:description" content="Chat efímero con cifrado extremo a extremo y diseño moderno." />
     <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
@@ -51,133 +62,223 @@
 
         body {
             font-family: 'Fira Code', monospace;
-            background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 32%),
+                radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.18), transparent 28%),
+                linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
             color: var(--text-primary);
             transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+            position: relative;
         }
 
-        header {
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            mask-image: radial-gradient(circle at center, black, transparent 82%);
+            z-index: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .landing {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .landing-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem 3rem;
+            gap: 1rem;
+            padding: 1.1rem 1.5rem;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .brand-lockup {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
         }
 
         .logo {
             font-size: 1.8rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--accent);
+            letter-spacing: 0.02em;
+        }
+
+        .brand-tagline {
+            font-size: 0.72rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            opacity: 0.72;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
         }
 
         nav a {
-            margin-left: 2rem;
             text-decoration: none;
             color: var(--text-primary);
             transition: color 0.2s;
+            opacity: 0.88;
         }
 
         nav a:hover {
             color: var(--accent);
         }
 
+        .landing-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
         .theme-toggle {
             cursor: pointer;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+            padding: 0.55rem 0.9rem;
+            border-radius: 999px;
             border: 1px solid var(--border-color);
             background: var(--card-bg);
             color: var(--text-primary);
+            backdrop-filter: blur(12px);
         }
 
         .lang-selector {
-            margin-left: 1rem;
-            padding: 0.4rem 0.55rem;
-            border-radius: 8px;
+            padding: 0.45rem 0.55rem;
+            border-radius: 999px;
             border: 1px solid var(--border-color);
             background: var(--card-bg);
             color: var(--text-primary);
             font-family: 'Fira Code', monospace;
+            backdrop-filter: blur(12px);
         }
 
-        .hidden {
-            display: none;
+        .landing-main {
+            width: min(1180px, calc(100% - 2rem));
+            margin: 0 auto;
+            padding: 1.25rem 0 2rem;
+            position: relative;
+            z-index: 1;
         }
 
-        .landing {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        .code-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.04;
+            font-size: 0.9rem;
+            white-space: pre;
+            overflow: hidden;
+            z-index: 0;
         }
 
         .hero {
-            flex: 1;
+            padding: 4rem 0 2rem;
+            display: grid;
+            place-items: center;
             text-align: center;
-            padding: 6rem 2rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        }
+
+        .hero-card {
+            width: min(100%, 920px);
+            padding: 2.4rem 1.5rem;
+            border-radius: 28px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
         }
 
         .hero h1 {
-            font-size: 3rem;
+            font-size: clamp(2.4rem, 5vw, 4.1rem);
+            line-height: 1.02;
             margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .hero h1 span {
+            display: block;
+            color: var(--accent);
         }
 
         .hero p {
-            font-size: 1.2rem;
-            max-width: 600px;
-            margin: auto;
+            font-size: 1.08rem;
+            max-width: 680px;
+            margin: 0 auto;
             opacity: 0.9;
+            line-height: 1.65;
         }
 
         .cta {
             margin-top: 2rem;
+            display: flex;
+            justify-content: center;
         }
 
         .btn-primary {
-            padding: 0.9rem 2rem;
-            border-radius: 10px;
+            padding: 0.95rem 2.1rem;
+            border-radius: 999px;
             border: none;
-            background: var(--accent);
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
             color: white;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+            transition: transform 0.16s ease, filter 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 14px 34px rgba(14, 165, 233, 0.32);
         }
 
         .btn-primary:hover {
-            background: var(--accent-strong);
             transform: translateY(-2px);
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            padding: 4rem 3rem;
-        }
-
-        .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            padding: 2rem;
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
+            filter: brightness(1.03);
         }
 
         .public-link {
-            margin: 0 auto 2rem auto;
+            margin: 1rem auto 0;
             max-width: 760px;
-            padding: 1rem 1.2rem;
-            border-radius: 12px;
+            padding: 1rem 1.15rem;
+            border-radius: 18px;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             display: none;
             gap: 0.8rem;
             align-items: center;
@@ -194,23 +295,51 @@
             word-break: break-all;
         }
 
-        footer {
-            text-align: center;
-            padding: 2rem;
-            opacity: 0.7;
+        .section-heading {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            opacity: 0.72;
         }
 
-        .code-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            opacity: 0.03;
-            font-size: 0.9rem;
-            white-space: pre;
-            overflow: hidden;
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            padding: 2rem 0 3rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 1.5rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            margin-bottom: 0.7rem;
+            font-size: 1.1rem;
+        }
+
+        .card p {
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        footer {
+            text-align: center;
+            padding: 0 0 2rem;
+            opacity: 0.72;
         }
 
         .app {
@@ -335,67 +464,87 @@
 <body data-theme="light">
 
     <div class="landing" id="landingPage">
-        <div class="code-bg">
+        <div class="code-bg" aria-hidden="true">
             01010100 01010111 01001001 01001110 01000100 01000011 01001000 01000001 01010100
             secure_connection();
             encrypt(data);
             firewall.active = true;
         </div>
 
-        <header>
-            <div class="logo">WindChat</div>
-            <div>
-                <nav>
-                    <a href="#features" data-i18n="landingSecurity">Security</a>
-                    <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer"
-                        data-i18n="landingContact">Contact</a>
-                </nav>
-                <label for="langSelector" class="hidden" data-i18n="languageLabel">Language</label>
+        <header class="landing-header">
+            <div class="brand-lockup">
+                <div class="logo">WindChat</div>
+                <div class="brand-tagline">E2EE · PWA · WebSocket</div>
+            </div>
+            <nav aria-label="Navegación principal">
+                <a href="#features" data-i18n="landingSecurity">Security</a>
+                <a href="https://github.com/LordAlastor78" target="_blank" rel="noopener noreferrer"
+                    data-i18n="landingContact">Contact</a>
+            </nav>
+            <div class="landing-actions">
+                <label for="langSelector" class="sr-only" data-i18n="languageLabel">Language</label>
                 <select id="langSelector" class="lang-selector" aria-label="Language selector">
                     <option value="en" data-i18n="languageEn">EN</option>
                     <option value="es" data-i18n="languageEs">ES</option>
                 </select>
+                <button class="theme-toggle" id="themeToggle" type="button" data-i18n="landingThemeToggle"
+                    aria-label="Toggle theme">Toggle theme</button>
             </div>
-            <button class="theme-toggle" data-i18n="landingThemeToggle">Toggle theme</button>
         </header>
 
-        <section class="hero">
-            <h1 data-i18n="landingHeroTitle">Secure communication in real time</h1>
-            <p data-i18n="landingHeroDescription">
-                WindChat combines speed, advanced encryption, and a smooth experience for developers and teams who
-                prioritize cybersecurity.
-            </p>
-            <div class="cta">
-                <button class="btn-primary" data-i18n="landingStartNow">Start now</button>
-            </div>
-        </section>
+        <main class="landing-main">
+            <section class="hero" aria-labelledby="hero-title">
+                <div class="hero-card">
+                    <h1 id="hero-title" data-i18n="landingHeroTitle">Secure communication <span>in real time</span></h1>
+                    <p data-i18n="landingHeroDescription">
+                        WindChat combines speed, advanced encryption, and a smooth experience for developers and teams
+                        who
+                        prioritize cybersecurity.
+                    </p>
+                    <div class="cta">
+                        <button class="btn-primary" type="button" data-i18n="landingStartNow"
+                            aria-label="Start now">Start now</button>
+                    </div>
+                </div>
+            </section>
 
-        <div class="public-link" id="publicLinkBox" aria-live="polite">
-            <span data-i18n="landingPublicLinkLabel">Public link to share:</span>
-            <a id="publicLinkAnchor" href="#" target="_blank" rel="noopener noreferrer"></a>
-        </div>
+            <div class="public-link" id="publicLinkBox" aria-live="polite">
+                <span data-i18n="landingPublicLinkLabel">Public link to share:</span>
+                <a id="publicLinkAnchor" href="#" target="_blank" rel="noopener noreferrer"></a>
+            </div>
 
-        <section class="features" id="features">
-            <div class="card">
-                <h3 data-i18n="landingFeature1Title">End-to-End Encryption</h3>
-                <p data-i18n="landingFeature1Description">Advanced protection for every sent and received message.</p>
-            </div>
-            <div class="card">
-                <h3 data-i18n="landingFeature2Title">Comfort-first design</h3>
-                <p data-i18n="landingFeature2Description">Minimal interface focused on productivity and visual comfort.
-                </p>
-            </div>
-            <div class="card">
-                <h3 data-i18n="landingFeature3Title">Optimized for devs</h3>
-                <p data-i18n="landingFeature3Description">Technical typography, smooth UX, and a modern approach.</p>
-            </div>
-        </section>
+            <section class="features" id="features" aria-labelledby="features-title">
+                <h2 id="features-title" class="sr-only">Core features</h2>
+                <article class="card">
+                    <h3 data-i18n="landingFeature1Title">End-to-End Encryption</h3>
+                    <p data-i18n="landingFeature1Description">Advanced protection for every sent and received message.
+                    </p>
+                </article>
+                <article class="card">
+                    <h3 data-i18n="landingFeature2Title">Comfort-first design</h3>
+                    <p data-i18n="landingFeature2Description">Minimal interface focused on productivity and visual
+                        comfort.
+                    </p>
+                </article>
+                <article class="card">
+                    <h3 data-i18n="landingFeature3Title">Optimized for devs</h3>
+                    <p data-i18n="landingFeature3Description">Technical typography, smooth UX, and a modern approach.
+                    </p>
+                </article>
+            </section>
+        </main>
 
         <footer>
             © 2026 WindChat · Secure Web Communication
         </footer>
     </div>
 
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body?.setAttribute('data-theme', 'dark');
+        }
+    </script>
     <script type="module" src="/src/main.ts"></script>
 
 </body>
