@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" dir="ltr">
+<html lang="es" dir="ltr" data-theme="light">
 
 <head>
     <meta charset="UTF-8" />
@@ -253,22 +253,22 @@
         }
 
         [data-theme="dark"] {
-            --bg-primary: #020617;
-            --bg-secondary: #0f172a;
+            --bg-primary: #000000;
+            --bg-secondary: #0a0e1a;
             --text-primary: #f1f5f9;
 
-            --glass-bg: rgba(15, 23, 42, 0.35);
-            --glass-strong: rgba(15, 23, 42, 0.55);
+            --glass-bg: rgba(10, 14, 26, 0.45);
+            --glass-strong: rgba(10, 14, 26, 0.65);
 
-            --border-color: rgba(255, 255, 255, 0.08);
+            --border-color: rgba(255, 255, 255, 0.06);
 
-            --chat-bg: rgba(15, 23, 42, 0.28);
+            --chat-bg: rgba(10, 14, 26, 0.38);
 
             --message-other: rgba(255, 255, 255, 0.08);
 
             --shadow-lg:
-                0 10px 50px rgba(0, 0, 0, 0.45),
-                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+                0 10px 50px rgba(0, 0, 0, 0.65),
+                inset 0 1px 0 rgba(255, 255, 255, 0.02);
         }
 
         * {
@@ -419,7 +419,9 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
 
-            text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+            text-shadow: 0 0 30px rgba(56, 189, 248, 0.8),
+                0 0 60px rgba(14, 165, 233, 0.6),
+                0 0 90px rgba(125, 211, 252, 0.4);
 
             letter-spacing: 1px;
         }
@@ -703,6 +705,10 @@
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+
+            text-shadow: 0 0 40px rgba(56, 189, 248, 0.8),
+                0 0 80px rgba(14, 165, 233, 0.6),
+                0 0 120px rgba(125, 211, 252, 0.4);
         }
 
         .login-screen input {
@@ -844,7 +850,7 @@
 
 </head>
 
-<body data-theme="light">
+<body>
 
     <canvas id="particles"></canvas>
 
