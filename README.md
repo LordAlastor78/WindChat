@@ -257,9 +257,22 @@ Edit `.env` as needed:
 # WebSocket server port
 PORT=8080
 
+# Optional local TLS for the Node server
+LOCAL_HTTPS=true
+HTTPS_KEY_PATH=./certs/localhost-key.pem
+HTTPS_CERT_PATH=./certs/localhost-cert.pem
+
+# Optional password if the private key is encrypted
+# HTTPS_PASSPHRASE=changeit
+
+# Optional client-side dev HTTPS
+DEV_HTTPS=true
+
 # Room user limit
 MAX_USERS_PER_ROOM=2
 
+
+If you enable local TLS, generate a dev certificate pair first with `mkcert` or a similar local CA tool, then point `HTTPS_KEY_PATH` and `HTTPS_CERT_PATH` at the generated files. The client dev server can also be launched over HTTPS with `DEV_HTTPS=true` so the browser uses `wss://` for the chat socket.
 # Max message size (bytes)
 MAX_MESSAGE_SIZE=10485760
 ```

@@ -15,8 +15,11 @@
  * - No persiste en BD
  */
 
+import express, { type Request, type Response } from "express";
 import fs from "fs";
+import helmet from "helmet";
 import http from "http";
+import https from "https";
 import path from "path";
 import { fileURLToPath } from "url";
 import WebSocket, { WebSocketServer } from "ws";
@@ -29,6 +32,7 @@ import {
   MAX_MESSAGE_SIZE,
   MAX_USERS_PER_ROOM,
 } from "./protocol.js";
+import { getSecurityHeaders } from "./security-headers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,47 +128,53 @@ const mimeTypes: Record<string, string> = {
 /**
  * Headers de seguridad para todas las respuestas HTTP
  */
-function getSecurityHeaders(contentType: string): Record<string, string> {
-  return {
-    "Content-Type": contentType,
-    // CSP: Content Security Policy - Prevenir XSS y ataques de inyección
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'", // unsafe-inline necesario para Vite HMR en dev
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob:",
-      "connect-src 'self' ws: wss:", // WebSocket connections
-      "worker-src 'self' blob:", // Service workers y web workers
-      "manifest-src 'self'", // PWA manifest
-      "frame-ancestors 'none'", // No permitir iframes
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
-    // Prevenir MIME type sniffing
-    "X-Content-Type-Options": "nosniff",
-    // Prevenir clickjacking (redundante con frame-ancestors pero compatible con navegadores viejos)
-    "X-Frame-Options": "DENY",
-    // Configurar el header Referrer para privacidad
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    // Permissions Policy - Deshabilitar APIs innecesarias
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-  };
-}
+// security headers are provided by server/src/security-headers.ts
 
-// HTTP Server para archivos estáticos
-const server = http.createServer((req, res) => {
-  // Normalize URL: Remove any full URL that might be in the path (from Cloudflare tunnel)
-  let requestUrl = req.url || "/";
+const isProduction = process.env.NODE_ENV === "production";
+const clientDistPath = path.join(__dirname, "../../client/dist");
+const useLocalHttps = ["true", "1", "yes"].includes((process.env.LOCAL_HTTPS || "").toLowerCase());
+const httpsKeyPath = process.env.HTTPS_KEY_PATH || process.env.TLS_KEY_PATH;
+const httpsCertPath = process.env.HTTPS_CERT_PATH || process.env.TLS_CERT_PATH;
+const httpsCaPath = process.env.HTTPS_CA_PATH || process.env.TLS_CA_PATH;
+const httpsPassphrase = process.env.HTTPS_PASSPHRASE || process.env.TLS_PASSPHRASE;
 
-  // If the URL contains a protocol (http:// or https://), extract just the path
-  // This handles cases where Cloudflare tunnel paths might contain full URLs
+const app = express();
+app.disable("x-powered-by");
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    hsts: isProduction,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+  })
+);
+
+app.use((req, res, next) => {
+  const rawContentLength = req.headers["content-length"];
+  if (rawContentLength) {
+    const contentLength = parseInt(
+      Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength,
+      10
+    );
+    if (!Number.isNaN(contentLength) && contentLength > MAX_MESSAGE_SIZE * 10) {
+      res.status(413).set(getSecurityHeaders("text/plain")).send("413 Payload Too Large");
+      return;
+    }
+  }
+
+  next();
+});
+
+app.get("*", (req: Request, res: Response) => {
+  let requestUrl = req.originalUrl || "/";
+
   if (requestUrl.includes("://")) {
     try {
       const urlObj = new URL("http://dummy" + requestUrl);
       requestUrl = urlObj.pathname;
-    } catch (e) {
-      // If URL parsing fails, try to extract path after the domain
+    } catch (error) {
       const match = requestUrl.match(/https?:\/\/[^/]+(\/.*)/) || requestUrl.match(/\/https?:\/\/[^/]+(\/.*)/);
       if (match && match[1]) {
         requestUrl = match[1];
@@ -174,40 +184,65 @@ const server = http.createServer((req, res) => {
 
   console.log(`📥 HTTP ${req.method} ${requestUrl}`);
 
-  // Ruta de archivos estáticos (build del cliente)
-  const clientDistPath = path.join(__dirname, "../../client/dist");
-
   let filePath = path.join(clientDistPath, requestUrl === "/" ? "index.html" : requestUrl);
 
-  // Si es un directorio, buscar index.html
   if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
     filePath = path.join(filePath, "index.html");
   }
 
-  // Verificar si existe
   if (!fs.existsSync(filePath)) {
-    res.writeHead(404, getSecurityHeaders("text/plain"));
-    res.end("404 Not Found");
+    res.status(404).set(getSecurityHeaders("text/plain")).send("404 Not Found");
     return;
   }
 
-  // Leer y servir archivo
   const ext = path.extname(filePath);
   const contentType = mimeTypes[ext] || "application/octet-stream";
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(500, getSecurityHeaders("text/plain"));
-      res.end("500 Internal Server Error");
+      res.status(500).set(getSecurityHeaders("text/plain")).send("500 Internal Server Error");
       return;
     }
 
-    res.writeHead(200, getSecurityHeaders(contentType));
-    res.end(data);
+    res.status(200).set(getSecurityHeaders(contentType)).send(data);
   });
 });
 
-// WebSocket Server montado sobre HTTP server
+function createServer() {
+  if (useLocalHttps) {
+    if (!httpsKeyPath || !httpsCertPath) {
+      console.warn("⚠️ LOCAL_HTTPS está activo, pero faltan HTTPS_KEY_PATH y/o HTTPS_CERT_PATH. Se usará HTTP.");
+    } else {
+      try {
+        const tlsOptions: https.ServerOptions = {
+          key: fs.readFileSync(httpsKeyPath),
+          cert: fs.readFileSync(httpsCertPath),
+        };
+
+        if (httpsCaPath) {
+          tlsOptions.ca = fs.readFileSync(httpsCaPath);
+        }
+
+        if (httpsPassphrase) {
+          tlsOptions.passphrase = httpsPassphrase;
+        }
+
+        console.log(`🔐 TLS local habilitado con cert: ${httpsCertPath}`);
+        return https.createServer(tlsOptions, app);
+      } catch (error) {
+        console.warn("⚠️ No se pudo inicializar HTTPS local, se usará HTTP:", error);
+      }
+    }
+  }
+
+  return http.createServer(app);
+}
+
+const server = createServer();
+const serverScheme = server instanceof https.Server ? "https" : "http";
+const wsScheme = serverScheme === "https" ? "wss" : "ws";
+
+// WebSocket Server montado sobre el HTTP server de Express
 const wss = new WebSocketServer({ server });
 
 
@@ -485,8 +520,8 @@ process.on("SIGTERM", () => {
 
 // Iniciar servidor
 server.listen(PORT, () => {
-  console.log(`🚀 WindChat Server (HTTP + WebSocket) en puerto ${PORT}`);
-  console.log(`📁 Sirviendo archivos desde: ${path.join(__dirname, "../../client/dist")}`);
-  console.log(`📡 WebSocket listo en ws://localhost:${PORT}`);
-  console.log(`🌐 HTTP listo en http://localhost:${PORT}`);
+  console.log(`🚀 WindChat Server (Express + ${serverScheme.toUpperCase()} + WebSocket) en puerto ${PORT}`);
+  console.log(`📁 Sirviendo archivos desde: ${clientDistPath}`);
+  console.log(`📡 WebSocket listo en ${wsScheme}://localhost:${PORT}`);
+  console.log(`🌐 ${serverScheme.toUpperCase()} listo en ${serverScheme}://localhost:${PORT}`);
 });

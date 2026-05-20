@@ -608,6 +608,7 @@ function Show-Menu {
     Write-Host "[7] Cloudflare mode (server + client + tunnel)" -ForegroundColor Blue
     Write-Host "[8] Cloudflare only (open/close tunnel)" -ForegroundColor Blue
     Write-Host "[9] Cloudflare Quick Tunnel diagnostics (DEBUG)" -ForegroundColor Magenta
+    Write-Host "[10] Secure local mode (HTTPS + WSS)" -ForegroundColor DarkGreen
     Write-Host "[0] Exit" -ForegroundColor Gray
     Write-Host ""
 }
@@ -690,6 +691,111 @@ function Start-Dev {
     Start-Process powershell -ArgumentList "-Command", "cd '$PWD'; npm run dev:client"
     
     Write-Host "[OK] Processes started" -ForegroundColor Green
+    Write-Host ""
+}
+
+function Get-LocalTlsConfig {
+    $keyPath = $env:HTTPS_KEY_PATH
+    $certPath = $env:HTTPS_CERT_PATH
+    $caPath = $env:HTTPS_CA_PATH
+    $passphrase = $env:HTTPS_PASSPHRASE
+
+    if ($keyPath -and $certPath -and (Test-Path $keyPath) -and (Test-Path $certPath)) {
+        return [pscustomobject]@{
+            Enabled = $true
+            KeyPath = (Resolve-Path $keyPath).Path
+            CertPath = (Resolve-Path $certPath).Path
+            CaPath = if ($caPath -and (Test-Path $caPath)) { (Resolve-Path $caPath).Path } else { $null }
+            Passphrase = $passphrase
+            Source = "environment"
+        }
+    }
+
+    $candidatePairs = @(
+        @{ Key = Join-Path $PWD "certs\localhost-key.pem"; Cert = Join-Path $PWD "certs\localhost-cert.pem" },
+        @{ Key = Join-Path $PWD "localhost-key.pem"; Cert = Join-Path $PWD "localhost-cert.pem" },
+        @{ Key = Join-Path $PWD ".certs\localhost-key.pem"; Cert = Join-Path $PWD ".certs\localhost-cert.pem" }
+    )
+
+    foreach ($pair in $candidatePairs) {
+        if ((Test-Path $pair.Key) -and (Test-Path $pair.Cert)) {
+            return [pscustomobject]@{
+                Enabled = $true
+                KeyPath = (Resolve-Path $pair.Key).Path
+                CertPath = (Resolve-Path $pair.Cert).Path
+                CaPath = $null
+                Passphrase = $null
+                Source = "local-files"
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Enabled = $false
+        KeyPath = $null
+        CertPath = $null
+        CaPath = $null
+        Passphrase = $null
+        Source = "missing"
+    }
+}
+
+function Start-SecureLocalMode {
+    Write-Host "[*] Starting WindChat in secure local mode (HTTPS + WSS)..." -ForegroundColor Green
+    Write-Host ""
+
+    $tlsConfig = Get-LocalTlsConfig
+    if (-not $tlsConfig.Enabled) {
+        Write-Host "[ERROR] No local TLS certificates were found." -ForegroundColor Red
+        Write-Host "[!] Provide HTTPS_KEY_PATH and HTTPS_CERT_PATH or place certs/localhost-key.pem and certs/localhost-cert.pem" -ForegroundColor Yellow
+        Write-Host "[!] Tip: generate them with mkcert for localhost, 127.0.0.1 and ::1" -ForegroundColor Yellow
+        Write-Host ""
+        return
+    }
+
+    Write-Host "  * TLS source: $($tlsConfig.Source)" -ForegroundColor Cyan
+    Write-Host "  * Server will use HTTPS + WSS" -ForegroundColor Cyan
+    Write-Host "  * Client will use HTTPS dev server" -ForegroundColor Cyan
+    Write-Host "  * Cert: $($tlsConfig.CertPath)" -ForegroundColor Cyan
+    Write-Host ""
+
+    Write-Host "[*] Killing previous processes..." -ForegroundColor Yellow
+    Kill-NodeProcesses
+    Start-Sleep -Seconds 2
+
+    $serverCommand = @(
+        "Set-Location '$PWD'",
+        "`$env:LOCAL_HTTPS='true'",
+        "`$env:HTTPS_KEY_PATH='$($tlsConfig.KeyPath)'",
+        "`$env:HTTPS_CERT_PATH='$($tlsConfig.CertPath)'"
+    )
+    if ($tlsConfig.CaPath) {
+        $serverCommand += "`$env:HTTPS_CA_PATH='$($tlsConfig.CaPath)'"
+    }
+    if ($tlsConfig.Passphrase) {
+        $serverCommand += "`$env:HTTPS_PASSPHRASE='$($tlsConfig.Passphrase)'"
+    }
+    $serverCommand += "npm run dev:server"
+
+    Write-Host "[*] Starting secure server..." -ForegroundColor Green
+    Start-Process powershell -ArgumentList "-Command", ($serverCommand -join '; ')
+
+    Start-Sleep -Seconds 4
+
+    $clientCommand = @(
+        "Set-Location '$PWD'",
+        "`$env:DEV_HTTPS='true'",
+        "npm run dev:client"
+    )
+
+    Write-Host "[*] Starting HTTPS client..." -ForegroundColor Green
+    Start-Process powershell -ArgumentList "-Command", ($clientCommand -join '; ')
+
+    Write-Host "[OK] Secure local mode started" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  * Open: https://localhost:3000" -ForegroundColor Cyan
+    Write-Host "  * Server: https://localhost:8080" -ForegroundColor Cyan
+    Write-Host "  * WebSocket: wss://localhost:8080" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -967,6 +1073,9 @@ while ($true) {
             Write-Host ""
             Invoke-CloudflaredQuickTunnelDiagnostic
             Read-Host "[?] Press Enter to continue"
+        }
+        "10" {
+            Start-SecureLocalMode
         }
         "0" {
             Stop-ManagedProcessesOnExit

@@ -70,15 +70,41 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Si la respuesta es válida, cachearla y retornarla
-        if (response && response.status === 200) {
+        // Validar respuesta antes de cachear
+        try {
+          // Cachear sólo respuestas OK
+          if (!response || response.status !== 200) return response;
+
+          // Evitar cachear respuestas opaques (cross-origin without CORS)
+          if (response.type === 'opaque') return response;
+
+          // Sólo cachear recursos con Content-Type permitidos
+          const contentType = response.headers.get('Content-Type') || '';
+          const allowed = [
+            'text/html',
+            'text/css',
+            'application/javascript',
+            'application/json',
+            'image/',
+          ];
+
+          const isAllowed = allowed.some((t) => contentType.startsWith(t));
+          if (!isAllowed) return response;
+
+          // Sólo cachear same-origin or CORS responses
+          if (response.type !== 'basic' && response.type !== 'cors') return response;
+
           const responseToCache = response.clone();
           caches.open(CACHE_NAME)
             .then((cache) => {
               cache.put(event.request, responseToCache);
             });
+
+          return response;
+        } catch (err) {
+          console.warn('[SW] No se cacheó la respuesta por validación:', err);
+          return response;
         }
-        return response;
       })
       .catch(() => {
         // Si falla la red, intentar obtener del cache
@@ -88,12 +114,12 @@ self.addEventListener('fetch', (event) => {
               console.log('[SW] Sirviendo desde caché:', event.request.url);
               return cachedResponse;
             }
-            
+
             // Si no está en caché y es navegación, retornar página offline
             if (event.request.mode === 'navigate') {
               return caches.match('/index.html');
             }
-            
+
             // Para otros recursos, retornar error genérico
             return new Response('Offline - recurso no disponible', {
               status: 503,

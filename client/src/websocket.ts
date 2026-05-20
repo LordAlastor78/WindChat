@@ -78,8 +78,9 @@ export class ChatClient {
       const publicKeyRaw = await this.crypto.generateKeyPair();
       this.publicKeyB64 = this.arrayBufferToBase64(publicKeyRaw);
 
-      // Conectar WebSocket
-      this.ws = new WebSocket(serverUrl);
+      // Conectar WebSocket (normalizar protocolo para wss en entornos HTTPS)
+      const wsUrl = this.normalizeWebSocketUrl(serverUrl);
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         console.log("✅ WebSocket conectado");
@@ -149,6 +150,45 @@ export class ChatClient {
         );
       }
       throw err;
+    }
+  }
+
+  /**
+   * Normalize a server URL to a websocket URL.
+   * - If given an http(s) URL, convert to ws(s)
+   * - If given ws(s) URL, ensure it matches current page protocol (upgrade to wss on https)
+   * - If relative path, build absolute ws/wss URL from window.location
+   */
+  private normalizeWebSocketUrl(url: string): string {
+    try {
+      // If it's an absolute HTTP/HTTPS URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url.replace(/^http/, 'ws');
+      }
+
+      // If already ws:// or wss://
+      if (url.startsWith('ws://') || url.startsWith('wss://')) {
+        // Upgrade to wss if page is served over HTTPS
+        if (window.location.protocol === 'https:' && url.startsWith('ws://')) {
+          return url.replace(/^ws:/, 'wss:');
+        }
+        return url;
+      }
+
+      // Relative path (e.g. '/ws' or '/'), build full URL
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      // Ensure leading slash
+      const path = url.startsWith('/') ? url : `/${url}`;
+      return `${protocol}//${host}${path}`;
+    } catch (err) {
+      // Fallback: attempt simple ws replacement
+      if (window.location.protocol === 'https:') {
+        if (url.startsWith('ws://')) return url.replace(/^ws:/, 'wss:');
+        return `wss://${window.location.host}${url.startsWith('/') ? url : `/${url}`}`;
+      }
+      if (url.startsWith('wss://')) return url.replace(/^wss:/, 'ws:');
+      return `ws://${window.location.host}${url.startsWith('/') ? url : `/${url}`}`;
     }
   }
 
