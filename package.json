@@ -10,15 +10,17 @@
   "scripts": {
     "dev": "npm run dev --workspaces",
     "build": "npm run build --workspaces",
-    "healthcheck": "powershell -ExecutionPolicy Bypass -File ./healthcheck.ps1",
+    "healthcheck": "node ./scripts/run-script.js healthcheck",
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
     "build:server": "npm run build -w server",
     "build:client": "npm run build -w client",
     "start": "npm run dev:server",
     "client": "npm run dev:client",
-    "setup": "npm install && npm install -w server && npm install -w client",
-    "test": "npm run build && npm run start"
+    "setup": "node ./scripts/run-script.js setup",
+    "postinstall": "node ./scripts/run-script.js fix-perms",
+    "test": "npm run build && npm run start",
+    "test:integration": "node ./tools/integration/run_integration.js"
   },
   "keywords": [
     "encryption",

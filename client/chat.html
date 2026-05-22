@@ -16,6 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="WindChat" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/favicon.ico" sizes="180x180" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -103,7 +104,7 @@
             opacity: 0.7;
 
             min-height: 28px;
-
+            -webkit-backdrop-filter: blur(8px);
             backdrop-filter: blur(8px);
         }
 
@@ -182,6 +183,12 @@
 
             box-shadow:
                 0 0 15px rgba(56, 189, 248, 0.45);
+            width: 0%;
+        }
+
+        .flex-fill {
+            flex: 1;
+            min-width: 0;
         }
 
         .new-messages-indicator {
@@ -315,6 +322,7 @@
 
             background-size: 30px 30px;
 
+            -webkit-mask-image: radial-gradient(circle at center, black, transparent 85%);
             mask-image: radial-gradient(circle at center, black, transparent 85%);
             pointer-events: none;
             z-index: 0;
@@ -347,8 +355,8 @@
 
             background: var(--chat-bg);
 
-            backdrop-filter: var(--blur);
             -webkit-backdrop-filter: var(--blur);
+            backdrop-filter: var(--blur);
 
             border: 1px solid var(--border-color);
 
@@ -362,8 +370,8 @@
         .reply-bar,
         .context-menu,
         .file-preview {
-            transform: translateZ(0);
             -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
 
         .chat-header,
@@ -374,8 +382,8 @@
         .file-preview {
             background: var(--glass-bg);
 
-            backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
 
             border: 1px solid var(--border-color);
 
@@ -415,8 +423,8 @@
 
             background: linear-gradient(135deg, #7dd3fc, #38bdf8, #0ea5e9);
 
-            background-clip: text;
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
 
             text-shadow: 0 0 30px rgba(56, 189, 248, 0.8),
@@ -473,6 +481,7 @@
 
             color: var(--text-primary);
 
+            -webkit-backdrop-filter: blur(12px);
             backdrop-filter: blur(12px);
         }
 
@@ -512,6 +521,7 @@
             white-space: pre-wrap;
             word-break: break-word;
 
+            -webkit-backdrop-filter: blur(14px);
             backdrop-filter: blur(14px);
 
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -593,6 +603,8 @@
             font-size: 0.72rem;
             font-weight: 700;
             opacity: 0.75;
+            display: block;
+            margin-bottom: 0.35rem;
         }
 
         .message.me .message-sender {
@@ -602,6 +614,12 @@
         .message-timestamp {
             font-size: 0.66rem;
             opacity: 0.7;
+        }
+
+        .message-text {
+            display: block;
+            line-height: 1.45;
+            white-space: pre-wrap;
         }
 
         .reply-preview {
@@ -639,6 +657,7 @@
 
             color: var(--text-primary);
 
+            -webkit-backdrop-filter: blur(12px);
             backdrop-filter: blur(12px);
 
             outline: none;
@@ -702,8 +721,8 @@
             background:
                 linear-gradient(135deg, #7dd3fc, #38bdf8);
 
-            background-clip: text;
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
 
             text-shadow: 0 0 40px rgba(56, 189, 248, 0.8),
@@ -724,6 +743,7 @@
 
             color: var(--text-primary);
 
+            -webkit-backdrop-filter: blur(12px);
             backdrop-filter: blur(12px);
 
             outline: none;
@@ -797,6 +817,7 @@
 
             border: 1px solid rgba(255, 255, 255, 0.08);
 
+            -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
         }
 
@@ -809,6 +830,7 @@
         }
 
         .new-messages-indicator {
+            -webkit-backdrop-filter: blur(18px);
             backdrop-filter: blur(18px);
 
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -818,6 +840,7 @@
         }
 
         .audio-prompt {
+            -webkit-backdrop-filter: blur(16px);
             backdrop-filter: blur(16px);
 
             background: rgba(0, 0, 0, 0.45);
@@ -906,7 +929,7 @@
             <div id="filePreview" class="file-preview hidden">
                 <div class="file-preview-info">
                     <span>📎</span>
-                    <div style="flex: 1; min-width: 0;">
+                    <div class="flex-fill">
                         <div class="file-preview-name" id="filePreviewName"></div>
                         <div class="file-preview-size" id="filePreviewSize"></div>
                     </div>
@@ -914,11 +937,11 @@
                 <button id="fileCancelBtn" class="file-cancel-btn" data-i18n="fileCancelTitle" data-i18n-attr="title"
                     title="Cancel">✕</button>
                 <div class="file-progress hidden" id="fileProgress">
-                    <div class="file-progress-bar" id="fileProgressBar" style="width: 0%"></div>
+                    <div class="file-progress-bar" id="fileProgressBar"></div>
                 </div>
             </div>
             <footer class="input-area">
-                <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.zip" style="display: none;" />
+                <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.zip" class="hidden" />
                 <button id="attachFileBtn" class="file-attach-btn" data-i18n="attachFileTitle" data-i18n-attr="title"
                     title="Attach file">📎</button>
                 <input type="text" id="messageInput" data-i18n="messageInputPlaceholder" data-i18n-attr="placeholder"

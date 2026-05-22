@@ -1,13 +1,13 @@
 /**
  * WindChat Server - WebSocket Server
- * 
+ *
  * Responsabilidades:
  * - Gestionar rooms efímeras (Map en memoria)
  * - Intercambiar claves públicas P-256
  * - Reenviar mensajes cifrados (broadcast)
  * - Validar tamaño de mensajes
  * - Hard limit: máximo 2 usuarios por room
- * 
+ *
  * QUE NO HACE:
  * - No almacena mensajes
  * - No ve claves privadas
@@ -15,6 +15,7 @@
  * - No persiste en BD
  */
 
+import dotenv from 'dotenv';
 import express, { type Request, type Response } from "express";
 import fs from "fs";
 import helmet from "helmet";
@@ -141,6 +142,46 @@ const httpsPassphrase = process.env.HTTPS_PASSPHRASE || process.env.TLS_PASSPHRA
 const app = express();
 app.disable("x-powered-by");
 
+// Load .env variables for debug endpoint credentials
+dotenv.config();
+
+const DEBUG_USER = process.env.DEBUG_USER;
+const DEBUG_PASS = process.env.DEBUG_PASS;
+
+function sendUnauthorized(res: Response) {
+  res.setHeader('WWW-Authenticate', 'Basic realm="WindChat Debug"');
+  return res.status(401).set(getSecurityHeaders('text/plain')).send('Unauthorized');
+}
+
+function checkDebugAuth(req: Request, res: Response, next: () => void) {
+  if (!DEBUG_USER || !DEBUG_PASS) {
+    console.warn('⚠️ Debug credentials not configured');
+    return sendUnauthorized(res);
+  }
+
+  const auth = req.headers['authorization'];
+  if (!auth || typeof auth !== 'string' || !auth.startsWith('Basic ')) {
+    return sendUnauthorized(res);
+  }
+
+  try {
+    const token = auth.split(' ')[1];
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    const sepIndex = decoded.indexOf(':');
+    if (sepIndex === -1) return sendUnauthorized(res);
+    const user = decoded.slice(0, sepIndex);
+    const pass = decoded.slice(sepIndex + 1);
+
+    if (user === DEBUG_USER && pass === DEBUG_PASS) {
+      return next();
+    }
+    return sendUnauthorized(res);
+  } catch (err) {
+    console.warn('⚠️ Error decoding auth header', err);
+    return sendUnauthorized(res);
+  }
+}
+
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -208,6 +249,19 @@ app.get("*", (req: Request, res: Response) => {
   });
 });
 
+// Debug endpoint: show active rooms and clients (protected by Basic Auth)
+app.get('/debug/rooms', (req: Request, res: Response) => checkDebugAuth(req, res, () => {
+  const out: any[] = [];
+  rooms.forEach((room, id) => {
+    const clients: any[] = [];
+    room.clients.forEach((conn) => {
+      clients.push({ displayName: conn.displayName || 'Anon' });
+    });
+    out.push({ roomId: id, clientsCount: room.clients.size, clients });
+  });
+  res.status(200).set(getSecurityHeaders('application/json')).json({ rooms: out });
+}));
+
 function createServer() {
   if (useLocalHttps) {
     if (!httpsKeyPath || !httpsCertPath) {
@@ -252,7 +306,8 @@ function isValidBase64(value: string): boolean {
 }
 
 wss.on("connection", (ws: WebSocket) => {
-  console.log("✅ Nuevo cliente conectado");
+  const remoteAddr = (ws as any)?._socket?.remoteAddress || (ws as any)?._socket?.remoteAddressPort || 'unknown';
+  console.log(`✅ Nuevo cliente conectado from ${remoteAddr}`);
 
   const client: ClientConnection = { ws };
 
@@ -374,7 +429,7 @@ function handleJoin(
   client.displayName = displayName;
   room.clients.set(ws, client);
 
-  console.log(`✅ Cliente se unió a room ${roomId}. Total: ${room.clients.size}`);
+  console.log(`✅ Cliente se unió a room ${roomId}. displayName=${displayName} total=${room.clients.size}`);
 
   // Si hay otro cliente, intercambiar claves públicas
   if (room.clients.size === 2) {
@@ -424,11 +479,18 @@ function handleMessage(
     ciphertext: msg.ciphertext,
   };
 
+  let sent = 0;
   room.clients.forEach((_, clientWs) => {
     if (clientWs !== ws && clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(JSON.stringify(response));
+      try {
+        clientWs.send(JSON.stringify(response));
+        sent++;
+      } catch (err) {
+        console.warn("⚠️ Failed to send message to a client:", err);
+      }
     }
   });
+  console.log(`📡 Broadcasted encrypted message to ${sent} recipients in room ${client.roomId}`);
 }
 
 /**
@@ -450,11 +512,18 @@ function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
   const room = rooms.get(client.roomId);
   if (!room) return;
 
+  let sent = 0;
   room.clients.forEach((_, clientWs) => {
     if (clientWs !== ws && clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(JSON.stringify({ type: "typing", isTyping: msg.isTyping }));
+      try {
+        clientWs.send(JSON.stringify({ type: "typing", isTyping: msg.isTyping }));
+        sent++;
+      } catch (err) {
+        console.warn("⚠️ Failed to send typing event:", err);
+      }
     }
   });
+  console.log(`⌨️ Relayed typing=${msg.isTyping} to ${sent} peers in room ${client.roomId}`);
 }
 
 /**
@@ -482,6 +551,12 @@ function handleDisconnect(ws: WebSocket, client: ClientConnection) {
     room.clients.forEach((_, clientWs) => {
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.send(JSON.stringify({ type: "peer_disconnected" }));
+        // Ensure typing indicator is cleared on peer disconnect
+        try {
+          clientWs.send(JSON.stringify({ type: "typing", isTyping: false }));
+        } catch (err) {
+          console.warn("⚠️ Failed to send typing:false on disconnect:", err);
+        }
       }
     });
   }

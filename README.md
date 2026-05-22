@@ -2,7 +2,7 @@
 
 
 
-**WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server can be hosted on your OWN computer, and deployed quickly in seconds. This is not a normal web-chat. Its YOUR own, personal, and private web - chat. 
+**WindChat** is an instant web messaging solution with end-to-end encryption (E2EE) based on modern cryptographic standards. It implements a secure, ephemeral, zero-knowledge communication system where the server can be hosted on your OWN computer, and deployed quickly in seconds. This is not a normal web-chat. Its YOUR own, personal, and private web - chat.
 
 <div align="center">
 <img src="./WindChat.png" alt="WindChat Logo" width="230">
@@ -242,6 +242,23 @@ npm install
 # Install server and client dependencies
 npm install --workspace=server --workspace=client
 ```
+
+### Linux / macOS notes
+
+Use the Bash helpers in `./scripts/` on Linux or macOS. Examples:
+
+```bash
+# Initial setup (first time)
+./scripts/setup.sh
+
+# Start development (server + client)
+./scripts/dev.sh
+
+# Run the integrated healthcheck
+npm run healthcheck
+```
+
+These scripts call the same npm workspace commands used on Windows and provide a lightweight, cross-platform workflow.
 
 #### 2. Configure Environment Variables
 
@@ -709,7 +726,7 @@ console.timeEnd('encrypt');
 ### Security Recommendations for Users
 
 1. **Use only with HTTPS/WSS**: Browsers block Web Crypto API on HTTP
-2. **Do not share Room ID publicly**: It is the only shared secret, acts as password of the room. 
+2. **Do not share Room ID publicly**: It is the only shared secret, acts as password of the room.
 3. **Verify identity out-of-band**: Identity authentication is not implemented
 4. **Use trusted devices**: Endpoints can be compromised
 5. **Do not expect persistence**: Messages are ephemeral by design
@@ -858,7 +875,7 @@ Summary:
 
 **Purpose**: Provide a reference implementation of E2EE messaging with zero-knowledge architecture, prioritizing simplicity, transparency, and modern cryptographic security practices.
 
-**Security**: True end-to-end encryption with no database and no persistence. The server is a blind relay with no ability to decrypt messages, but the key is host u in ur own device. Share information only with whoever you actually choose. No more messages left forever in the cloud. Ur server, ur chat, ur info. 
+**Security**: True end-to-end encryption with no database and no persistence. The server is a blind relay with no ability to decrypt messages, but the key is host u in ur own device. Share information only with whoever you actually choose. No more messages left forever in the cloud. Ur server, ur chat, ur info.
 
 ---
 
@@ -870,5 +887,4 @@ Summary:
 - **Discussions**: [GitHub Discussions](https://github.com/LordAlastor78/windchat/discussions)
 - **Support**: [![Ko-fi](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/alastor78)
 
-**Note**: This version is considered stable for general use, but it may still contain undetected bugs. For questions, suggestions, or bug reports, please use GitHub channels or support us on Ko-fi to speed up development. Thank you for your interest in WindChat. 
-
+**Note**: This version is considered stable for general use, but it may still contain undetected bugs. For questions, suggestions, or bug reports, please use GitHub channels or support us on Ko-fi to speed up development. Thank you for your interest in WindChat.

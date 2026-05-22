@@ -1,6 +1,6 @@
 /**
  * ChatClient - Cliente WebSocket para WindChat
- * 
+ *
  * Responsabilidades:
  * - Conectar a servidor WebSocket
  * - Enviar handshake con clave pública
@@ -118,7 +118,7 @@ export class ChatClient {
       };
 
       this.ws.onclose = (event) => {
-        console.log(`👋 WebSocket cerrado (code: ${event.code})`);
+        console.log(`👋 WebSocket cerrado (code: ${event.code}, reason: ${event.reason || 'none'})`);
 
         // ✅ NUEVA: Detener heartbeat cuando se cierra conexión
         this.stopHeartbeat();
@@ -140,6 +140,9 @@ export class ChatClient {
 
         // Intentar reconexión automática
         console.log("⚠️ Conexión perdida, intentando reconectar...");
+        if (this.callbacks.onDisconnected) {
+          this.callbacks.onDisconnected();
+        }
         this.handleReconnection();
       };
     } catch (err) {
@@ -452,6 +455,9 @@ export class ChatClient {
         setTimeout(() => {
           if (this.heartbeatPending && this.ws?.readyState === WebSocket.OPEN) {
             console.warn("⚠️ Heartbeat timeout, reconectando...");
+            if (this.callbacks.onError) {
+              this.callbacks.onError("Heartbeat timeout");
+            }
             this.ws!.close();
           }
         }, this.HEARTBEAT_TIMEOUT);
@@ -547,7 +553,9 @@ export class ChatClient {
         }
 
         console.log(`🔗 Reconectando a ${this.serverUrl}...`);
-        this.ws = new WebSocket(this.serverUrl);
+        // Use normalized URL to match initial connect behavior (ws/wss)
+        const wsUrl = this.normalizeWebSocketUrl(this.serverUrl!);
+        this.ws = new WebSocket(wsUrl);
 
         // Esperar a que se conecte
         const connected = await this.waitForConnection(this.ws);
@@ -567,6 +575,9 @@ export class ChatClient {
 
           // Re-configurar handlers
           this.setupHandlers();
+
+          // Reiniciar heartbeat tras reconexión exitosa
+          this.startHeartbeat();
 
           // Notificar éxito
           if (this.callbacks.onReconnected) {
