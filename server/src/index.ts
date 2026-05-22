@@ -44,6 +44,8 @@ interface ClientConnection {
   roomId?: string;
   publicKey?: string;
   displayName?: string;
+  lastSeen?: number; // timestamp ms of last activity or pong
+  isAlive?: boolean; // for server-initiated ping/pong
 }
 
 // Estructura de room
@@ -113,6 +115,101 @@ function cleanupRateLimit(ws: WebSocket): void {
 
 // ============================================
 
+// Load .env early so env-driven tuning is available
+dotenv.config();
+
+// ============== SERVER HEALTH ==============
+const SERVER_EVENT_WINDOW = process.env.HEALTH_WINDOW_MS ? parseInt(process.env.HEALTH_WINDOW_MS) : 60 * 1000; // window for events
+const PONG_TIMEOUT_MS = process.env.PONG_TIMEOUT_MS ? parseInt(process.env.PONG_TIMEOUT_MS) : 10_000; // ms after ping
+const SERVER_PING_INTERVAL = process.env.HEARTBEAT_INTERVAL_MS ? parseInt(process.env.HEARTBEAT_INTERVAL_MS) : 30_000; // ms between ping sweeps
+const EVALUATE_INTERVAL_MS = process.env.EVALUATE_INTERVAL_MS ? parseInt(process.env.EVALUATE_INTERVAL_MS) : 15_000; // health evaluation frequency
+
+const DEGRADED_THRESHOLD = process.env.DEGRADED_THRESHOLD ? parseInt(process.env.DEGRADED_THRESHOLD) : 5;
+const ALERT_THRESHOLD = process.env.ALERT_THRESHOLD ? parseInt(process.env.ALERT_THRESHOLD) : 10;
+
+let serverHealth: "ok" | "degraded" | "alert" = "ok";
+const serverEvents: { connections: number[]; disconnects: number[]; errors: number[] } = {
+  connections: [],
+  disconnects: [],
+  errors: [],
+};
+
+function recordServerEvent(kind: keyof typeof serverEvents) {
+  serverEvents[kind].push(Date.now());
+}
+
+function countRecent(kind: keyof typeof serverEvents, windowMs = SERVER_EVENT_WINDOW) {
+  const now = Date.now();
+  const arr = serverEvents[kind].filter(ts => ts > now - windowMs);
+  serverEvents[kind] = arr; // prune old
+  return arr.length;
+}
+
+function evaluateServerHealth() {
+  const disconnects = countRecent('disconnects', SERVER_EVENT_WINDOW);
+  const connections = countRecent('connections', SERVER_EVENT_WINDOW);
+  const errors = countRecent('errors', SERVER_EVENT_WINDOW);
+
+  const prev = serverHealth;
+  // Use tunable thresholds from env
+  if (disconnects >= ALERT_THRESHOLD || errors >= ALERT_THRESHOLD) serverHealth = 'alert';
+  else if (disconnects >= DEGRADED_THRESHOLD || errors >= DEGRADED_THRESHOLD || connections >= (process.env.CONNECTIONS_DEGRADED_THRESHOLD ? parseInt(process.env.CONNECTIONS_DEGRADED_THRESHOLD) : 20)) serverHealth = 'degraded';
+  else serverHealth = 'ok';
+
+  if (prev !== serverHealth) {
+    console.log(`⚕️ Server health changed: ${prev} -> ${serverHealth}`);
+    broadcastServerStatus(serverHealth, `disconnects=${disconnects} errors=${errors} connections=${connections}`);
+  }
+}
+
+function broadcastServerStatus(level: typeof serverHealth, message?: string) {
+  const payload = JSON.stringify({ type: 'server_status', level, message });
+  wss.clients.forEach((c) => {
+    if ((c as WebSocket).readyState === WebSocket.OPEN) {
+      try { (c as WebSocket).send(payload); } catch (e) { /* ignore */ }
+    }
+  });
+}
+
+// Periodic evaluation
+setInterval(evaluateServerHealth, EVALUATE_INTERVAL_MS);
+
+// Server-initiated ping/pong sweep
+setInterval(() => {
+  wss.clients.forEach((c) => {
+    try {
+      const clientConn = Array.from(rooms.values()).flatMap(r => Array.from(r.clients.values())).find(cc => cc.ws === c);
+      // If no mapped client, still ping
+      const wsClient = c as WebSocket;
+      // mark as not alive, expect pong to set it
+      try {
+        // set a property on the socket if possible
+        (wsClient as any).__isAlive = false;
+        wsClient.ping();
+      } catch (e) {
+        // fallback: send application ping
+        try { wsClient.send(JSON.stringify({ type: 'ping' })); } catch (e2) { }
+      }
+
+      // schedule check
+      setTimeout(() => {
+        const alive = (wsClient as any).__isAlive === true;
+        if (!alive && wsClient.readyState === WebSocket.OPEN) {
+          console.warn('⚠️ Closing stale client (no pong)');
+          try { wsClient.terminate(); } catch (e) { wsClient.close(); }
+          recordServerEvent('disconnects');
+        }
+      }, PONG_TIMEOUT_MS + 200);
+    } catch (err) {
+      // ignore per-client errors
+    }
+  });
+}, SERVER_PING_INTERVAL);
+
+// Listen for ws-level pong events to mark alive
+// We'll attach per-socket handler on connection
+// ============================================
+
 // MIME types
 const mimeTypes: Record<string, string> = {
   ".html": "text/html",
@@ -141,9 +238,6 @@ const httpsPassphrase = process.env.HTTPS_PASSPHRASE || process.env.TLS_PASSPHRA
 
 const app = express();
 app.disable("x-powered-by");
-
-// Load .env variables for debug endpoint credentials
-dotenv.config();
 
 const DEBUG_USER = process.env.DEBUG_USER;
 const DEBUG_PASS = process.env.DEBUG_PASS;
@@ -208,6 +302,42 @@ app.use((req, res, next) => {
   next();
 });
 
+// Debug endpoint: show active rooms and clients (protected by Basic Auth)
+app.get('/debug/rooms', (req: Request, res: Response) => checkDebugAuth(req, res, () => {
+  const out: any[] = [];
+  rooms.forEach((room, id) => {
+    const clients: any[] = [];
+    room.clients.forEach((conn) => {
+      clients.push({ displayName: conn.displayName || 'Anon' });
+    });
+    out.push({ roomId: id, clientsCount: room.clients.size, clients });
+  });
+  res.status(200).set(getSecurityHeaders('application/json')).json({ rooms: out });
+}));
+
+// Debug health endpoint
+app.get('/debug/health', (req: Request, res: Response) => checkDebugAuth(req, res, () => {
+  const health = serverHealth;
+  const now = Date.now();
+  const recent = {
+    connections: serverEvents.connections.filter(ts => ts > now - SERVER_EVENT_WINDOW).length,
+    disconnects: serverEvents.disconnects.filter(ts => ts > now - SERVER_EVENT_WINDOW).length,
+    errors: serverEvents.errors.filter(ts => ts > now - SERVER_EVENT_WINDOW).length,
+  };
+
+  // sample rooms info (light)
+  const roomsSummary: any[] = [];
+  rooms.forEach((room, id) => {
+    roomsSummary.push({ roomId: id, clients: room.clients.size });
+  });
+
+  res.status(200).set(getSecurityHeaders('application/json')).json({
+    serverHealth: health,
+    recent,
+    rooms: roomsSummary,
+  });
+}));
+
 app.get("*", (req: Request, res: Response) => {
   let requestUrl = req.originalUrl || "/";
 
@@ -249,18 +379,7 @@ app.get("*", (req: Request, res: Response) => {
   });
 });
 
-// Debug endpoint: show active rooms and clients (protected by Basic Auth)
-app.get('/debug/rooms', (req: Request, res: Response) => checkDebugAuth(req, res, () => {
-  const out: any[] = [];
-  rooms.forEach((room, id) => {
-    const clients: any[] = [];
-    room.clients.forEach((conn) => {
-      clients.push({ displayName: conn.displayName || 'Anon' });
-    });
-    out.push({ roomId: id, clientsCount: room.clients.size, clients });
-  });
-  res.status(200).set(getSecurityHeaders('application/json')).json({ rooms: out });
-}));
+
 
 function createServer() {
   if (useLocalHttps) {
@@ -308,11 +427,24 @@ function isValidBase64(value: string): boolean {
 wss.on("connection", (ws: WebSocket) => {
   const remoteAddr = (ws as any)?._socket?.remoteAddress || (ws as any)?._socket?.remoteAddressPort || 'unknown';
   console.log(`✅ Nuevo cliente conectado from ${remoteAddr}`);
+  const client: ClientConnection = { ws, lastSeen: Date.now(), isAlive: true };
+  recordServerEvent('connections');
 
-  const client: ClientConnection = { ws };
+  // Attach pong handler for ws-level pings
+  try {
+    ws.on('pong', () => {
+      (ws as any).__isAlive = true;
+      client.lastSeen = Date.now();
+      client.isAlive = true;
+    });
+  } catch (e) {
+    // some transports may not support pong events
+  }
 
   ws.on("message", (data: WebSocket.Data) => {
     try {
+      // update last seen on any incoming data
+      client.lastSeen = Date.now();
       // Parsear JSON
       let msg: any;
       try {
@@ -351,6 +483,13 @@ wss.on("connection", (ws: WebSocket) => {
             console.error("❌ Error enviando pong:", err);
           }
           break;
+        case "pong":
+          try {
+            (ws as any).__isAlive = true;
+            client.lastSeen = Date.now();
+            console.log('💓 Pong application-level recibido');
+          } catch (e) { }
+          break;
         case "disconnect":
           handleDisconnect(ws, client);
           break;
@@ -359,12 +498,14 @@ wss.on("connection", (ws: WebSocket) => {
       }
     } catch (err) {
       console.error("❌ Error procesando mensaje:", err);
+      recordServerEvent('errors');
     }
   });
 
   ws.on("close", () => {
     cleanupRateLimit(ws);
     handleDisconnect(ws, client);
+    recordServerEvent('disconnects');
   });
 
   ws.on("error", (err: Error) => {

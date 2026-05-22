@@ -37,6 +37,12 @@ function fixPerms() {
     }
 }
 
+// Special helper command to fix permissions after install
+if (script === 'fix-perms' || script === 'fixperms' || script === 'fix_perms') {
+    if (process.platform !== 'win32') fixPerms();
+    process.exit(0);
+}
+
 if (!mapping[script]) {
     console.error('Unknown script:', script);
     process.exit(2);

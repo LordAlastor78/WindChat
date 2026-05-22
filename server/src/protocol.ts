@@ -1,6 +1,6 @@
 /**
  * WindChat Protocol - Tipos compartidos entre servidor y cliente
- * 
+ *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
  * - HKDF-SHA256 para derivación de clave AES
@@ -68,17 +68,26 @@ export interface DisconnectMessage {
 
 // ===== UNION TYPES =====
 
-export type ClientToServerMessage = 
-  | HandshakeMessage 
-  | EncryptedMessage 
-  | TypingIndicator 
+export type ClientToServerMessage =
+  | HandshakeMessage
+  | EncryptedMessage
+  | TypingIndicator
   | DisconnectMessage;
 
-export type ServerToClientMessage = 
-  | PeerJoinedMessage 
+export type ServerToClientMessage =
+  | PeerJoinedMessage
   | PeerDisconnectedMessage
-  | EncryptedMessage 
+  | EncryptedMessage
   | TypingIndicator;
+
+export interface ServerStatusMessage {
+  type: "server_status";
+  level: "ok" | "degraded" | "alert";
+  message?: string;
+}
+
+// extend union with server status
+export type ServerToClientMessageExtended = ServerToClientMessage | ServerStatusMessage;
 
 // ===== CONSTANTS =====
 

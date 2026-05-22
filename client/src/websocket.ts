@@ -29,6 +29,7 @@ export interface ChatClientCallbacks {
   onReconnecting?: (attempt: number, maxAttempts: number) => void;
   onReconnected?: () => void;
   onReconnectFailed?: () => void;
+  onServerStatus?: (level: "ok" | "degraded" | "alert", message?: string) => void;
 }
 
 export class ChatClient {
@@ -227,6 +228,12 @@ export class ChatClient {
         if (this.callbacks.onTyping) {
           this.callbacks.onTyping(msg.isTyping);
         }
+      } else if ((msg as any).type === "server_status") {
+        // notify UI about server health (cast because ServerToClientMessage union doesn't include server_status)
+        const s = msg as any;
+        if (this.callbacks.onServerStatus) {
+          this.callbacks.onServerStatus(s.level, s.message);
+        }
       } else if (msg.type === "pong") {
         // ✅ NUEVA: Manejar pong del servidor
         this.heartbeatPending = false;
@@ -267,6 +274,8 @@ export class ChatClient {
       // ✅ NUEVA: Validar pong
       case "pong":
         return true;
+      case "server_status":
+        return typeof msg.level === 'string' && ['ok', 'degraded', 'alert'].includes(msg.level);
       default:
         return false;
     }

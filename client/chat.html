@@ -829,6 +829,37 @@
             box-shadow: 0 0 10px currentColor;
         }
 
+        .server-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 0.6rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.85rem;
+        }
+
+        .server-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .server-status.ok .server-dot {
+            background: #10b981;
+        }
+
+        .server-status.degraded .server-dot {
+            background: #f59e0b;
+        }
+
+        .server-status.alert .server-dot {
+            background: #ef4444;
+        }
+
         .new-messages-indicator {
             -webkit-backdrop-filter: blur(18px);
             backdrop-filter: blur(18px);
@@ -884,6 +915,10 @@
                 <div id="connectionStatus" class="connection-status disconnected" aria-live="polite">
                     <span class="status-dot" aria-hidden="true"></span>
                     <span id="connectionStatusText" data-i18n="statusDisconnected">Disconnected</span>
+                </div>
+                <div id="serverStatus" class="server-status ok" aria-live="polite" title="Server status">
+                    <span class="server-dot" aria-hidden="true"></span>
+                    <span id="serverStatusText">Server</span>
                 </div>
             </div>
             <div class="header-controls">

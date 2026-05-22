@@ -1,6 +1,6 @@
 /**
  * WindChat - Main Entry Point
- * 
+ *
  * Orquesta:
  * - Inicialización de UI
  * - Gestión de room ID
@@ -9,14 +9,14 @@
  * - Event listeners
  */
 
-import ChatClient from "./websocket";
-import NotificationManager from "./notifications";
-import SoundManager from "./soundManager";
 import FileManager from "./fileManager";
-import { generateRoomId, loadTheme } from "./ui";
 import { getLanguage, initializeTranslations, setLanguage, t } from "./i18n";
-import { formatAbsoluteTimestamp, formatMessageTimestamp } from "./utils/time";
+import NotificationManager from "./notifications";
 import type { MessagePayload } from "./protocol";
+import SoundManager from "./soundManager";
+import { generateRoomId, loadTheme } from "./ui";
+import { formatAbsoluteTimestamp, formatMessageTimestamp } from "./utils/time";
+import ChatClient from "./websocket";
 
 let chatClient: ChatClient | undefined;
 let fileManager: FileManager | undefined;
@@ -91,6 +91,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     connectionStatusText.textContent = t("statusDisconnected");
+  };
+
+  const serverStatusEl = document.getElementById('serverStatus') as HTMLDivElement | null;
+  const serverStatusText = document.getElementById('serverStatusText') as HTMLSpanElement | null;
+  const updateServerStatus = (level: "ok" | "degraded" | "alert", message?: string) => {
+    if (!serverStatusEl || !serverStatusText) return;
+    serverStatusEl.classList.remove('ok', 'degraded', 'alert');
+    serverStatusEl.classList.add(level);
+    serverStatusText.textContent = level === 'ok' ? 'Server' : level.toUpperCase();
+    if (message) serverStatusEl.title = message;
   };
 
   const updateNotificationButton = () => {
@@ -725,6 +735,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
           messageInput.disabled = true;
           sendButton.disabled = true;
+        },
+        onServerStatus: (level, message) => {
+          updateServerStatus(level, message);
         },
       });
 

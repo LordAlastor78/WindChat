@@ -7,16 +7,15 @@
   "scripts": {
     "dev": "tsc && node dist/index.js",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "debug": "node dist/index.js",
+    "test:integration-health": "node tests/integration_health_test.js"
   },
   "dependencies": {
     "ws": "^8.16.0",
     "helmet": "^6.0.0",
     "express": "^4.18.2",
     "dotenv": "^16.3.0"
-  },
-  "scripts": {
-    "debug": "node dist/index.js"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
