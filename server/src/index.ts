@@ -621,6 +621,7 @@ function handleMessage(
   };
 
   let sent = 0;
+  console.log(`📨 Mensaje cifrado recibido desde room ${client.roomId} por ${client.displayName || "Anon"}`);
   room.clients.forEach((_, clientWs) => {
     if (clientWs !== ws && clientWs.readyState === WebSocket.OPEN) {
       try {
@@ -631,7 +632,8 @@ function handleMessage(
       }
     }
   });
-  console.log(`📡 Broadcasted encrypted message to ${sent} recipients in room ${client.roomId}`);
+  const messageSize = JSON.stringify(response).length;
+  console.log(`📡 Broadcasted encrypted message (${messageSize} bytes) to ${sent} recipients in room ${client.roomId}`);
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
  * WindChat Protocol - Tipos compartidos entre servidor y cliente
- * 
+ *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
  * - HKDF-SHA256 para derivación de clave AES
@@ -46,11 +46,13 @@ export interface EncryptedMessage {
  */
 export interface MessagePayload {
   id?: string;
-  type?: "text" | "reaction" | "file_metadata" | "file_chunk" | "file_complete";
+  type?: "text" | "reaction" | "receipt" | "file_metadata" | "file_chunk" | "file_complete";
   text: string;
   displayName?: string;
   reactionToId?: string;
   replyToId?: string;
+  receiptForId?: string;
+  receiptState?: "sent" | "delivered" | "read";
   timestamp: number;        // milisegundos desde epoch
 
   // File metadata (type: "file_metadata")

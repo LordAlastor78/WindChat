@@ -46,11 +46,13 @@ export interface EncryptedMessage {
  */
 export interface MessagePayload {
   id?: string;
-  type?: "text" | "reaction";
+  type?: "text" | "reaction" | "receipt";
   text: string;
   displayName?: string;
   reactionToId?: string;
   replyToId?: string;
+  receiptForId?: string;
+  receiptState?: "sent" | "delivered" | "read";
   timestamp: number;        // milisegundos desde epoch
 }
 

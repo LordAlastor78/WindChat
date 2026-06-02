@@ -1,6 +1,6 @@
 /**
  * WindChat Protocol - Tipos compartidos entre servidor y cliente
- * 
+ *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
  * - HKDF-SHA256 para derivación de clave AES
@@ -46,24 +46,26 @@ export interface EncryptedMessage {
  */
 export interface MessagePayload {
   id?: string;
-  type?: "text" | "reaction" | "file_metadata" | "file_chunk" | "file_complete";
+  type?: "text" | "reaction" | "receipt" | "file_metadata" | "file_chunk" | "file_complete";
   text: string;
   displayName?: string;
   reactionToId?: string;
   replyToId?: string;
+  receiptForId?: string;
+  receiptState?: "sent" | "delivered" | "read";
   timestamp: number;        // milisegundos desde epoch
-  
+
   // File metadata (type: "file_metadata")
   fileId?: string;          // UUID para identificar el archivo
   fileName?: string;        // Nombre original del archivo
   fileSize?: number;        // Tamaño total en bytes
   fileType?: string;        // MIME type (ej: "image/png")
   totalChunks?: number;     // Número total de chunks
-  
+
   // File chunk (type: "file_chunk")
   chunkIndex?: number;      // Índice del chunk (0-based)
   chunkData?: string;       // Base64 del chunk cifrado
-  
+
   // Progress tracking
   chunksReceived?: number;  // Cuántos chunks se han recibido
 }
@@ -82,16 +84,16 @@ export interface DisconnectMessage {
 
 // ===== UNION TYPES =====
 
-export type ClientToServerMessage = 
-  | HandshakeMessage 
-  | EncryptedMessage 
-  | TypingIndicator 
+export type ClientToServerMessage =
+  | HandshakeMessage
+  | EncryptedMessage
+  | TypingIndicator
   | DisconnectMessage;
 
-export type ServerToClientMessage = 
-  | PeerJoinedMessage 
+export type ServerToClientMessage =
+  | PeerJoinedMessage
   | PeerDisconnectedMessage
-  | EncryptedMessage 
+  | EncryptedMessage
   | TypingIndicator;
 
 // ===== CONSTANTS =====

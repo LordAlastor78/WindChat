@@ -45,12 +45,6 @@ export class ChatClient {
   private publicKeyB64?: string;
   private displayName = "Anon";
 
-  // ✅ NUEVA: Propiedades para heartbeat/ping-pong
-  private heartbeatInterval?: NodeJS.Timeout;
-  private readonly HEARTBEAT_INTERVAL = 30000; // 30 segundos
-  private readonly HEARTBEAT_TIMEOUT = 5000;   // 5 segundos timeout
-  private heartbeatPending = false;
-
   constructor(callbacks?: ChatClientCallbacks) {
     this.callbacks = callbacks || {};
   }
@@ -88,9 +82,6 @@ export class ChatClient {
         this.reconnectAttempts = 0;
         this.isReconnecting = false;
 
-        // ✅ NUEVA: Iniciar mecanismo de heartbeat
-        this.startHeartbeat();
-
         // Enviar handshake
         const handshake: ClientToServerMessage = {
           type: "join",
@@ -120,9 +111,6 @@ export class ChatClient {
 
       this.ws.onclose = (event) => {
         console.log(`👋 WebSocket cerrado (code: ${event.code}, reason: ${event.reason || 'none'})`);
-
-        // ✅ NUEVA: Detener heartbeat cuando se cierra conexión
-        this.stopHeartbeat();
 
         // Solo omitir reconexión cuando fue una desconexión explícita del cliente
         if (!this.shouldReconnect) {
@@ -235,8 +223,6 @@ export class ChatClient {
           this.callbacks.onServerStatus(s.level, s.message);
         }
       } else if (msg.type === "pong") {
-        // ✅ NUEVA: Manejar pong del servidor
-        this.heartbeatPending = false;
         console.log("💓 Pong recibido, conexión activa");
       }
     } catch (err) {
@@ -343,6 +329,18 @@ export class ChatClient {
     try {
       const payload = await this.crypto.decrypt(msg.iv, msg.ciphertext);
 
+      console.log("📥 Mensaje cifrado recibido y descifrado", {
+        id: payload.id,
+        type: payload.type,
+        from: payload.displayName || "Peer",
+      });
+
+      if (payload.type === "text" && payload.id) {
+        void this.sendReceipt(payload.id, "delivered").catch((err) => {
+          console.warn("⚠️ No se pudo enviar el acuse delivered:", err);
+        });
+      }
+
       if (this.callbacks.onMessageReceived) {
         this.callbacks.onMessageReceived(payload);
       }
@@ -395,7 +393,11 @@ export class ChatClient {
       };
 
       this.ws.send(JSON.stringify(msg));
-      console.log("📤 Mensaje cifrado enviado");
+      console.log("📤 Mensaje cifrado enviado", {
+        id: messageId,
+        replyToId,
+        bytes: sizeInBytes,
+      });
     } catch (err) {
       console.error("❌ Error enviando:", err);
       if (this.callbacks.onError) {
@@ -427,7 +429,66 @@ export class ChatClient {
     };
 
     this.ws.send(JSON.stringify(msg));
-    console.log("📤 Reacción cifrada enviada");
+    console.log("📤 Reacción cifrada enviada", { reactionToId, emoji });
+  }
+
+  /**
+   * Enviar acuse cifrado para actualizar estado del mensaje original.
+   */
+  async sendReceipt(messageId: string, receiptState: "delivered" | "read"): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket not connected");
+    }
+
+    if (!messageId.trim()) {
+      throw new Error("Message id is required for receipts");
+    }
+
+    const encrypted = await this.crypto.encrypt({
+      type: "receipt",
+      text: "",
+      displayName: this.displayName,
+      receiptForId: messageId,
+      receiptState,
+    });
+
+    const msg: ClientToServerMessage = {
+      type: "message",
+      iv: encrypted.iv,
+      ciphertext: encrypted.ciphertext,
+    };
+
+    this.ws.send(JSON.stringify(msg));
+    console.log(`📨 Acuse ${receiptState} enviado para mensaje ${messageId}`);
+  }
+
+  /**
+   * Enviar payload de archivo (metadata o chunk)
+   */
+  async sendFilePayload(payload: MessagePayload): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket not connected");
+    }
+
+    try {
+      // Cifrar el payload completo del archivo
+      const encrypted = await this.crypto.encrypt({
+        ...payload,
+        displayName: this.displayName,
+      });
+
+      const msg: ClientToServerMessage = {
+        type: "message",
+        iv: encrypted.iv,
+        ciphertext: encrypted.ciphertext,
+      };
+
+      this.ws.send(JSON.stringify(msg));
+      console.log(`📤 Payload de archivo enviado (type: ${payload.type})`);
+    } catch (err) {
+      console.error("❌ Error enviando payload de archivo:", err);
+      throw err;
+    }
   }
 
   /**
@@ -445,58 +506,10 @@ export class ChatClient {
   }
 
   /**
-   * ✅ NUEVA: Iniciar mecanismo de heartbeat/ping-pong
-   * Envía ping cada 30 segundos al servidor
-   * Si no recibe pong en 5 segundos, reconecta automáticamente
-   * Previene "zombie connections" cuando el servidor cae
-   */
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.heartbeatInterval = setInterval(() => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-      try {
-        // Enviar ping al servidor
-        this.ws.send(JSON.stringify({ type: "ping" }));
-        this.heartbeatPending = true;
-
-        // Timeout: si no recibimos pong en 5 segundos, reconectar
-        setTimeout(() => {
-          if (this.heartbeatPending && this.ws?.readyState === WebSocket.OPEN) {
-            console.warn("⚠️ Heartbeat timeout, reconectando...");
-            if (this.callbacks.onError) {
-              this.callbacks.onError("Heartbeat timeout");
-            }
-            this.ws!.close();
-          }
-        }, this.HEARTBEAT_TIMEOUT);
-      } catch (err) {
-        console.error("❌ Error enviando heartbeat:", err);
-      }
-    }, this.HEARTBEAT_INTERVAL);
-
-    console.log("💓 Heartbeat iniciado (intervalo: 30s)");
-  }
-
-  /**
-   * ✅ NUEVA: Detener mecanismo de heartbeat
-   */
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = undefined;
-      this.heartbeatPending = false;
-      console.log("💓 Heartbeat detenido");
-    }
-  }
-
-  /**
    * Desconectar intencionalmente (sin reconexión)
    */
   disconnect(): void {
     this.shouldReconnect = false;
-    // ✅ NUEVA: Detener heartbeat al desconectar
-    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close(1000, "User disconnect");
     }
@@ -584,9 +597,6 @@ export class ChatClient {
 
           // Re-configurar handlers
           this.setupHandlers();
-
-          // Reiniciar heartbeat tras reconexión exitosa
-          this.startHeartbeat();
 
           // Notificar éxito
           if (this.callbacks.onReconnected) {

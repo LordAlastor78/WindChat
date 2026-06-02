@@ -483,6 +483,29 @@
 
             -webkit-backdrop-filter: blur(12px);
             backdrop-filter: blur(12px);
+
+            border-radius: 14px;
+
+            padding: 0.7rem 1rem;
+
+            cursor: pointer;
+
+            font-family: 'Fira Code', monospace;
+
+            font-size: 0.9rem;
+        }
+
+        .lang-selector {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23f1f5f9' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 12px;
+
+            padding-right: 2.5rem;
         }
 
         .messages {
@@ -608,12 +631,52 @@
         }
 
         .message.me .message-sender {
-            display: none;
+            display: block;
+            text-align: right;
+            opacity: 0.88;
         }
 
         .message-timestamp {
             font-size: 0.66rem;
             opacity: 0.7;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            margin-top: 0.45rem;
+        }
+
+        .message-receipt {
+            display: inline-flex;
+            align-items: center;
+            color: rgba(226, 232, 240, 0.72);
+        }
+
+        .message.me .message-receipt {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .message-receipt.sent {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .message-receipt.delivered {
+            color: rgba(125, 211, 252, 0.9);
+        }
+
+        .message-receipt.read {
+            color: #38bdf8;
+        }
+
+        .message-receipt-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            min-width: 14px;
         }
 
         .message-text {
@@ -627,9 +690,28 @@
 
             background: rgba(255, 255, 255, 0.08);
 
-            padding: 0.45rem 0.6rem;
+            padding: 0.6rem;
 
             border-radius: 12px;
+
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+
+            margin-bottom: 0.6rem;
+        }
+
+        .reply-sender {
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.85;
+            display: block;
+        }
+
+        .reply-text {
+            font-size: 0.8rem;
+            display: block;
+            opacity: 0.8;
         }
 
         .input-area {
@@ -963,7 +1045,7 @@
             </div>
             <div id="filePreview" class="file-preview hidden">
                 <div class="file-preview-info">
-                    <span>📎</span>
+                    <span id="filePreviewIcon">📎</span>
                     <div class="flex-fill">
                         <div class="file-preview-name" id="filePreviewName"></div>
                         <div class="file-preview-size" id="filePreviewSize"></div>

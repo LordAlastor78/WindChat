@@ -327,6 +327,8 @@ document.addEventListener("DOMContentLoaded", () => {
       let selectedMessageId: string | null = null;
       let timestampRefreshId: number | undefined;
       let unreadMessagesInView = 0;
+      type MessageDeliveryState = "sent" | "delivered" | "read";
+      const outgoingMessageStates = new Map<string, { container: HTMLSpanElement; state: MessageDeliveryState }>();
 
       const isNearBottom = () => {
         const threshold = 56;
@@ -436,10 +438,54 @@ document.addEventListener("DOMContentLoaded", () => {
         return { sender: sourceSender, text: sourceText };
       };
 
+      const createReceiptIcon = (state: MessageDeliveryState): HTMLSpanElement => {
+        const iconWrapper = document.createElement("span");
+        iconWrapper.className = `message-receipt-icon ${state}`;
+        iconWrapper.setAttribute("aria-hidden", "true");
+
+        const createSvg = (offsetX: number) => {
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("viewBox", "0 0 16 12");
+          svg.setAttribute("width", "12");
+          svg.setAttribute("height", "10");
+          svg.setAttribute("focusable", "false");
+          svg.setAttribute("fill", "none");
+          svg.setAttribute("stroke", "currentColor");
+          svg.setAttribute("stroke-width", "1.9");
+          svg.setAttribute("stroke-linecap", "round");
+          svg.setAttribute("stroke-linejoin", "round");
+          svg.style.transform = `translateX(${offsetX}px)`;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", "M1.4 6.3l3.2 3.2L10.9 3.2");
+          svg.appendChild(path);
+          return svg;
+        };
+
+        iconWrapper.appendChild(createSvg(0));
+        if (state !== "sent") {
+          iconWrapper.appendChild(createSvg(3));
+        }
+
+        return iconWrapper;
+      };
+
+      const updateOutgoingMessageState = (messageId: string, state: MessageDeliveryState) => {
+        const tracked = outgoingMessageStates.get(messageId);
+        if (!tracked) return;
+
+        if (tracked.state === state) return;
+
+        tracked.state = state;
+        tracked.container.replaceChildren(createReceiptIcon(state));
+        tracked.container.setAttribute("data-state", state);
+        console.log(`[tick] mensaje ${messageId} => ${state}`);
+      };
+
       const buildMessageElement = (
         displayName: string,
         text: string,
-        options: { side: "me" | "other"; id?: string; replyToId?: string; timestamp?: number }
+        options: { side: "me" | "other"; id?: string; replyToId?: string; timestamp?: number; status?: MessageDeliveryState }
       ): HTMLDivElement => {
         const msg = document.createElement("div");
         msg.classList.add("message", options.side);
@@ -447,7 +493,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const sender = document.createElement("span");
         sender.className = "message-sender";
-        sender.textContent = displayName;
+        sender.textContent = options.side === "me" ? t("youLabel") : displayName;
+        sender.title = displayName;
         msg.appendChild(sender);
 
         const replyMeta = getReplyMeta(options.replyToId);
@@ -486,6 +533,20 @@ document.addEventListener("DOMContentLoaded", () => {
         timestampEl.title = formatAbsoluteTimestamp(messageTimestamp);
 
         meta.appendChild(timestampEl);
+
+        if (options.side === "me") {
+          const statusEl = document.createElement("span");
+          statusEl.className = "message-receipt";
+          const initialStatus = options.status || "sent";
+          statusEl.setAttribute("data-state", initialStatus);
+          statusEl.replaceChildren(createReceiptIcon(initialStatus));
+          meta.appendChild(statusEl);
+
+          if (options.id) {
+            outgoingMessageStates.set(options.id, { container: statusEl, state: initialStatus });
+          }
+        }
+
         msg.appendChild(meta);
 
         if (options.id) {
@@ -586,6 +647,7 @@ document.addEventListener("DOMContentLoaded", () => {
           updateConnectionStatus("connected");
           hideReconnectBanner();
           resetUnreadIndicator();
+          outgoingMessageStates.clear();
           messagesContainer.textContent = "";
           const waitingMessage = document.createElement("div");
           waitingMessage.style.textAlign = "center";
@@ -597,6 +659,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("[OK] User connected - Chat ready");
           updateConnectionStatus("connected");
           resetUnreadIndicator();
+          outgoingMessageStates.clear();
           messagesContainer.textContent = "";
 
           const joinedMessage = document.createElement("div");
@@ -614,6 +677,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("[!] Peer disconnected");
           updateConnectionStatus("disconnected");
           resetUnreadIndicator();
+          outgoingMessageStates.clear();
           messageInput.disabled = true;
           sendButton.disabled = true;
           messagesContainer.textContent = "";
@@ -624,6 +688,14 @@ document.addEventListener("DOMContentLoaded", () => {
           messagesContainer.appendChild(disconnectedMessage);
         },
         onMessageReceived: (payload: MessagePayload) => {
+          if (payload.type === "receipt") {
+            if (payload.receiptForId && payload.receiptState) {
+              updateOutgoingMessageState(payload.receiptForId, payload.receiptState);
+              console.log(`[receipt] ${payload.receiptState} para ${payload.receiptForId}`);
+            }
+            return;
+          }
+
           if (payload.type === "reaction") {
             const targetId = payload.reactionToId;
             if (targetId) {
@@ -651,6 +723,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          // ===== Manejo de archivos =====
+          if (payload.type === "file_metadata" || payload.type === "file_chunk" || payload.type === "file_complete") {
+            if (fileManager) {
+              fileManager.handleIncomingFile(payload);
+            }
+            return;
+          }
+
           const displayName = payload.displayName || "Peer";
           const shouldAutoScroll = isNearBottom();
           const msg = buildMessageElement(displayName, payload.text, {
@@ -661,6 +741,12 @@ document.addEventListener("DOMContentLoaded", () => {
           });
           attachMessageInteractions(msg, payload.text);
           messagesContainer.appendChild(msg);
+
+          if (payload.id && chatClient) {
+            void chatClient.sendReceipt(payload.id, "read").catch((err) => {
+              console.error("Failed to send read receipt", err);
+            });
+          }
 
           if (shouldAutoScroll) {
             scrollToBottom();
@@ -683,6 +769,7 @@ document.addEventListener("DOMContentLoaded", () => {
         onError: (error: string) => {
           console.error("ERROR:", error);
           resetUnreadIndicator();
+          outgoingMessageStates.clear();
           messagesContainer.textContent = "";
           const errorMessage = document.createElement("div");
           errorMessage.style.color = "red";
@@ -721,6 +808,7 @@ document.addEventListener("DOMContentLoaded", () => {
           updateConnectionStatus("disconnected");
           hideReconnectBanner();
           resetUnreadIndicator();
+          outgoingMessageStates.clear();
 
           messagesContainer.textContent = "";
           const failedMessage = document.createElement("div");
@@ -843,9 +931,11 @@ document.addEventListener("DOMContentLoaded", () => {
           id: localMessageId,
           replyToId: replyTo?.id || undefined,
           timestamp: messageTimestamp,
+          status: "sent",
         });
         attachMessageInteractions(msg, outgoingText);
         messagesContainer.appendChild(msg);
+        updateOutgoingMessageState(localMessageId, "sent");
         scrollToBottom();
         resetUnreadIndicator();
 
@@ -855,15 +945,251 @@ document.addEventListener("DOMContentLoaded", () => {
         setReply(null);
       };
 
-      sendButton.addEventListener("click", () => {
-        sendMsg().catch((err) => {
-          console.error("Error inesperado al enviar", err);
-        });
-      });
+      // Event listeners de mensajes
       messageInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
           sendMsg().catch((err) => {
             console.error("Error inesperado al enviar", err);
+          });
+        }
+      });
+
+      // ===== MANEJO DE ARCHIVOS =====
+      const fileInput = document.getElementById("fileInput") as HTMLInputElement | null;
+      const attachFileBtn = document.getElementById("attachFileBtn") as HTMLButtonElement | null;
+      const fileCancelBtn = document.getElementById("fileCancelBtn") as HTMLButtonElement | null;
+      const filePreview = document.getElementById("filePreview") as HTMLDivElement | null;
+      const filePreviewIcon = document.getElementById("filePreviewIcon") as HTMLSpanElement | null;
+      const filePreviewName = document.getElementById("filePreviewName") as HTMLDivElement | null;
+      const filePreviewSize = document.getElementById("filePreviewSize") as HTMLDivElement | null;
+      const fileProgress = document.getElementById("fileProgress") as HTMLDivElement | null;
+      const fileProgressBar = document.getElementById("fileProgressBar") as HTMLDivElement | null;
+
+      if (!fileManager) {
+        fileManager = new FileManager({
+          onUploadProgress: (fileId: string, progress: number) => {
+            if (fileProgressBar) {
+              fileProgressBar.style.width = `${progress}%`;
+            }
+          },
+          onDownloadProgress: (fileId: string, progress: number) => {
+            if (fileProgressBar) {
+              fileProgressBar.style.width = `${progress}%`;
+            }
+          },
+          onFileReady: (fileId: string, file: Blob, metadata) => {
+            console.log(`✅ Archivo completado: ${metadata.name}`);
+
+            // Mostrar mensaje en el chat con el archivo descargado
+            const shouldAutoScroll = isNearBottom();
+            const fileMsg = document.createElement("div");
+            fileMsg.className = "message other";
+            fileMsg.style.maxWidth = "72%";
+            fileMsg.style.display = "flex";
+            fileMsg.style.flexDirection = "column";
+            fileMsg.style.gap = "0.5rem";
+
+            const sender = document.createElement("span");
+            sender.className = "message-sender";
+            sender.textContent = t("fileLabel");
+            fileMsg.appendChild(sender);
+
+            const fileLink = document.createElement("a");
+            fileLink.href = URL.createObjectURL(file);
+            fileLink.download = metadata.name;
+            fileLink.style.color = "inherit";
+            fileLink.style.textDecoration = "none";
+            fileLink.style.display = "flex";
+            fileLink.style.alignItems = "center";
+            fileLink.style.gap = "0.5rem";
+            fileLink.style.padding = "0.5rem";
+            fileLink.style.borderRadius = "8px";
+            fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
+            fileLink.style.cursor = "pointer";
+
+            let icon = "📎";
+            if (metadata.type.startsWith("image/")) icon = "🖼️";
+            else if (metadata.type.startsWith("video/")) icon = "🎥";
+            else if (metadata.type === "application/pdf") icon = "📄";
+            else if (metadata.type.includes("text")) icon = "📝";
+            else if (metadata.type.includes("zip")) icon = "📦";
+
+            fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${metadata.name}</span>`;
+            fileMsg.appendChild(fileLink);
+
+            const timestamp = document.createElement("span");
+            timestamp.className = "message-timestamp";
+            timestamp.setAttribute("data-timestamp", String(Date.now()));
+            timestamp.textContent = formatMessageTimestamp(Date.now());
+            fileMsg.appendChild(timestamp);
+
+            messagesContainer.appendChild(fileMsg);
+
+            if (shouldAutoScroll) {
+              scrollToBottom();
+              resetUnreadIndicator();
+            } else {
+              unreadMessagesInView += 1;
+              updateUnreadIndicator();
+            }
+
+            // Limpiar progreso
+            if (fileProgress) fileProgress.classList.add("hidden");
+          },
+          onError: (fileId: string, error: string) => {
+            console.error(`❌ Error en archivo: ${error}`);
+            if (fileProgress) fileProgress.classList.add("hidden");
+          },
+        });
+      }
+
+      const showFilePreview = (file: File) => {
+        if (!filePreview || !filePreviewName || !filePreviewSize || !filePreviewIcon) return;
+
+        selectedFile = file;
+        filePreviewName.textContent = file.name;
+        filePreviewSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+
+        // Icono según tipo de archivo
+        if (file.type.startsWith("image/")) {
+          filePreviewIcon.textContent = "🖼️";
+        } else if (file.type.startsWith("video/")) {
+          filePreviewIcon.textContent = "🎥";
+        } else if (file.type === "application/pdf") {
+          filePreviewIcon.textContent = "📄";
+        } else if (file.type.includes("text")) {
+          filePreviewIcon.textContent = "📝";
+        } else if (file.type.includes("zip") || file.type.includes("compress")) {
+          filePreviewIcon.textContent = "📦";
+        } else {
+          filePreviewIcon.textContent = "📎";
+        }
+
+        filePreview.classList.remove("hidden");
+      };
+
+      const hideFilePreview = () => {
+        if (!filePreview) return;
+        filePreview.classList.add("hidden");
+        selectedFile = null;
+        if (fileInput) fileInput.value = "";
+      };
+
+      const sendFile = async () => {
+        if (!selectedFile || !chatClient || !fileManager) return;
+
+        try {
+          // Validar archivo
+          const validation = fileManager.validateFile(selectedFile);
+          if (!validation.valid) {
+            console.error(`❌ Archivo inválido: ${validation.error}`);
+            return;
+          }
+
+          // Mostrar barra de progreso
+          if (fileProgress) fileProgress.classList.remove("hidden");
+
+          // Preparar archivo
+          const { fileId, payloads } = await fileManager.prepareFileForSending(selectedFile);
+          console.log(`📤 Enviando archivo en ${payloads.length} mensajes...`);
+
+          // Enviar cada payload
+          for (const payload of payloads) {
+            await chatClient.sendFilePayload(payload);
+          }
+
+          console.log(`✅ Archivo "${selectedFile.name}" enviado completamente`);
+          soundManager.playSendSound();
+
+          // ===== Mostrar archivo en el chat del sender =====
+          const shouldAutoScroll = isNearBottom();
+          const fileMsg = document.createElement("div");
+          fileMsg.className = "message me";
+          fileMsg.style.maxWidth = "72%";
+          fileMsg.style.display = "flex";
+          fileMsg.style.flexDirection = "column";
+          fileMsg.style.gap = "0.5rem";
+
+          const sender = document.createElement("span");
+          sender.className = "message-sender";
+          sender.textContent = t("fileLabel");
+          fileMsg.appendChild(sender);
+
+          const fileLink = document.createElement("a");
+          fileLink.href = URL.createObjectURL(selectedFile);
+          fileLink.download = selectedFile.name;
+          fileLink.style.color = "inherit";
+          fileLink.style.textDecoration = "none";
+          fileLink.style.display = "flex";
+          fileLink.style.alignItems = "center";
+          fileLink.style.gap = "0.5rem";
+          fileLink.style.padding = "0.5rem";
+          fileLink.style.borderRadius = "8px";
+          fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
+          fileLink.style.cursor = "pointer";
+
+          let icon = "📎";
+          if (selectedFile.type.startsWith("image/")) icon = "🖼️";
+          else if (selectedFile.type.startsWith("video/")) icon = "🎥";
+          else if (selectedFile.type === "application/pdf") icon = "📄";
+          else if (selectedFile.type.includes("text")) icon = "📝";
+          else if (selectedFile.type.includes("zip")) icon = "📦";
+
+          fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${selectedFile.name}</span>`;
+          fileMsg.appendChild(fileLink);
+
+          const timestamp = document.createElement("span");
+          timestamp.className = "message-timestamp";
+          timestamp.setAttribute("data-timestamp", String(Date.now()));
+          timestamp.textContent = formatMessageTimestamp(Date.now());
+          fileMsg.appendChild(timestamp);
+
+          messagesContainer.appendChild(fileMsg);
+
+          if (shouldAutoScroll) {
+            scrollToBottom();
+            resetUnreadIndicator();
+          }
+          // =======================================
+
+          hideFilePreview();
+        } catch (err) {
+          console.error("❌ Error enviando archivo:", err);
+          if (fileProgress) fileProgress.classList.add("hidden");
+        }
+      };
+
+      // Event listeners de archivos
+      if (attachFileBtn) {
+        attachFileBtn.addEventListener("click", () => {
+          fileInput?.click();
+        });
+      }
+
+      if (fileInput) {
+        fileInput.addEventListener("change", (e) => {
+          const files = (e.target as HTMLInputElement).files;
+          if (files && files.length > 0) {
+            showFilePreview(files[0]);
+          }
+        });
+      }
+
+      if (fileCancelBtn) {
+        fileCancelBtn.addEventListener("click", () => {
+          hideFilePreview();
+        });
+      }
+
+      // ===== LISTENER UNIFICADO PARA ENVÍO (archivos o mensajes) =====
+      sendButton.addEventListener("click", () => {
+        if (selectedFile) {
+          sendFile().catch((err) => {
+            console.error("Error al enviar archivo", err);
+          });
+        } else {
+          sendMsg().catch((err) => {
+            console.error("Error al enviar mensaje", err);
           });
         }
       });

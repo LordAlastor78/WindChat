@@ -88,6 +88,8 @@ const translations: Record<Lang, Record<string, string>> = {
     messageLabel: 'Mensaje',
     messageUnavailable: 'mensaje original no disponible',
     userLabel: 'Usuario',
+    youLabel: 'Tú',
+    fileLabel: 'Archivo',
 
     // Time labels
     justNow: 'Ahora',
@@ -181,6 +183,8 @@ const translations: Record<Lang, Record<string, string>> = {
     messageLabel: 'Message',
     messageUnavailable: 'original message not available',
     userLabel: 'User',
+    youLabel: 'You',
+    fileLabel: 'File',
 
     // Time labels
     justNow: 'Just now',

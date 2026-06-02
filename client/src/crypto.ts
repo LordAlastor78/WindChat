@@ -1,13 +1,13 @@
 /**
  * CryptoManager - Gestor criptográfico para WindChat
- * 
+ *
  * Responsabilidades:
  * - Generar pares de claves ECDH P-256
  * - Derivar secreto compartido (ECDH)
  * - Derivar clave AES mediante HKDF
  * - Cifrar/descifrar mensajes con AES-256-GCM
  * - Conversión base64 ↔ ArrayBuffer
- * 
+ *
  * REGLAS CRÍTICAS:
  * 1. IV debe ser aleatorio SIEMPRE (de lo contrario: inseguro completamente)
  * 2. HKDF es obligatoria (nunca usar sharedSecret directamente)
@@ -53,7 +53,7 @@ export class CryptoManager {
 
   /**
    * Derivar secreto compartido y clave AES
-   * 
+   *
    * Flujo:
    * 1. Importar clave pública del otro usuario (raw format)
    * 2. ECDH: combinar nuestra privada + su pública = sharedSecret
@@ -117,7 +117,7 @@ export class CryptoManager {
 
   /**
    * Cifrar mensaje con AES-256-GCM
-   * 
+   *
    * CRÍTICO:
    * - IV DEBE SER ALEATORIO SIEMPRE
    * - Reutilizar IV = catastrófico (rompe seguridad)
@@ -134,20 +134,30 @@ export class CryptoManager {
       const payload: MessagePayload =
         typeof plaintextOrPayload === "string"
           ? {
-              id: crypto.randomUUID(),
-              type: "text",
-              text: plaintextOrPayload,
-              timestamp: Date.now(),
-            }
+            id: crypto.randomUUID(),
+            type: "text",
+            text: plaintextOrPayload,
+            timestamp: Date.now(),
+          }
           : {
-              id: plaintextOrPayload.id || crypto.randomUUID(),
-              type: plaintextOrPayload.type || "text",
-              text: plaintextOrPayload.text || "",
-              displayName: plaintextOrPayload.displayName,
-              reactionToId: plaintextOrPayload.reactionToId,
-              replyToId: plaintextOrPayload.replyToId,
-              timestamp: plaintextOrPayload.timestamp || Date.now(),
-            };
+            id: plaintextOrPayload.id || crypto.randomUUID(),
+            type: plaintextOrPayload.type || "text",
+            text: plaintextOrPayload.text || "",
+            displayName: plaintextOrPayload.displayName,
+            reactionToId: plaintextOrPayload.reactionToId,
+            replyToId: plaintextOrPayload.replyToId,
+            receiptForId: plaintextOrPayload.receiptForId,
+            receiptState: plaintextOrPayload.receiptState,
+            fileId: plaintextOrPayload.fileId,
+            fileName: plaintextOrPayload.fileName,
+            fileSize: plaintextOrPayload.fileSize,
+            fileType: plaintextOrPayload.fileType,
+            totalChunks: plaintextOrPayload.totalChunks,
+            chunkIndex: plaintextOrPayload.chunkIndex,
+            chunkData: plaintextOrPayload.chunkData,
+            chunksReceived: plaintextOrPayload.chunksReceived,
+            timestamp: plaintextOrPayload.timestamp || Date.now(),
+          };
 
       // CRÍTICO: IV nuevo SIEMPRE
       const iv = window.crypto.getRandomValues(new Uint8Array(IV_SIZE));
@@ -176,7 +186,7 @@ export class CryptoManager {
 
   /**
    * Descifrar mensaje con AES-256-GCM
-   * 
+   *
    * Valida:
    * - Formato base64 correcto
    * - Autenticidad mediante GCM tag
@@ -209,6 +219,16 @@ export class CryptoManager {
         displayName: rawPayload.displayName,
         reactionToId: rawPayload.reactionToId,
         replyToId: rawPayload.replyToId,
+        receiptForId: rawPayload.receiptForId,
+        receiptState: rawPayload.receiptState,
+        fileId: rawPayload.fileId,
+        fileName: rawPayload.fileName,
+        fileSize: rawPayload.fileSize,
+        fileType: rawPayload.fileType,
+        totalChunks: rawPayload.totalChunks,
+        chunkIndex: rawPayload.chunkIndex,
+        chunkData: rawPayload.chunkData,
+        chunksReceived: rawPayload.chunksReceived,
         timestamp: rawPayload.timestamp,
       };
 
