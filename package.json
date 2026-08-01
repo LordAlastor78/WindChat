@@ -32,5 +32,14 @@
     "websocket"
   ],
   "author": "",
-  "license": "AGPL-3.0"
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "dompurify": "^3.4.12",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.18.1",
+    "marked": "^18.0.7"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5"
+  }
 }

@@ -11,6 +11,7 @@
 
 import FileManager from "./fileManager";
 import { EmojiPicker } from "./reactions/EmojiPicker.js";
+import { renderMarkdownSafe } from "./markdown/renderer.js";
 import { getLanguage, initializeTranslations, setLanguage, t } from "./i18n";
 import NotificationManager from "./notifications";
 import type { MessagePayload } from "./protocol";
@@ -590,7 +591,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const textEl = document.createElement("span");
         textEl.className = "message-text";
-        textEl.textContent = text;
+        // Render markdown sanitizado (XSS-safe). Si el texto no es markdown,
+        // marked lo deja como texto plano y DOMPurify lo limpia.
+        textEl.innerHTML = renderMarkdownSafe(text);
         msg.appendChild(textEl);
 
         const meta = document.createElement("div");

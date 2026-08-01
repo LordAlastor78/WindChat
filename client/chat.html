@@ -967,6 +967,65 @@
             white-space: pre-wrap;
         }
 
+        /* ===== Markdown render ===== */
+        .message-text > :first-child { margin-top: 0; }
+        .message-text > :last-child { margin-bottom: 0; }
+        .message-text p { margin: 0.3rem 0; }
+        .message-text strong { font-weight: 700; }
+        .message-text a {
+            color: #7dd3fc;
+            text-decoration: underline;
+            word-break: break-word;
+        }
+        .message-text pre {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 0.45rem 0;
+            font-size: 0.85rem;
+        }
+        .message-text code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.1rem 0.32rem;
+            border-radius: 5px;
+            font-size: 0.85em;
+        }
+        .message-text pre code {
+            background: transparent;
+            padding: 0;
+            border-radius: 0;
+            font-size: 0.85rem;
+        }
+        .message-text blockquote {
+            border-left: 3px solid #7dd3fc;
+            margin: 0.4rem 0;
+            padding: 0.2rem 0.7rem;
+            color: var(--text-secondary, #aaa);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 0 8px 8px 0;
+        }
+        .message-text table {
+            border-collapse: collapse;
+            margin: 0.4rem 0;
+            font-size: 0.85rem;
+            width: auto;
+            max-width: 100%;
+        }
+        .message-text th, .message-text td {
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0.3rem 0.55rem;
+        }
+        .message-text .katex-display {
+            margin: 0.5rem 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 0.2rem 0;
+        }
+        .message-text img { max-width: 100%; border-radius: 8px; } /* solo adjuntos E2EE */
         .reply-preview {
             border-left: 3px solid #7dd3fc;
 

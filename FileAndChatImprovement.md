@@ -111,45 +111,48 @@ de integridad de archivos y ≥1 de que el render de markdown no ejecuta HTML.
 
 ---
 
-## Fase 2 — Markdown completo + LaTeX + código
+## Fase 2 — Markdown completo + LaTeX + código ✅ IMPLEMENTADA
 
-**Decisión de librería** (elegir una, no dos):
-- **`marked`** (ligero, rápido) + **`DOMPurify`** (sanitización obligatoria) +
-  **`katex`** (LaTeX, `$...$` inline y `$$...$$` bloque) + **`highlight.js`**
-  (resaltado de código). Esta es la combinación estándar y auditada.
-- Alternativa sin deps: `markdown-it` + `markdown-it-katex` + sanitización
-  manual. **No recomendada** porque sanitizar a mano es frágil.
+- **Dependencias** (en `client/`): `marked` + `dompurify` + `katex` +
+  `highlight.js`, con CSS de KaTeX y `highlight.js/styles/github-dark.css`.
+- **`client/src/markdown/renderer.ts`** (`renderMarkdownSafe`):
+  pipeline `marked(text) → DOMPurify(sanitize, katex-aware) → stripDangerous
+  (defense-in-depth) → KaTeX($$...$$ / $...$) → highlight.js`.
+  - **Sanitización katex-aware**: DOMPurify PERMITE `svg`/`path`/tags MathML
+    (KaTeX los necesita) y PROHÍBE `on*`, `javascript:`, `data:`,
+    `script`/`iframe`/`object`/`embed`/`style`/`picture`/`source`/`link`/
+    `meta`/`form`/`button`/`input`/`select`/`textarea`.
+  - **Privacidad E2EE**: markdown NO renderiza `<img>` externas; cualquier
+    `![](url)` se degrada a texto `[img: url]` (o alt). Solo los adjuntos
+    E2EE del FileManager pintan imágenes.
+  - **Red de seguridad por regex** (`stripDangerous`): deterministica e
+    independiente del motor DOM. Necesaria porque happy-dom no implementa
+    DOMParser como espera DOMPurify (en ese entorno DOMPurify es no-op sobre
+    elementos anidados). En el navegador real DOMPurify sigue siendo la
+    primera línea; esto es segunda capa.
+  - **Cache** por hash de texto (no re-renderizar KaTeX/highlight por mensaje).
+- **Integración**: `buildMessageElement` usa `innerHTML = renderMarkdownSafe(text)`
+  para `type:"text"` (emisor y receptor).
+- **CSS**: estilos de `.message-text` para p/strong/a/pre/code/blockquote/
+  table/.katex-display en chat.html. `vite.config.ts` usa `cssMinify:'esbuild'`
+  (lightningcss rechazaba target ES2020 al importar CSS).
 
-**2.1. Sanitización primero (crítico)**
-- Todo markdown se parsea a HTML y se pasa por `DOMPurify.sanitize` con una
-  whitelist explícita (etiquetas: p, br, strong, em, code, pre, a, ul, ol, li,
-  img solo si data URI de nuestro blob, blockquote, h1-3, span para katex).
-- `a` solo con `href` http(s) y `rel="noopener noreferrer"`.
-- Nunca `innerHTML = markdown` sin pasar por DOMPurify. El test de Fase 0.2
-  debe seguir en verde.
+**Verificación Fase 2**:
+- 8 tests `markdown-safety.test.ts` (antes skip, ahora activos): script,
+  javascript:, data:text/html, img externa, negrita, LaTeX inline/bloque
+  (katex), código+highlight, cache. Todos en verde.
+- `npm test` 79 passed (71 + 8); `npm run build` verde (KaTeX CSS bundleada);
+  `tsc` limpio client/server.
+- **Pendiente E2E manual**: render visual de glyphos KaTeX en navegador.
 
-**2.2. Render en `buildMessageElement`**
-- Reemplazar `textEl.textContent = text` por `textEl.innerHTML =
-  sanitize(renderMarkdown(text))` para mensajes `type: "text"`.
-- Código: ```` ```lang ```` → `<pre><code class="hljs language-lang">`.
-- LaTeX: `$x^2$` y `$$\int...$$` → KaTeX renderiza a span seguro.
-- Enlaces: abrir en nueva pestaña.
+---
 
-**2.3. Input: ayudante de formato**
-- Botón "Markdown" en la barra que inserte `**` / `` ` `` / `$` o muestre una
-  chuleta. Opcional pero mejora UX.
-
-**2.4. Previsualización en el propio input (nice-to-have)**
-- Mostrar render en vivo del markdown mientras se escribe (debounced).
-
-**Criterio de aceptación Fase 2**:
-- `**negrita**`, `*cursiva*`, `` `código` ``, ```` ```js\ncode````,
-  `$E=mc^2$` y `$$\sum$$` se renderizan correctamente en el chat.
-- Pegar `<script>` o `<img onerror>` → no ejecuta nada (DOMPurify). Test de
-  Fase 0.2 sigue verde.
-- `npm test` y `npm run build` en verde.
-- Test: fixture markdown conocido → assert que el HTML resultante contiene
-  `<strong>` y NO contiene `<script>`.
+**Criterio de aceptación Fase 2** (original):
+- `**negrita**`, `*cursiva*`, `` `código` ``, ```` ```js ````, `$E=mc^2$` y
+  `$$\sum$$` se renderizan. ✅ (vía tests + CSS)
+- Pegar `<script>` o `<img onerror>` → no ejecuta nada. ✅ (gate anti-XSS)
+- `npm test` y `npm run build` en verde. ✅
+- Fixture markdown → HTML contiene `<strong>` y NO `<script>`. ✅
 
 ---
 
