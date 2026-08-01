@@ -62,7 +62,7 @@ describe('CryptoManager', () => {
       const encrypted = await crypto1.encrypt(message);
       
       // Bob debe poder descifrarlo
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
       
       expect(decrypted.text).toBe(message);
     });
@@ -80,7 +80,7 @@ describe('CryptoManager', () => {
       
       // Bob NO debe poder descifrarlo (roomId diferente)
       await expect(
-        crypto2.decrypt(encrypted.iv, encrypted.ciphertext)
+        crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter)
       ).rejects.toThrow();
     });
 
@@ -109,7 +109,7 @@ describe('CryptoManager', () => {
       const message = 'Hola Mundo';
       
       const encrypted = await crypto1.encrypt(message);
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
       
       expect(decrypted.text).toBe(message);
       expect(decrypted.timestamp).toBeGreaterThan(0);
@@ -119,7 +119,7 @@ describe('CryptoManager', () => {
       const message = 'A'.repeat(10000); // 10KB
       
       const encrypted = await crypto1.encrypt(message);
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
       
       expect(decrypted.text).toBe(message);
     });
@@ -129,7 +129,7 @@ describe('CryptoManager', () => {
       const encrypted = await crypto1.encrypt('Test');
       const after = Date.now();
       
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
       
       expect(decrypted.timestamp).toBeGreaterThanOrEqual(before);
       expect(decrypted.timestamp).toBeLessThanOrEqual(after);
@@ -144,7 +144,7 @@ describe('CryptoManager', () => {
         reactionToId: 'target-123',
       });
 
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
 
       expect(decrypted.id).toBe('msg-reaction-1');
       expect(decrypted.type).toBe('reaction');
@@ -162,7 +162,7 @@ describe('CryptoManager', () => {
         replyToId: 'parent-777',
       });
 
-      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await crypto2.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
 
       expect(decrypted.id).toBe('msg-reply-1');
       expect(decrypted.type).toBe('text');
@@ -185,7 +185,7 @@ describe('CryptoManager', () => {
       const tamperedIV = encrypted.iv.split('').reverse().join('');
       
       await expect(
-        crypto2.decrypt(tamperedIV, encrypted.ciphertext)
+        crypto2.decrypt(tamperedIV, encrypted.ciphertext, encrypted.counter)
       ).rejects.toThrow();
     });
 
@@ -196,7 +196,7 @@ describe('CryptoManager', () => {
       const tamperedCiphertext = encrypted.ciphertext.split('').reverse().join('');
       
       await expect(
-        crypto2.decrypt(encrypted.iv, tamperedCiphertext)
+        crypto2.decrypt(encrypted.iv, tamperedCiphertext, encrypted.counter)
       ).rejects.toThrow();
     });
 

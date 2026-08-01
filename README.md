@@ -194,7 +194,11 @@ windchat/
 - **Confidentiality**: Protection against unauthorized reading using AES-256
 - **Integrity**: Modification detection through GCM authentication tags
 - **Authenticity**: Origin verification through shared key
-- **Forward secrecy**: Not implemented in v1 stable (planned for v2.0)
+- **Forward secrecy**: Per-message. A symmetric-key ratchet (HMAC-SHA256) derives a
+  unique AES-256 key for each message; the previous chain key is overwritten with
+  zeros after every step, so compromising the current state cannot decrypt past
+  messages. The ratchet counter travels in clear but is authenticated as GCM AAD,
+  so tampering with it is detected.
 - **Zero-knowledge server**: Server cannot decrypt any content
 
 ---
@@ -703,7 +707,6 @@ console.timeEnd('encrypt');
 
 | Threat | Reason | Roadmap |
 |--------|--------|---------|
-| **Per-message forward secrecy** | Complexity vs MVP | v2.0 (Double Ratchet) |
 | **Automatic identity authentication** | Requires persistent identities (TOFU) | v2.0 |
 | **Metadata analysis** | Inherent to any E2EE system | Partial mitigation possible |
 | **Endpoint compromise** | Not preventable in software alone | User education |
@@ -791,7 +794,6 @@ WindChat v1 stable has the following known limitations:
 
 | Limitation | Description | Impact | Mitigation Plan |
 |------------|-------------|--------|-----------------|
-| **No forward secrecy** | Same AES key is used for all messages in one session | If key is compromised, all session messages can be decrypted | v2.0: Implement Double Ratchet Algorithm |
 | **No identity authentication** | No persistent identities; peers are anonymous per session | MITM is possible **unless the safety number is compared** out-of-band | Implemented: SAS. v2.0: TOFU with persistent keys |
 | **Visible metadata** | Server can see timestamps, message size, communication patterns | Traffic analysis is possible | Partially mitigable with padding |
 | **No persistence** | Messages are lost when tab closes | No message history | Intentional design; v2.0 may add optional local IndexedDB |
@@ -810,10 +812,10 @@ WindChat v1 stable has the following known limitations:
 | Feature | WindChat v1.0 | Signal | WhatsApp |
 |---------|---------------|--------|----------|
 | E2EE | AES-256-GCM | Signal Protocol | Signal Protocol |
-| Forward secrecy | No | Double Ratchet | Double Ratchet |
+| Forward secrecy | Yes (per-message symmetric ratchet) | Double Ratchet | Double Ratchet |
 | Persistence | No | Yes | Yes |
 | Group chats | No | Yes | Yes |
-| Authentication | No | Yes | Yes |
+| Authentication | No (SAS out-of-band) | Yes | Yes |
 | Attachments | No | Yes | Yes |
 | Open source | Yes | Yes (client) | No |
 | Audit | No | Yes | Yes (partial) |
@@ -825,11 +827,11 @@ WindChat v1 stable has the following known limitations:
 ### Version 2.0 (Q2-Q3 2026)
 
 **High priority:**
-- [ ] **Double Ratchet Algorithm**: Add per-message forward secrecy
+- [x] **Per-message forward secrecy**: Symmetric-key ratchet (HMAC-SHA256) implemented in v1.1
 - [ ] **Key verification**: Public key fingerprints for out-of-band verification
 - [ ] **Local persistence**: IndexedDB for encrypted local history
 - [ ] **Encrypted attachments**: Support for images, videos, and files (< 25MB)
-- [ ] **Rate limiting**: Abuse and DoS protection
+- [x] **Rate limiting**: Abuse and DoS protection (10 msg/s per connection)
 
 **Medium priority:**
 - [ ] **Read receipts**: Delivery and read confirmations

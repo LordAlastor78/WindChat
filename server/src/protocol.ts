@@ -10,9 +10,12 @@
  *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
- * - HKDF-SHA256 para derivación de clave AES
+ * - HKDF-SHA256 para derivar el root secret del ratchet
+ * - Ratchet simétrico HMAC-SHA256: clave AES-256 de UN SOLO USO por mensaje
+ *   (forward secrecy: comprometer el estado actual no descifra lo anterior)
  * - AES-256-GCM para cifrado con autenticación
  * - IV de 12 bytes aleatorio POR MENSAJE
+ * - Contador del ratchet autenticado como AAD (no manipulable)
  * - Timestamp DENTRO del ciphertext (no visible al servidor)
  * - SAS (safety number) derivado de ambas claves públicas para detectar MITM
  */
@@ -45,7 +48,16 @@ export interface PeerDisconnectedMessage {
 export interface EncryptedMessage {
   type: "message";
   iv: string;               // base64 encoded, 12 bytes (DEBE SER RANDOM SIEMPRE)
-  ciphertext: string;       // base64 encoded AES-GCM(key, payload, iv)
+  ciphertext: string;       // base64 encoded AES-GCM(messageKey, payload, iv)
+  /**
+   * Índice del mensaje en la cadena del ratchet del emisor.
+   *
+   * Va en claro (el servidor lo reenvía tal cual) pero se autentica como
+   * AAD de GCM: manipularlo invalida el tag y el descifrado falla.
+   * El receptor lo necesita para saber cuántos pasos avanzar la cadena
+   * cuando los mensajes llegan fuera de orden.
+   */
+  counter: number;
 }
 
 /**
@@ -145,6 +157,14 @@ export const MAX_USERS_PER_ROOM = 2;    // Hard limit
 
 /** Longitud exacta de una clave pública P-256 sin comprimir: 0x04 + X(32) + Y(32) */
 export const P256_RAW_PUBLIC_KEY_SIZE = 65;
+
+/**
+ * Máximo salto permitido en el contador del ratchet.
+ * Limita cuántas claves intermedias se derivan y guardan cuando llegan
+ * mensajes fuera de orden: sin este tope, un peer podría mandar
+ * counter=2^31 y forzar millones de HMAC (DoS de CPU/memoria).
+ */
+export const MAX_RATCHET_SKIP = 256;
 
 // File sharing constants
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB

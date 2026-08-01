@@ -29,7 +29,7 @@ describe('Flujo E2EE Completo', () => {
     const encrypted1 = await alice.encrypt(message1);
 
     // 4. Bob lo recibe y descifra
-    const decrypted1 = await bob.decrypt(encrypted1.iv, encrypted1.ciphertext);
+    const decrypted1 = await bob.decrypt(encrypted1.iv, encrypted1.ciphertext, encrypted1.counter);
     expect(decrypted1.text).toBe(message1);
 
     // 5. Bob responde
@@ -37,7 +37,7 @@ describe('Flujo E2EE Completo', () => {
     const encrypted2 = await bob.encrypt(message2);
 
     // 6. Alice lo recibe
-    const decrypted2 = await alice.decrypt(encrypted2.iv, encrypted2.ciphertext);
+    const decrypted2 = await alice.decrypt(encrypted2.iv, encrypted2.ciphertext, encrypted2.counter);
     expect(decrypted2.text).toBe(message2);
   });
 
@@ -61,7 +61,7 @@ describe('Flujo E2EE Completo', () => {
 
     for (const msg of messages) {
       const encrypted = await alice.encrypt(msg);
-      const decrypted = await bob.decrypt(encrypted.iv, encrypted.ciphertext);
+      const decrypted = await bob.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
       expect(decrypted.text).toBe(msg);
     }
   });
@@ -84,7 +84,7 @@ describe('Flujo E2EE Completo', () => {
       displayName: 'Alice',
     });
 
-    const decryptedReceipt = await bob.decrypt(receipt.iv, receipt.ciphertext);
+    const decryptedReceipt = await bob.decrypt(receipt.iv, receipt.ciphertext, receipt.counter);
     expect(decryptedReceipt.type).toBe('receipt');
     expect(decryptedReceipt.receiptForId).toBe('msg-123');
     expect(decryptedReceipt.receiptState).toBe('read');
@@ -120,14 +120,14 @@ describe('Flujo E2EE Completo', () => {
       displayName: 'Alice',
     });
 
-    const decryptedMetadata = await bob.decrypt(metadataPayload.iv, metadataPayload.ciphertext);
+    const decryptedMetadata = await bob.decrypt(metadataPayload.iv, metadataPayload.ciphertext, metadataPayload.counter);
     expect(decryptedMetadata.type).toBe('file_metadata');
     expect(decryptedMetadata.fileId).toBe('file-1');
     expect(decryptedMetadata.fileName).toBe('photo.png');
     expect(decryptedMetadata.fileSize).toBe(1024);
     expect(decryptedMetadata.totalChunks).toBe(3);
 
-    const decryptedChunk = await bob.decrypt(chunkPayload.iv, chunkPayload.ciphertext);
+    const decryptedChunk = await bob.decrypt(chunkPayload.iv, chunkPayload.ciphertext, chunkPayload.counter);
     expect(decryptedChunk.type).toBe('file_chunk');
     expect(decryptedChunk.fileId).toBe('file-1');
     expect(decryptedChunk.chunkIndex).toBe(1);
@@ -157,12 +157,12 @@ describe('Seguridad - Scenarios de Ataque', () => {
     const encrypted = await alice.encrypt(secretMessage);
 
     // Bob puede descifrarlo
-    const bobDecrypted = await bob.decrypt(encrypted.iv, encrypted.ciphertext);
+    const bobDecrypted = await bob.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
     expect(bobDecrypted.text).toBe(secretMessage);
 
     // Eve NO puede descifrarlo (claves diferentes)
     await expect(
-      eve.decrypt(encrypted.iv, encrypted.ciphertext)
+      eve.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter)
     ).rejects.toThrow();
   });
 
@@ -184,7 +184,7 @@ describe('Seguridad - Scenarios de Ataque', () => {
 
     // Bob detecta la modificación y rechaza el mensaje
     await expect(
-      bob.decrypt(encrypted.iv, tamperedCiphertext)
+      bob.decrypt(encrypted.iv, tamperedCiphertext, encrypted.counter)
     ).rejects.toThrow();
   });
 
@@ -210,8 +210,8 @@ describe('Seguridad - Scenarios de Ataque', () => {
     expect(encrypted1.ciphertext).not.toBe(encrypted2.ciphertext);
 
     // Pero ambos descifran al mismo mensaje
-    const decrypted1 = await bob.decrypt(encrypted1.iv, encrypted1.ciphertext);
-    const decrypted2 = await bob.decrypt(encrypted2.iv, encrypted2.ciphertext);
+    const decrypted1 = await bob.decrypt(encrypted1.iv, encrypted1.ciphertext, encrypted1.counter);
+    const decrypted2 = await bob.decrypt(encrypted2.iv, encrypted2.ciphertext, encrypted2.counter);
 
     expect(decrypted1.text).toBe(message);
     expect(decrypted2.text).toBe(message);
@@ -235,7 +235,7 @@ describe('Reconexión - Regeneración de Claves', () => {
     const encrypted = await alice.encrypt(message);
 
     // Bob1 puede descifrarlo
-    const decrypted1 = await bob1.decrypt(encrypted.iv, encrypted.ciphertext);
+    const decrypted1 = await bob1.decrypt(encrypted.iv, encrypted.ciphertext, encrypted.counter);
     expect(decrypted1.text).toBe(message);
 
     // Simular reconexión: Bob genera NUEVAS claves
@@ -268,7 +268,7 @@ describe('Reconexión - Regeneración de Claves', () => {
     // Comunicación funciona
     const msg1 = 'Primera sesión';
     const enc1 = await alice1.encrypt(msg1);
-    const dec1 = await bob.decrypt(enc1.iv, enc1.ciphertext);
+    const dec1 = await bob.decrypt(enc1.iv, enc1.ciphertext, enc1.counter);
     expect(dec1.text).toBe(msg1);
 
     // Alice reconecta y genera NUEVAS claves
@@ -284,7 +284,7 @@ describe('Reconexión - Regeneración de Claves', () => {
     // Nueva comunicación funciona
     const msg2 = 'Nueva sesión';
     const enc2 = await alice2.encrypt(msg2);
-    const dec2 = await bob2.decrypt(enc2.iv, enc2.ciphertext);
+    const dec2 = await bob2.decrypt(enc2.iv, enc2.ciphertext, enc2.counter);
     expect(dec2.text).toBe(msg2);
   });
 });

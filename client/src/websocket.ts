@@ -333,7 +333,7 @@ export class ChatClient {
    */
   private async handleEncryptedMessage(msg: any) {
     try {
-      const payload = await this.crypto.decrypt(msg.iv, msg.ciphertext);
+      const payload = await this.crypto.decrypt(msg.iv, msg.ciphertext, msg.counter);
 
       console.log("📥 Mensaje cifrado recibido y descifrado", {
         id: payload.id,
@@ -396,6 +396,7 @@ export class ChatClient {
         type: "message",
         iv: encrypted.iv,
         ciphertext: encrypted.ciphertext,
+        counter: encrypted.counter,
       };
 
       this.ws.send(JSON.stringify(msg));
@@ -432,6 +433,7 @@ export class ChatClient {
       type: "message",
       iv: encrypted.iv,
       ciphertext: encrypted.ciphertext,
+      counter: encrypted.counter,
     };
 
     this.ws.send(JSON.stringify(msg));
@@ -462,6 +464,7 @@ export class ChatClient {
       type: "message",
       iv: encrypted.iv,
       ciphertext: encrypted.ciphertext,
+      counter: encrypted.counter,
     };
 
     this.ws.send(JSON.stringify(msg));
@@ -487,6 +490,7 @@ export class ChatClient {
         type: "message",
         iv: encrypted.iv,
         ciphertext: encrypted.ciphertext,
+        counter: encrypted.counter,
       };
 
       this.ws.send(JSON.stringify(msg));

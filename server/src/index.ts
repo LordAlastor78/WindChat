@@ -635,11 +635,24 @@ function handleMessage(
     return;
   }
 
+  // El contador del ratchet debe ser un entero no negativo.
+  // El servidor no puede leerlo ni falsificarlo de forma útil (va autenticado
+  // como AAD del GCM), pero sí valida el tipo para no reenviar basura.
+  if (
+    typeof msg.counter !== "number" ||
+    !Number.isInteger(msg.counter) ||
+    msg.counter < 0
+  ) {
+    console.warn("⚠️ Contador de ratchet inválido");
+    return;
+  }
+
   // Broadcast a todos EXCEPTO el sender
   const response: ServerToClientMessage = {
     type: "message",
     iv: msg.iv,
     ciphertext: msg.ciphertext,
+    counter: msg.counter,
   };
 
   let sent = 0;

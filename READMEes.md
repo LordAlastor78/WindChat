@@ -674,7 +674,6 @@ console.timeEnd('encrypt');
 
 | Amenaza | Razón | Roadmap |
 |---------|--------|--------|
-| **Forward Secrecy por mensaje** | Complejidad vs MVP | v2.0 (Double Ratchet) |
 | **Autenticación de identidad automática** | Requiere identidades persistentes (TOFU) | v2.0 |
 | **Análisis de metadata** | Inherente a cualquier E2EE | Mitigación parcial posible |
 | **Compromiso del endpoint** | No prevenible por software | Educación del usuario |
@@ -765,7 +764,6 @@ WindChat v1 stable presenta las siguientes limitaciones conocidas:
 
 | Limitación | Descripción | Impacto | Plan de Mitigación |
 |------------|--------------|---------|----------------------|
-| **Sin Forward Secrecy** | La misma clave AES se usa para todos los mensajes de una sesión | Si la clave se compromete, todos los mensajes de esa sesión pueden descifrarse | v2.0: Implementar Double Ratchet Algorithm |
 | **Sin autenticación de identidad** | No hay identidades persistentes; los peers son anónimos por sesión | El MITM es posible **salvo que se compare el código de verificación** fuera de banda | Implementado: SAS. v2.0: TOFU con claves persistentes |
 | **Metadata visible** | Servidor ve timestamps, tamaño de mensajes, patrones de comunicación | Análisis de tráfico posible | Parcialmente mitigable con padding |
 | **Sin persistencia** | Mensajes se pierden al cerrar la pestaña | No hay historial | Diseño intencional; v2.0 podría agregar IndexedDB local opcional |
@@ -784,10 +782,10 @@ WindChat v1 stable presenta las siguientes limitaciones conocidas:
 | Característica | WindChat v1.0 | Signal | WhatsApp |
 |----------------|---------------|--------|----------|
 | E2EE | ✅ AES-256-GCM | ✅ Signal Protocol | ✅ Signal Protocol |
-| Forward Secrecy | ❌ | ✅ Double Ratchet | ✅ Double Ratchet |
+| Forward Secrecy | ✅ (ratchet simétrico por mensaje) | ✅ Double Ratchet | ✅ Double Ratchet |
 | Persistencia | ❌ | ✅ | ✅ |
 | Chats grupales | ❌ | ✅ | ✅ |
-| Autenticación | ❌ | ✅ | ✅ |
+| Autenticación | ❌ (SAS fuera de banda) | ✅ | ✅ |
 | Adjuntos | ❌ | ✅ | ✅ |
 | Open source | ✅ | ✅ (cliente) | ❌ |
 | Auditoría | ❌ | ✅ | ✅ (parcial) |
@@ -799,11 +797,11 @@ WindChat v1 stable presenta las siguientes limitaciones conocidas:
 ### Versión 2.0 (Q2-Q3 2026)
 
 **Prioridad Alta:**
-- [ ] **Double Ratchet Algorithm**: Implementar forward secrecy por mensaje
+- [x] **Forward secrecy por mensaje**: Ratchet simétrico (HMAC-SHA256) implementado en v1.1
 - [ ] **Key Verification**: Fingerprints de claves públicas para verificación out-of-band
 - [ ] **Persistencia local**: IndexedDB para guardar historial cifrado en el cliente
 - [ ] **Adjuntos cifrados**: Soporte para imágenes, videos, y archivos (< 25MB)
-- [ ] **Rate limiting**: Protección contra abuso y DoS
+- [x] **Rate limiting**: Protección contra abuso y DoS (10 msg/s por conexión)
 
 **Prioridad Media:**
 - [ ] **Read receipts**: Confirmación de recepción y lectura de mensajes
