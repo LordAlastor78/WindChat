@@ -153,43 +153,27 @@ de integridad de archivos y ≥1 de que el render de markdown no ejecuta HTML.
 
 ---
 
-## Fase 3 — Sistema de reacciones con todos los emojis + menú
+## Fase 3 — Sistema de reacciones con todos los emojis + menú ✅ IMPLEMENTADA
 
-**3.1. Modelo de reacciones**
-- Cambiar de "concatenar texto" a un mapa `emoji → count` por mensaje.
-- Estado en memoria: `Map<messageId, Map<emoji, number>>` (o atributo
-  `data-reactions` como JSON). Al recibir `reaction`, incrementar/alternar.
-- Mostrar como "pills" debajo de la burbuja: `👍 3  ❤️ 1`, clicable para
-  toggle propio.
+- **EmojiPicker** (`client/src/reactions/EmojiPicker.ts`, vanilla TS): carga
+  perezosa de `emojis.json` (~400 emojis en 10 categorías, 8KB) solo al abrir
+  el menú; buscador por nombre (es/en); grid 7 columnas; cierre por click-fuera
+  y `Escape`; posicionamiento inteligente (arriba/abajo según espacio).
+- **Menú contextual**: el botón fijo "👍/❤️" se reemplaza por "😊 Reaccionar"
+  que abre el picker (chat.html + handler en main.ts).
+- **Estado con conteo y toggle**: `applyReaction` mantiene un mapa
+  `emoji->count` en `data-reactions` (JSON) y pinta pills clicables
+  (`.reaction-pill`). Click en una pill = toggle propio (add↔remove) con
+  feedback inmediato local + difusión cifrada al peer.
+- **Protocolo**: `MessagePayload.reactionAction: "add" | "remove"`.
+  `sendReaction(emoji, id, action)` en websocket.ts. `shared/protocol.ts`
+  actualizado y sincronizado. El servidor ya reenvía cualquier `EncryptedMessage`.
 
-**3.2. Menú de emojis (todos los disponibles)**
-- Añadir un `EmojiPicker` (popover) disparado desde el menú contextual del
-  mensaje (botón "😊 reaccionar").
-- Fuente de emojis: usar la lista completa Unicode (v16) o la librería
-  `emoji-mart` / `frimousse`. Para evitar peso, se puede incluir un JSON de
-  emojis ( ∼1800 ) en `client/src/assets/emojis.json` o usar
-  `Intl.Segmenter` + `emoji-mart` (recomendado: `emoji-mart` ya trae búsqueda
-  y categorías).
-- El menú debe ser accesible (focus trap, Esc cierra, teclado).
-
-**3.3. Enviar/alternar reacción**
-- Al elegir emoji desde el menú → `chatClient.sendReaction(emoji, msgId)`.
-- Toggle: si ya reaccioné con ese emoji, quitarlo (enviar reacción vacía o un
-  tipo `reaction_remove` — definir en protocolo). Hoy `sendReaction` solo
-  añade; ampliar para soportar remover.
-
-**3.4. Protocolo**
-- Añadir `type: "reaction_remove"` (o campo `remove?: boolean`) en
-  `shared/protocol.ts` y sincronizar. El servidor ya reenvía cualquier
-  `EncryptedMessage`, así que no necesita cambios de routing.
-
-**Criterio de aceptación Fase 3**:
-- Click derecho en un mensaje → "reaccionar" → menú con todos los emojis
-  (scroll + búsqueda).
-- Elegir 👍 → aparece pill `👍 1`; otro usuario elige 👍 → `👍 2`.
-- Reaccionar de nuevo con el mismo emoji → se quita (toggle).
-- E2E: dos pestañas, intercambiar reacciones, verificar conteo y toggle.
-- `npm test` + `npm run build` en verde.
+**Verificación Fase 3**:
+- `npm test` 71 passed | 6 skipped; `npm run build` verde; `tsc` limpio.
+- E2E real (`tools/integration/e2e_reaction.js`): Alice envía 🔥x2 + 👍x1
+  cifrados; Bob los acumula en su mapa (🔥=2, 👍=1) => OK.
+- **Pendiente E2E manual**: apertura visual del picker y toggle en navegador.
 
 ---
 

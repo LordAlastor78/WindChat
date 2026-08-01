@@ -417,7 +417,7 @@ export class ChatClient {
   /**
    * Enviar reacción como evento real cifrado
    */
-  async sendReaction(emoji: string, reactionToId: string): Promise<void> {
+  async sendReaction(emoji: string, reactionToId: string, action: "add" | "remove" = "add"): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not connected");
     }
@@ -427,6 +427,7 @@ export class ChatClient {
       text: emoji,
       displayName: this.displayName,
       reactionToId,
+      reactionAction: action,
     });
 
     const msg: ClientToServerMessage = {

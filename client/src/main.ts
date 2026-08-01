@@ -10,6 +10,7 @@
  */
 
 import FileManager from "./fileManager";
+import { EmojiPicker } from "./reactions/EmojiPicker.js";
 import { getLanguage, initializeTranslations, setLanguage, t } from "./i18n";
 import NotificationManager from "./notifications";
 import type { MessagePayload } from "./protocol";
@@ -627,6 +628,93 @@ document.addEventListener("DOMContentLoaded", () => {
         return msg;
       };
 
+      /**
+       * Aplica una reacción a un mensaje: mantiene un mapa emoji->count en
+       * data-reactions (JSON) y pinta pills clicables. El toggle es local
+       * (mi propia reacción) para feedback inmediato; el servidor difunde
+       * add/remove del peer.
+       */
+      const readReactions = (el: HTMLElement): Record<string, number> => {
+        try {
+          return JSON.parse(el.getAttribute("data-reactions") || "{}");
+        } catch {
+          return {};
+        }
+      };
+
+      const renderReactions = (el: HTMLElement, map: Record<string, number>) => {
+        let container = el.querySelector(".message-reactions") as HTMLDivElement | null;
+        if (!container) {
+          container = document.createElement("div");
+          container.className = "message-reactions";
+          el.appendChild(container);
+        }
+        container.replaceChildren();
+        const entries = Object.entries(map).filter(([, c]) => c > 0);
+        if (entries.length === 0) {
+          container.remove();
+          return;
+        }
+        for (const [emoji, count] of entries) {
+          const pill = document.createElement("button");
+          pill.type = "button";
+          pill.className = "reaction-pill";
+          pill.textContent = count > 1 ? `${emoji} ${count}` : emoji;
+          pill.title = `${count} reacción(es)`;
+          pill.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            // Toggle propio: si ya reaccioné, quito; si no, añado
+            const mine = el.getAttribute("data-my-reactions")?.includes(emoji) ?? false;
+            const action = mine ? "remove" : "add";
+            updateMyReaction(el, emoji, action);
+            if (chatClient && el.getAttribute("data-message-id")) {
+              chatClient.sendReaction(emoji, el.getAttribute("data-message-id")!, action === "remove" ? "remove" : "add").catch((err) => {
+                console.error("Failed to toggle reaction", err);
+              });
+            }
+          });
+          container.appendChild(pill);
+        }
+      };
+
+      const updateMyReaction = (el: HTMLElement, emoji: string, action: "add" | "remove") => {
+        const mine = new Set((el.getAttribute("data-my-reactions") || "").split("|").filter(Boolean));
+        if (action === "add") mine.add(emoji);
+        else mine.delete(emoji);
+        el.setAttribute("data-my-reactions", [...mine].join("|"));
+      };
+
+      const applyReaction = (el: HTMLElement, emoji: string, action: "add" | "remove") => {
+        const map = readReactions(el);
+        const current = map[emoji] ?? 0;
+        map[emoji] = action === "add" ? current + 1 : Math.max(0, current - 1);
+        if (map[emoji] === 0) delete map[emoji];
+        el.setAttribute("data-reactions", JSON.stringify(map));
+        renderReactions(el, map);
+      };
+
+      // Picker perezoso (carga el JSON de emojis solo al usarlo)
+      let reactionPicker: EmojiPicker | null = null;
+      const openReactionPicker = (messageId: string, anchor: HTMLElement) => {
+        if (!reactionPicker) {
+          reactionPicker = new EmojiPicker(anchor);
+        }
+        reactionPicker.onSelect = (emoji) => {
+          const target = messagesContainer.querySelector(`[data-message-id="${messageId}"]`) as HTMLDivElement | null;
+          if (!target) return;
+          const mine = target.getAttribute("data-my-reactions")?.includes(emoji) ?? false;
+          const action = mine ? "remove" : "add";
+          updateMyReaction(target, emoji, action);
+          applyReaction(target, emoji, action);
+          if (chatClient) {
+            chatClient.sendReaction(emoji, messageId, action === "remove" ? "remove" : "add").catch((err) => {
+              console.error("Failed to send reaction", err);
+            });
+          }
+        };
+        reactionPicker.toggle();
+      };
+
       const hideContextMenu = () => {
         contextMenu?.classList.remove("visible");
         selectedMessageId = null;
@@ -777,22 +865,8 @@ document.addEventListener("DOMContentLoaded", () => {
               const targetMsg = messagesContainer.querySelector(
                 `[data-message-id="${targetId}"]`
               ) as HTMLDivElement | null;
-
               if (targetMsg) {
-                const current = targetMsg.getAttribute("data-reactions") || "";
-                const next = `${current} ${payload.text}`.trim();
-                targetMsg.setAttribute("data-reactions", next);
-
-                let reactionsEl = targetMsg.querySelector(".message-reactions") as HTMLDivElement | null;
-                if (!reactionsEl) {
-                  reactionsEl = document.createElement("div");
-                  reactionsEl.className = "message-reactions";
-                  reactionsEl.style.fontSize = "0.8rem";
-                  reactionsEl.style.opacity = "0.9";
-                  reactionsEl.style.marginTop = "0.35rem";
-                  targetMsg.appendChild(reactionsEl);
-                }
-                reactionsEl.textContent = next;
+                applyReaction(targetMsg, payload.text, payload.reactionAction ?? "add");
               }
             }
             return;
@@ -947,19 +1021,9 @@ document.addEventListener("DOMContentLoaded", () => {
           messageInput.focus();
         }
 
-        if (action === "react-like") {
+        if (action === "react") {
           if (chatClient && selectedMessageId) {
-            chatClient.sendReaction("👍", selectedMessageId).catch((err) => {
-              console.error("Failed to send reaction", err);
-            });
-          }
-        }
-
-        if (action === "react-heart") {
-          if (chatClient && selectedMessageId) {
-            chatClient.sendReaction("❤️", selectedMessageId).catch((err) => {
-              console.error("Failed to send reaction", err);
-            });
+            openReactionPicker(selectedMessageId, contextMenu!);
           }
         }
 

@@ -70,6 +70,7 @@ export interface MessagePayload {
   text: string;
   displayName?: string;
   reactionToId?: string;
+  reactionAction?: "add" | "remove"; // toggle: add por defecto, remove quita la del autor
   replyToId?: string;
   receiptForId?: string;
   receiptState?: "sent" | "delivered" | "read";

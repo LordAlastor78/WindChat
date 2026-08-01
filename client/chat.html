@@ -658,6 +658,100 @@
             object-fit: contain;
         }
 
+        /* ===== Emoji picker ===== */
+        .emoji-picker {
+            position: fixed;
+            z-index: 40;
+            width: 280px;
+            max-height: 320px;
+            display: flex;
+            flex-direction: column;
+            background: var(--glass-bg, rgba(20, 26, 38, 0.96));
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .emoji-picker.hidden {
+            display: none;
+        }
+
+        .emoji-picker-search {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .emoji-picker-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.45rem 0.6rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .emoji-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            padding: 0.4rem;
+            overflow-y: auto;
+        }
+
+        .emoji-picker-item {
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.3rem;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            transition: background 0.12s ease;
+        }
+
+        .emoji-picker-item:hover,
+        .emoji-picker-item:focus-visible {
+            background: rgba(56, 189, 248, 0.2);
+            outline: none;
+        }
+
+        .emoji-picker-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: var(--text-secondary, #888);
+            padding: 1rem;
+            font-size: 0.85rem;
+        }
+
+        /* ===== Reaction pills ===== */
+        .message-reactions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.35rem;
+        }
+
+        .reaction-pill {
+            font-size: 0.85rem;
+            line-height: 1;
+            padding: 0.2rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.12s ease;
+        }
+
+        .reaction-pill:hover {
+            background: rgba(56, 189, 248, 0.25);
+        }
+
         .theme-toggle,
         .notif-toggle,
         .sound-toggle,
@@ -1286,8 +1380,7 @@
     <div id="messageContextMenu" class="context-menu">
         <button data-action="copy" data-i18n="contextCopy">📋 Copy</button>
         <button data-action="reply" data-i18n="contextReply">↩️ Reply</button>
-        <button data-action="react-like" data-i18n="contextReactLike">👍 React: 👍</button>
-        <button data-action="react-heart" data-i18n="contextReactHeart">❤️ React: ❤️</button>
+        <button data-action="react" data-i18n="contextReact">😊 Reaccionar</button>
     </div>
 
     <div id="audioPrompt" class="audio-prompt" data-i18n="audioPrompt">Tap anywhere to enable sounds</div>
