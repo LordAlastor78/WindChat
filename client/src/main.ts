@@ -322,6 +322,75 @@ document.addEventListener("DOMContentLoaded", () => {
       const replyClose = document.getElementById("replyClose") as HTMLButtonElement | null;
       const contextMenu = document.getElementById("messageContextMenu") as HTMLDivElement | null;
 
+      // ===== Safety number (verificación anti-MITM) =====
+      const safetyBadge = document.getElementById("safetyBadge") as HTMLDivElement | null;
+      const safetyBadgeText = document.getElementById("safetyBadgeText") as HTMLSpanElement | null;
+      const safetyPanel = document.getElementById("safetyPanel") as HTMLDivElement | null;
+      const safetyEmojis = document.getElementById("safetyEmojis") as HTMLDivElement | null;
+      const safetyDigits = document.getElementById("safetyDigits") as HTMLDivElement | null;
+      const safetyClose = document.getElementById("safetyClose") as HTMLButtonElement | null;
+      const safetyVerifyBtn = document.getElementById("safetyVerifyBtn") as HTMLButtonElement | null;
+
+      let safetyVerified = false;
+
+      const renderSafetyBadge = () => {
+        if (!safetyBadge || !safetyBadgeText) return;
+        safetyBadge.classList.toggle("verified", safetyVerified);
+        safetyBadgeText.textContent = safetyVerified
+          ? t("safetyVerified")
+          : t("safetyUnverified");
+      };
+
+      const showSafetyNumber = (sas?: { digits: string; emojis: string[] }) => {
+        if (!safetyBadge) return;
+
+        if (!sas) {
+          safetyBadge.classList.add("hidden");
+          safetyPanel?.classList.add("hidden");
+          return;
+        }
+
+        // Nueva sesión de claves → la verificación previa ya no vale
+        safetyVerified = false;
+        renderSafetyBadge();
+        safetyBadge.classList.remove("hidden");
+
+        if (safetyEmojis) safetyEmojis.textContent = sas.emojis.join(" ");
+        if (safetyDigits) safetyDigits.textContent = sas.digits;
+        if (safetyVerifyBtn) {
+          safetyVerifyBtn.disabled = false;
+          safetyVerifyBtn.textContent = t("safetyVerifyButton");
+        }
+      };
+
+      const hideSafetyUi = () => {
+        safetyVerified = false;
+        safetyBadge?.classList.add("hidden");
+        safetyPanel?.classList.add("hidden");
+      };
+
+      const toggleSafetyPanel = () => {
+        safetyPanel?.classList.toggle("hidden");
+      };
+
+      safetyBadge?.addEventListener("click", toggleSafetyPanel);
+      safetyBadge?.addEventListener("keydown", (event: KeyboardEvent) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleSafetyPanel();
+        }
+      });
+      safetyClose?.addEventListener("click", () => safetyPanel?.classList.add("hidden"));
+      safetyVerifyBtn?.addEventListener("click", () => {
+        safetyVerified = true;
+        renderSafetyBadge();
+        if (safetyVerifyBtn) {
+          safetyVerifyBtn.disabled = true;
+          safetyVerifyBtn.textContent = t("safetyVerified");
+        }
+        safetyPanel?.classList.add("hidden");
+      });
+
       let replyTo: { id: string | null; text: string } | null = null;
       let selectedMessageText = "";
       let selectedMessageId: string | null = null;
@@ -648,6 +717,8 @@ document.addEventListener("DOMContentLoaded", () => {
           hideReconnectBanner();
           resetUnreadIndicator();
           outgoingMessageStates.clear();
+          // Reconectar regenera las claves ECDH: el SAS anterior ya no es válido
+          hideSafetyUi();
           messagesContainer.textContent = "";
           const waitingMessage = document.createElement("div");
           waitingMessage.style.textAlign = "center";
@@ -655,12 +726,15 @@ document.addEventListener("DOMContentLoaded", () => {
           waitingMessage.textContent = t("waitingForPeer");
           messagesContainer.appendChild(waitingMessage);
         },
-        onPeerJoined: () => {
+        onPeerJoined: (safetyNumber) => {
           console.log("[OK] User connected - Chat ready");
           updateConnectionStatus("connected");
           resetUnreadIndicator();
           outgoingMessageStates.clear();
           messagesContainer.textContent = "";
+
+          // Mostrar el código de verificación de la sesión (anti-MITM)
+          showSafetyNumber(safetyNumber);
 
           const joinedMessage = document.createElement("div");
           joinedMessage.style.textAlign = "center";
@@ -678,6 +752,7 @@ document.addEventListener("DOMContentLoaded", () => {
           updateConnectionStatus("disconnected");
           resetUnreadIndicator();
           outgoingMessageStates.clear();
+          hideSafetyUi();
           messageInput.disabled = true;
           sendButton.disabled = true;
           messagesContainer.textContent = "";

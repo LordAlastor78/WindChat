@@ -1,5 +1,12 @@
+// ⚠️ ARCHIVO GENERADO — NO EDITAR A MANO.
+// Fuente: shared/protocol.ts · Regenerar: npm run sync:protocol
 /**
  * WindChat Protocol - Tipos compartidos entre servidor y cliente
+ *
+ * ⚠️ FUENTE ÚNICA DE VERDAD.
+ * `client/src/protocol.ts` y `server/src/protocol.ts` son copias generadas
+ * por `npm run sync:protocol` (scripts/sync-protocol.js). NO las edites a mano:
+ * cualquier cambio debe hacerse aquí y luego sincronizarse.
  *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
@@ -7,6 +14,7 @@
  * - AES-256-GCM para cifrado con autenticación
  * - IV de 12 bytes aleatorio POR MENSAJE
  * - Timestamp DENTRO del ciphertext (no visible al servidor)
+ * - SAS (safety number) derivado de ambas claves públicas para detectar MITM
  */
 
 // ===== HANDSHAKE MESSAGES =====
@@ -46,7 +54,7 @@ export interface EncryptedMessage {
  */
 export interface MessagePayload {
   id?: string;
-  type?: "text" | "reaction" | "receipt";
+  type?: "text" | "reaction" | "receipt" | "file_metadata" | "file_chunk" | "file_complete";
   text: string;
   displayName?: string;
   reactionToId?: string;
@@ -54,6 +62,20 @@ export interface MessagePayload {
   receiptForId?: string;
   receiptState?: "sent" | "delivered" | "read";
   timestamp: number;        // milisegundos desde epoch
+
+  // File metadata (type: "file_metadata")
+  fileId?: string;          // UUID para identificar el archivo
+  fileName?: string;        // Nombre original del archivo
+  fileSize?: number;        // Tamaño total en bytes
+  fileType?: string;        // MIME type (ej: "image/png")
+  totalChunks?: number;     // Número total de chunks
+
+  // File chunk (type: "file_chunk")
+  chunkIndex?: number;      // Índice del chunk (0-based)
+  chunkData?: string;       // Base64 del chunk cifrado
+
+  // Progress tracking
+  chunksReceived?: number;  // Cuántos chunks se han recibido
 }
 
 // ===== UI INDICATORS =====
@@ -68,28 +90,50 @@ export interface DisconnectMessage {
   reason?: string;
 }
 
-// ===== UNION TYPES =====
+// ===== HEARTBEAT MESSAGES =====
 
-export type ClientToServerMessage =
-  | HandshakeMessage
-  | EncryptedMessage
-  | TypingIndicator
-  | DisconnectMessage;
+/**
+ * Ping enviado por el cliente para verificar conexión activa
+ */
+export interface PingMessage {
+  type: "ping";
+}
 
-export type ServerToClientMessage =
-  | PeerJoinedMessage
-  | PeerDisconnectedMessage
-  | EncryptedMessage
-  | TypingIndicator;
+/**
+ * Pong respondido por el servidor confirmando conexión activa
+ */
+export interface PongMessage {
+  type: "pong";
+}
 
+// ===== SERVER HEALTH =====
+
+/**
+ * Aviso de salud del servidor difundido a todos los clientes.
+ * No contiene datos de conversación.
+ */
 export interface ServerStatusMessage {
   type: "server_status";
   level: "ok" | "degraded" | "alert";
   message?: string;
 }
 
-// extend union with server status
-export type ServerToClientMessageExtended = ServerToClientMessage | ServerStatusMessage;
+// ===== UNION TYPES =====
+
+export type ClientToServerMessage =
+  | HandshakeMessage
+  | EncryptedMessage
+  | TypingIndicator
+  | DisconnectMessage
+  | PingMessage;
+
+export type ServerToClientMessage =
+  | PeerJoinedMessage
+  | PeerDisconnectedMessage
+  | EncryptedMessage
+  | TypingIndicator
+  | PongMessage
+  | ServerStatusMessage;
 
 // ===== CONSTANTS =====
 
@@ -98,3 +142,25 @@ export const IV_SIZE = 12;              // bytes
 export const KEY_SIZE = 256;            // bits
 export const MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const MAX_USERS_PER_ROOM = 2;    // Hard limit
+
+/** Longitud exacta de una clave pública P-256 sin comprimir: 0x04 + X(32) + Y(32) */
+export const P256_RAW_PUBLIC_KEY_SIZE = 65;
+
+// File sharing constants
+export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+export const FILE_CHUNK_SIZE = 256 * 1024;     // 256 KB por chunk
+export const ALLOWED_FILE_TYPES = [
+  // Imágenes
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  // Documentos
+  "application/pdf",
+  "text/plain",
+  // Comprimidos
+  "application/zip",
+  "application/x-zip-compressed",
+]; // null = permitir todos

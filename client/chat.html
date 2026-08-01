@@ -108,6 +108,111 @@
             backdrop-filter: blur(8px);
         }
 
+        /* ===== Safety number (verificación anti-MITM) ===== */
+        .safety-badge {
+            margin: 0 1rem 0.5rem;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            align-self: flex-start;
+            border: 1px solid rgba(245, 158, 11, 0.55);
+            background: rgba(245, 158, 11, 0.14);
+            transition: filter 0.2s ease;
+        }
+
+        .safety-badge:hover {
+            filter: brightness(1.15);
+        }
+
+        .safety-badge.verified {
+            border-color: rgba(16, 185, 129, 0.55);
+            background: rgba(16, 185, 129, 0.14);
+        }
+
+        .safety-panel {
+            margin: 0 1rem 0.5rem;
+            padding: 0.9rem 1rem;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(15, 23, 42, 0.55);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+
+        .safety-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .safety-close {
+            background: transparent;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 0.95rem;
+            opacity: 0.7;
+        }
+
+        .safety-close:hover {
+            opacity: 1;
+        }
+
+        .safety-emojis {
+            font-size: 1.7rem;
+            letter-spacing: 0.35rem;
+            text-align: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .safety-digits {
+            font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.06rem;
+            text-align: center;
+            word-spacing: 0.35rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .safety-hint {
+            font-size: 0.78rem;
+            opacity: 0.75;
+            margin: 0 0 0.35rem;
+        }
+
+        .safety-warning {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #fbbf24;
+            margin: 0 0 0.7rem;
+        }
+
+        .safety-verify-btn {
+            width: 100%;
+            padding: 0.5rem 0.9rem;
+            border-radius: 10px;
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            background: rgba(16, 185, 129, 0.16);
+            color: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .safety-verify-btn:hover {
+            filter: brightness(1.15);
+        }
+
+        .safety-verify-btn:disabled {
+            opacity: 0.55;
+            cursor: default;
+        }
+
         .reply-bar {
             display: none;
 
@@ -1033,6 +1138,24 @@
                     <span id="roomIdValue" class="room-id-value">-</span>
                 </div>
                 <button id="copyRoomBtn" class="room-copy-btn" data-i18n="copyButton">Copy</button>
+            </div>
+            <div id="safetyBadge" class="safety-badge hidden" role="button" tabindex="0"
+                data-i18n="safetyShowTitle" data-i18n-attr="title" title="Show verification code">
+                <span id="safetyBadgeText" data-i18n="safetyUnverified">⚠️ Unverified</span>
+            </div>
+            <div id="safetyPanel" class="safety-panel hidden" role="dialog" aria-modal="false"
+                aria-labelledby="safetyPanelTitle">
+                <div class="safety-panel-head">
+                    <strong id="safetyPanelTitle" data-i18n="safetyTitle">🔐 Verification code</strong>
+                    <button id="safetyClose" class="safety-close" type="button" aria-label="Close">✕</button>
+                </div>
+                <div id="safetyEmojis" class="safety-emojis"></div>
+                <div id="safetyDigits" class="safety-digits"></div>
+                <p class="safety-hint" data-i18n="safetyHint">Compare this code out loud or in person.</p>
+                <p class="safety-warning" data-i18n="safetyMismatchWarning">⚠️ If the code does NOT match, close the
+                    room immediately.</p>
+                <button id="safetyVerifyBtn" class="safety-verify-btn" type="button" data-i18n="safetyVerifyButton">It
+                    matches, verify</button>
             </div>
             <div class="messages" id="messages"></div>
             <button id="newMessagesIndicator" class="new-messages-indicator" type="button" aria-live="polite"

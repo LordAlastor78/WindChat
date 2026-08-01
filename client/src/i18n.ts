@@ -31,6 +31,15 @@ const translations: Record<Lang, Record<string, string>> = {
     peerDisconnectedMessage: 'El otro usuario se desconectó.',
     typingIndicator: '✏️ escribiendo...',
 
+    // Safety number (verificación anti-MITM)
+    safetyTitle: '🔐 Código de verificación',
+    safetyHint: 'Comparad este código por voz o en persona. Si no coincide, alguien está interceptando la conversación.',
+    safetyVerifyButton: 'Coincide, verificar',
+    safetyVerified: '✅ Sesión verificada',
+    safetyUnverified: '⚠️ Sin verificar',
+    safetyShowTitle: 'Ver código de verificación',
+    safetyMismatchWarning: '⚠️ Si el código NO coincide, cierra la sala inmediatamente.',
+
     // Status Messages
     connecting: '🔗 Conectando...',
     connectionFailed: '❌ Falló la conexión',
@@ -125,6 +134,16 @@ const translations: Record<Lang, Record<string, string>> = {
     peerDisconnected: '❌ User disconnected',
     peerDisconnectedMessage: 'The other user disconnected.',
     typingIndicator: '✏️ typing...',
+
+    // Safety number (anti-MITM verification)
+    safetyTitle: '🔐 Verification code',
+    safetyHint: 'Compare this code out loud or in person. If it does not match, someone is intercepting the conversation.',
+    safetyVerifyButton: 'It matches, verify',
+    safetyVerified: '✅ Session verified',
+    safetyUnverified: '⚠️ Unverified',
+    safetyShowTitle: 'Show verification code',
+    safetyMismatchWarning: '⚠️ If the code does NOT match, close the room immediately.',
+
 
     // Status Messages
     connecting: '🔗 Connecting...',

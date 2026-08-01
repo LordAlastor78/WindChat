@@ -22,9 +22,42 @@ export interface EncryptedData {
   ciphertext: string;
 }
 
+/**
+ * Short Authentication String (SAS) de la sesión.
+ *
+ * Se deriva de AMBAS claves públicas + roomId, por lo que un servidor que
+ * intente un doble handshake (MITM) producirá SAS distintos en cada lado.
+ * Los usuarios DEBEN compararlo por un canal fuera de banda.
+ */
+export interface SafetyNumber {
+  /** 6 grupos de 5 dígitos, estilo Signal safety number */
+  digits: string;
+  /** 5 emojis para comparación visual rápida */
+  emojis: string[];
+  /** Primeros 8 bytes en hex, agrupados */
+  hex: string;
+}
+
+/**
+ * Alfabeto de 64 emojis para el SAS visual.
+ * Elegidos por ser visualmente distintos entre sí (evita confusiones).
+ */
+const SAS_EMOJI: readonly string[] = [
+  "🐶", "🐱", "🦁", "🐴", "🦄", "🐮", "🐷", "🐸",
+  "🐵", "🐔", "🐧", "🦉", "🦋", "🐢", "🐬", "🐳",
+  "🦀", "🐝", "🌵", "🌲", "🍄", "🌻", "🍎", "🍌",
+  "🍇", "🍉", "🍒", "🥕", "🌽", "🍕", "🍔", "🍿",
+  "🎂", "☕", "🍺", "⚽", "🏀", "🎾", "🏆", "🎸",
+  "🎺", "🎨", "🎤", "🎧", "🔔", "🎯", "🎲", "🚗",
+  "🚂", "✈️", "🚀", "⚓", "🏠", "⌛", "💡", "📷",
+  "🔑", "🔒", "🔨", "⚙️", "💎", "🌙", "⭐", "🔥",
+];
+
 export class CryptoManager {
   private keyPair?: CryptoKeyPair;
   private sharedKey?: CryptoKey;
+  private myPublicKeyRaw?: Uint8Array;
+  private safetyNumber?: SafetyNumber;
 
   /**
    * Generar par de claves ECDH P-256
@@ -42,6 +75,9 @@ export class CryptoManager {
         "raw",
         this.keyPair.publicKey
       );
+
+      // Guardar nuestra clave pública para poder derivar el SAS después
+      this.myPublicKeyRaw = new Uint8Array(rawPublic.slice(0));
 
       console.log("✅ KeyPair generado. Clave pública lista para exportar");
       return rawPublic;
@@ -109,10 +145,108 @@ export class CryptoManager {
       );
 
       console.log("✅ Secreto compartido derivado. AES-256 key lista");
+
+      // Derivar el SAS (safety number) a partir de AMBAS claves públicas.
+      // Esto es lo que permite detectar un MITM del servidor.
+      await this.computeSafetyNumber(new Uint8Array(theirPublicKeyRaw), roomId);
     } catch (err) {
       console.error("❌ Error derivando clave compartida:", err);
       throw err;
     }
+  }
+
+  /**
+   * Calcular el Short Authentication String de la sesión.
+   *
+   * Las claves se ordenan lexicográficamente ANTES de hashear para que
+   * ambos extremos obtengan el mismo resultado sin negociar roles.
+   *
+   * Si un servidor malicioso hace doble handshake (una clave suya con cada
+   * cliente), cada extremo verá un SAS diferente → los usuarios lo detectan
+   * comparándolo por un canal fuera de banda (voz, presencial, Signal...).
+   */
+  private async computeSafetyNumber(
+    theirPublicKeyRaw: Uint8Array,
+    roomId: string
+  ): Promise<void> {
+    if (!this.myPublicKeyRaw) {
+      throw new Error("❌ No hay clave pública propia para derivar el SAS");
+    }
+
+    const mine = this.myPublicKeyRaw;
+    const theirs = theirPublicKeyRaw;
+
+    // Orden canónico: comparación byte a byte para que ambos lados coincidan
+    const mineFirst = CryptoManager.compareBytes(mine, theirs) <= 0;
+    const first = mineFirst ? mine : theirs;
+    const second = mineFirst ? theirs : mine;
+
+    const context = new TextEncoder().encode(`WindChat-SAS-v1|${roomId}|`);
+    const material = new Uint8Array(context.length + first.length + second.length);
+    material.set(context, 0);
+    material.set(first, context.length);
+    material.set(second, context.length + first.length);
+
+    const digest = await window.crypto.subtle.digest("SHA-256", material);
+    const bytes = new Uint8Array(digest);
+
+    this.safetyNumber = {
+      digits: CryptoManager.bytesToDigitGroups(bytes),
+      emojis: CryptoManager.bytesToEmojis(bytes),
+      hex: CryptoManager.bytesToHexGroups(bytes),
+    };
+
+    console.log("🔐 Safety number de sesión calculado");
+  }
+
+  /**
+   * Obtener el safety number de la sesión activa.
+   * Devuelve undefined si aún no hay peer / clave derivada.
+   */
+  getSafetyNumber(): SafetyNumber | undefined {
+    return this.safetyNumber;
+  }
+
+  /** Comparación lexicográfica de dos arrays de bytes */
+  private static compareBytes(a: Uint8Array, b: Uint8Array): number {
+    const len = Math.min(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+      if (a[i] !== b[i]) return a[i] - b[i];
+    }
+    return a.length - b.length;
+  }
+
+  /**
+   * 6 grupos de 5 dígitos (estilo Signal).
+   * Cada grupo consume 3 bytes → módulo 100000.
+   */
+  private static bytesToDigitGroups(bytes: Uint8Array): string {
+    const groups: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const offset = i * 3;
+      const value =
+        (bytes[offset] << 16) | (bytes[offset + 1] << 8) | bytes[offset + 2];
+      groups.push(String(value % 100000).padStart(5, "0"));
+    }
+    return groups.join(" ");
+  }
+
+  /** 5 emojis, 6 bits de entropía cada uno tomados de bytes distintos */
+  private static bytesToEmojis(bytes: Uint8Array): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      out.push(SAS_EMOJI[bytes[18 + i] % SAS_EMOJI.length]);
+    }
+    return out;
+  }
+
+  /** Primeros 8 bytes en hex, en grupos de 4 caracteres */
+  private static bytesToHexGroups(bytes: Uint8Array): string {
+    const hex = Array.from(bytes.slice(0, 8))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+    return (hex.match(/.{1,4}/g) || []).join(" ");
   }
 
   /**
@@ -269,6 +403,8 @@ export class CryptoManager {
   destroy(): void {
     this.keyPair = undefined;
     this.sharedKey = undefined;
+    this.myPublicKeyRaw = undefined;
+    this.safetyNumber = undefined;
     console.log("🗑️ Claves criptográficas destruidas");
   }
 }

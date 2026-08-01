@@ -32,6 +32,7 @@ import type {
 import {
   MAX_MESSAGE_SIZE,
   MAX_USERS_PER_ROOM,
+  P256_RAW_PUBLIC_KEY_SIZE,
 } from "./protocol.js";
 import { getSecurityHeaders } from "./security-headers.js";
 
@@ -118,9 +119,23 @@ function cleanupRateLimit(ws: WebSocket): void {
 // Load .env early so env-driven tuning is available
 dotenv.config();
 
+// ============== LOGGING ==============
+// Zero-telemetría: por defecto el servidor NO registra metadatos por mensaje
+// (quién habla con quién, cuándo, cuánto). Poner VERBOSE_LOGS=true solo para
+// depurar en local.
+const VERBOSE_LOGS = ["true", "1", "yes"].includes(
+  (process.env.VERBOSE_LOGS || "").toLowerCase()
+);
+
+function debugLog(...args: unknown[]): void {
+  if (VERBOSE_LOGS) console.log(...args);
+}
+
 // ============== SERVER HEALTH ==============
 const SERVER_EVENT_WINDOW = process.env.HEALTH_WINDOW_MS ? parseInt(process.env.HEALTH_WINDOW_MS) : 60 * 1000; // window for events
-const PONG_TIMEOUT_MS = process.env.PONG_TIMEOUT_MS ? parseInt(process.env.PONG_TIMEOUT_MS) : 10_000; // ms after ping
+// Nota: el barrido de heartbeat es de dos fases (marcar / cerrar en el siguiente
+// barrido), así que la tolerancia efectiva antes de cerrar un socket muerto es
+// SERVER_PING_INTERVAL, no un timeout aparte.
 const SERVER_PING_INTERVAL = process.env.HEARTBEAT_INTERVAL_MS ? parseInt(process.env.HEARTBEAT_INTERVAL_MS) : 30_000; // ms between ping sweeps
 const EVALUATE_INTERVAL_MS = process.env.EVALUATE_INTERVAL_MS ? parseInt(process.env.EVALUATE_INTERVAL_MS) : 15_000; // health evaluation frequency
 
@@ -174,34 +189,31 @@ function broadcastServerStatus(level: typeof serverHealth, message?: string) {
 // Periodic evaluation
 setInterval(evaluateServerHealth, EVALUATE_INTERVAL_MS);
 
-// Server-initiated ping/pong sweep
+// Server-initiated ping/pong sweep.
+// Marca cada socket como no-vivo, envía ping y en el siguiente barrido cierra
+// los que no respondieron. Sin búsquedas O(n²) ni un setTimeout por cliente.
 setInterval(() => {
   wss.clients.forEach((c) => {
-    try {
-      const clientConn = Array.from(rooms.values()).flatMap(r => Array.from(r.clients.values())).find(cc => cc.ws === c);
-      // If no mapped client, still ping
-      const wsClient = c as WebSocket;
-      // mark as not alive, expect pong to set it
-      try {
-        // set a property on the socket if possible
-        (wsClient as any).__isAlive = false;
-        wsClient.ping();
-      } catch (e) {
-        // fallback: send application ping
-        try { wsClient.send(JSON.stringify({ type: 'ping' })); } catch (e2) { }
-      }
+    const wsClient = c as WebSocket;
 
-      // schedule check
-      setTimeout(() => {
-        const alive = (wsClient as any).__isAlive === true;
-        if (!alive && wsClient.readyState === WebSocket.OPEN) {
-          console.warn('⚠️ Closing stale client (no pong)');
-          try { wsClient.terminate(); } catch (e) { wsClient.close(); }
-          recordServerEvent('disconnects');
-        }
-      }, PONG_TIMEOUT_MS + 200);
-    } catch (err) {
-      // ignore per-client errors
+    // Si no respondió al ping del barrido anterior, está muerto
+    if ((wsClient as any).__isAlive === false) {
+      console.warn("⚠️ Closing stale client (no pong)");
+      try {
+        wsClient.terminate();
+      } catch (e) {
+        try { wsClient.close(); } catch (e2) { /* ignore */ }
+      }
+      recordServerEvent("disconnects");
+      return;
+    }
+
+    (wsClient as any).__isAlive = false;
+    try {
+      wsClient.ping();
+    } catch (e) {
+      // fallback: ping a nivel de aplicación
+      try { wsClient.send(JSON.stringify({ type: "ping" })); } catch (e2) { /* ignore */ }
     }
   });
 }, SERVER_PING_INTERVAL);
@@ -338,45 +350,32 @@ app.get('/debug/health', (req: Request, res: Response) => checkDebugAuth(req, re
   });
 }));
 
-app.get("*", (req: Request, res: Response) => {
-  let requestUrl = req.originalUrl || "/";
+// Servido estático seguro: express.static resuelve y normaliza la ruta,
+// bloqueando path traversal (../, %2e%2e, bytes nulos) por sí mismo.
+// El handler manual anterior hacía path.join con la URL cruda.
+app.use(
+  express.static(clientDistPath, {
+    index: false,
+    dotfiles: "ignore",
+    setHeaders: (res, filePath) => {
+      const ext = path.extname(filePath);
+      const contentType = mimeTypes[ext] || "application/octet-stream";
+      res.set(getSecurityHeaders(contentType));
+    },
+  })
+);
 
-  if (requestUrl.includes("://")) {
-    try {
-      const urlObj = new URL("http://dummy" + requestUrl);
-      requestUrl = urlObj.pathname;
-    } catch (error) {
-      const match = requestUrl.match(/https?:\/\/[^/]+(\/.*)/) || requestUrl.match(/\/https?:\/\/[^/]+(\/.*)/);
-      if (match && match[1]) {
-        requestUrl = match[1];
-      }
-    }
-  }
+// Fallback SPA: cualquier ruta no resuelta devuelve index.html.
+// No se construye ninguna ruta a partir de la URL del cliente.
+app.get("*", (_req: Request, res: Response) => {
+  const indexPath = path.join(clientDistPath, "index.html");
 
-  console.log(`📥 HTTP ${req.method} ${requestUrl}`);
-
-  let filePath = path.join(clientDistPath, requestUrl === "/" ? "index.html" : requestUrl);
-
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-    filePath = path.join(filePath, "index.html");
-  }
-
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(indexPath)) {
     res.status(404).set(getSecurityHeaders("text/plain")).send("404 Not Found");
     return;
   }
 
-  const ext = path.extname(filePath);
-  const contentType = mimeTypes[ext] || "application/octet-stream";
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.status(500).set(getSecurityHeaders("text/plain")).send("500 Internal Server Error");
-      return;
-    }
-
-    res.status(200).set(getSecurityHeaders(contentType)).send(data);
-  });
+  res.status(200).set(getSecurityHeaders("text/html")).sendFile(indexPath);
 });
 
 
@@ -424,9 +423,25 @@ function isValidBase64(value: string): boolean {
   return /^[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
 
+/**
+ * Validar que un base64 codifica una clave pública P-256 sin comprimir:
+ * 65 bytes exactos, empezando por 0x04. El cliente ya lo comprueba, pero el
+ * servidor no debe reenviar basura que rompa al peer.
+ */
+function isValidP256PublicKey(value: string): boolean {
+  if (!isValidBase64(value)) return false;
+  try {
+    const raw = Buffer.from(value, "base64");
+    return raw.length === P256_RAW_PUBLIC_KEY_SIZE && raw[0] === 0x04;
+  } catch {
+    return false;
+  }
+}
+
 wss.on("connection", (ws: WebSocket) => {
-  const remoteAddr = (ws as any)?._socket?.remoteAddress || (ws as any)?._socket?.remoteAddressPort || 'unknown';
-  console.log(`✅ Nuevo cliente conectado from ${remoteAddr}`);
+  const remoteAddr = (ws as any)?._socket?.remoteAddress || 'unknown';
+  console.log("✅ Nuevo cliente conectado");
+  debugLog(`   from ${remoteAddr}`);
   const client: ClientConnection = { ws, lastSeen: Date.now(), isAlive: true };
   recordServerEvent('connections');
 
@@ -445,21 +460,27 @@ wss.on("connection", (ws: WebSocket) => {
     try {
       // update last seen on any incoming data
       client.lastSeen = Date.now();
-      // Parsear JSON
+
+      // Validar tamaño ANTES de parsear: no gastar CPU parseando 10MB de JSON
+      // solo para descubrir después que era demasiado grande.
+      const raw = data.toString();
+      if (raw.length > MAX_MESSAGE_SIZE) {
+        console.warn(`⚠️ Mensaje demasiado grande: ${raw.length} bytes`);
+        ws.close(1009, "Message too large");
+        return;
+      }
+
       let msg: any;
       try {
-        msg = JSON.parse(data.toString());
+        msg = JSON.parse(raw);
       } catch (e) {
         console.warn("⚠️ Mensaje JSON inválido");
         ws.close(1008, "Invalid JSON");
         return;
       }
 
-      // Validar tamaño del mensaje
-      const dataSize = data.toString().length;
-      if (dataSize > MAX_MESSAGE_SIZE) {
-        console.warn(`⚠️ Mensaje demasiado grande: ${dataSize} bytes`);
-        ws.close(1009, "Message too large");
+      if (!msg || typeof msg !== "object" || typeof msg.type !== "string") {
+        console.warn("⚠️ Mensaje sin tipo válido");
         return;
       }
 
@@ -478,7 +499,7 @@ wss.on("connection", (ws: WebSocket) => {
         case "ping":
           try {
             ws.send(JSON.stringify({ type: "pong" }));
-            console.log("💓 Ping recibido, pong enviado");
+            debugLog("💓 Ping recibido, pong enviado");
           } catch (err) {
             console.error("❌ Error enviando pong:", err);
           }
@@ -487,7 +508,7 @@ wss.on("connection", (ws: WebSocket) => {
           try {
             (ws as any).__isAlive = true;
             client.lastSeen = Date.now();
-            console.log('💓 Pong application-level recibido');
+            debugLog('💓 Pong application-level recibido');
           } catch (e) { }
           break;
         case "disconnect":
@@ -542,7 +563,7 @@ function handleJoin(
     typeof publicKey !== "string" ||
     roomId.trim().length === 0 ||
     roomId.length > 128 ||
-    !isValidBase64(publicKey)
+    !isValidP256PublicKey(publicKey)
   ) {
     console.warn("⚠️ Handshake incompleto");
     ws.close(1008, "Invalid handshake");
@@ -554,7 +575,7 @@ function handleJoin(
   if (!room) {
     room = { clients: new Map() };
     rooms.set(roomId, room);
-    console.log(`📍 Nueva room creada: ${roomId}`);
+      debugLog(`📍 Nueva room creada: ${roomId}`);
   }
 
   // Hard limit: máximo 2 conexiones
@@ -570,12 +591,13 @@ function handleJoin(
   client.displayName = displayName;
   room.clients.set(ws, client);
 
-  console.log(`✅ Cliente se unió a room ${roomId}. displayName=${displayName} total=${room.clients.size}`);
+  console.log(`✅ Cliente se unió a una room (${room.clients.size}/${MAX_USERS_PER_ROOM})`);
+  debugLog(`   room=${roomId} displayName=${displayName}`);
 
   // Si hay otro cliente, intercambiar claves públicas
   if (room.clients.size === 2) {
     broadcastPeerJoined(room);
-    console.log(`👥 Room ${roomId} activa (2/2 clientes)`);
+    debugLog(`👥 Room ${roomId} activa (2/2 clientes)`);
   }
 }
 
@@ -621,7 +643,7 @@ function handleMessage(
   };
 
   let sent = 0;
-  console.log(`📨 Mensaje cifrado recibido desde room ${client.roomId} por ${client.displayName || "Anon"}`);
+  debugLog(`📨 Mensaje cifrado recibido en room ${client.roomId}`);
   room.clients.forEach((_, clientWs) => {
     if (clientWs !== ws && clientWs.readyState === WebSocket.OPEN) {
       try {
@@ -632,8 +654,7 @@ function handleMessage(
       }
     }
   });
-  const messageSize = JSON.stringify(response).length;
-  console.log(`📡 Broadcasted encrypted message (${messageSize} bytes) to ${sent} recipients in room ${client.roomId}`);
+  debugLog(`📡 Broadcast a ${sent} destinatario(s)`);
 }
 
 /**
@@ -666,7 +687,7 @@ function handleTyping(ws: WebSocket, msg: any, client: ClientConnection) {
       }
     }
   });
-  console.log(`⌨️ Relayed typing=${msg.isTyping} to ${sent} peers in room ${client.roomId}`);
+  debugLog(`⌨️ Relayed typing=${msg.isTyping} to ${sent} peers`);
 }
 
 /**
@@ -682,12 +703,12 @@ function handleDisconnect(ws: WebSocket, client: ClientConnection) {
   if (!room) return;
 
   room.clients.delete(ws);
-  console.log(`👋 Cliente desconectado. Quedan ${room.clients.size} en room`);
+  debugLog(`👋 Cliente desconectado. Quedan ${room.clients.size} en room`);
 
   // Si room vacía, eliminar
   if (room.clients.size === 0) {
     rooms.delete(client.roomId);
-    console.log(`🗑️ Room ${client.roomId} eliminada (vacía)`);
+    debugLog(`🗑️ Room ${client.roomId} eliminada (vacía)`);
   }
   // Si 1 cliente, notificar que peer se fue
   else {
@@ -723,7 +744,7 @@ function broadcastPeerJoined(room: Room) {
           theirDisplayName: other[1].displayName || "Anon",
         })
       );
-      console.log(`📤 Clave pública intercambiada para ${client.roomId}`);
+      debugLog(`📤 Clave pública intercambiada para ${client.roomId}`);
     }
   });
 }

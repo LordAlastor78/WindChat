@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspaces",
-    "build": "npm run build --workspaces",
+    "build": "npm run sync:protocol && npm run build --workspaces",
+    "sync:protocol": "node ./scripts/sync-protocol.js",
+    "check:protocol": "node ./scripts/sync-protocol.js --check",
     "healthcheck": "node ./scripts/run-script.js healthcheck",
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
@@ -19,7 +21,8 @@
     "client": "npm run dev:client",
     "setup": "node ./scripts/run-script.js setup",
     "postinstall": "node ./scripts/run-script.js fix-perms",
-    "test": "npm run build && npm run start",
+    "test": "npm run check:protocol && vitest run -c client/vitest.config.ts",
+    "test:watch": "vitest -c client/vitest.config.ts",
     "test:integration": "node ./tools/integration/run_integration.js"
   },
   "keywords": [

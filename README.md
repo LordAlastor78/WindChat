@@ -282,6 +282,11 @@ HTTPS_CERT_PATH=./certs/localhost-cert.pem
 # Optional password if the private key is encrypted
 # HTTPS_PASSPHRASE=changeit
 
+# Per-message metadata logging (roomId, display names, sizes).
+# OFF by default so the server does not record who talks to whom.
+# Enable only for local debugging.
+# VERBOSE_LOGS=true
+
 # Optional client-side dev HTTPS
 DEV_HTTPS=true
 
@@ -677,23 +682,53 @@ console.timeEnd('encrypt');
 
 | Threat | Mitigation | Status |
 |--------|------------|--------|
-| **Man-in-the-Middle** | ECDH exchange + mandatory HTTPS/WSS | Mitigated |
+| **Man-in-the-Middle** | ECDH + HTTPS/WSS + **safety number (SAS) compared out-of-band** | Mitigated *only if users compare the code* |
 | **Message tampering** | GCM Authentication Tag | Mitigated |
 | **Replay attacks** | Unique IV per message + timestamps | Mitigated |
 | **Encryption brute force** | AES-256 (`2^256` key space) | Mitigated |
-| **Server compromise** | Zero-knowledge architecture | Mitigated |
+| **Server compromise** | Zero-knowledge architecture + SAS detects key substitution | Mitigated |
+| **Path traversal** | `express.static` with normalisation (no manual path building) | Mitigated |
 | **XSS injection** | `textContent` only, no `innerHTML` | Mitigated |
 | **Timing attacks** | Constant-time GCM implementation | Mitigated |
+| **DoS via oversized messages** | Size checked *before* `JSON.parse` + rate limiting | Mitigated |
+
+> **Important about MITM:** the server is the one distributing public keys. A
+> malicious server can attempt a double handshake. What stops it is the
+> **safety number**: each side derives it from *both* public keys, so an
+> interception produces different codes on each end. **This only protects you
+> if both users actually compare the code** through another channel (voice,
+> in person). If nobody compares it, MITM is *not* mitigated.
 
 #### Unmitigated Threats (Known Limitations)
 
 | Threat | Reason | Roadmap |
 |--------|--------|---------|
 | **Per-message forward secrecy** | Complexity vs MVP | v2.0 (Double Ratchet) |
-| **Identity authentication** | Out of MVP scope | v2.0 (Key fingerprints) |
+| **Automatic identity authentication** | Requires persistent identities (TOFU) | v2.0 |
 | **Metadata analysis** | Inherent to any E2EE system | Partial mitigation possible |
 | **Endpoint compromise** | Not preventable in software alone | User education |
-| **Denial-of-service attacks** | No rate limiting implemented yet | v2.0 |
+
+### Verifying a session (safety number)
+
+When the second person joins, a badge appears in the room bar:
+
+- `⚠️ Unverified` — a code has been derived but nobody confirmed it
+- `✅ Session verified` — you confirmed it matches
+
+Click the badge to see 5 emojis and 6 groups of 5 digits, e.g.:
+
+```
+📷 🌲 🐵 🍕 🌽
+65601 42690 15129 27280 80328 74978
+```
+
+Both people must see **exactly** the same thing. Compare it by voice, in person
+or over another trusted channel — never inside WindChat itself, since that is
+precisely the channel a MITM would control.
+
+If it does not match, **close the room immediately**: someone is intercepting.
+
+The code is invalidated on reconnect (new ECDH keys) and must be compared again.
 
 ### Implemented Security Features
 
@@ -757,7 +792,7 @@ WindChat v1 stable has the following known limitations:
 | Limitation | Description | Impact | Mitigation Plan |
 |------------|-------------|--------|-----------------|
 | **No forward secrecy** | Same AES key is used for all messages in one session | If key is compromised, all session messages can be decrypted | v2.0: Implement Double Ratchet Algorithm |
-| **No identity authentication** | No verification that peer is who they claim to be | Vulnerable to MITM if Room ID is intercepted | v2.0: Key fingerprints + out-of-band verification |
+| **No identity authentication** | No persistent identities; peers are anonymous per session | MITM is possible **unless the safety number is compared** out-of-band | Implemented: SAS. v2.0: TOFU with persistent keys |
 | **Visible metadata** | Server can see timestamps, message size, communication patterns | Traffic analysis is possible | Partially mitigable with padding |
 | **No persistence** | Messages are lost when tab closes | No message history | Intentional design; v2.0 may add optional local IndexedDB |
 | **Max 2 users** | Hard design limit | No group chats | v2.0: Group chats with per-participant keys ( this feature add posible vulnerabilities. Ex.: third unknown join a room of two if they get the roomID, would needed more steps of verification) |

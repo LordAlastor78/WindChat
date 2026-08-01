@@ -484,7 +484,11 @@ NODE_ENV=production
 PORT=8080
 MAX_USERS_PER_ROOM=2
 MAX_MESSAGE_SIZE=10485760  # 10MB
-LOG_LEVEL=error            # Reducir logging en producción
+
+# Logging de metadatos por mensaje (roomId, nombres, tamaños).
+# Desactivado por defecto: el servidor no registra quién habla con quién.
+# Actívalo solo para depurar en local.
+# VERBOSE_LOGS=true
 ```
 
 
@@ -648,23 +652,55 @@ console.timeEnd('encrypt');
 
 | Amenaza | Mitigación | Estado |
 |---------|--------------|--------|
-| **Man-in-the-Middle** | Intercambio ECDH + HTTPS/WSS obligatorio | ✅ Mitigado |
+| **Man-in-the-Middle** | ECDH + HTTPS/WSS + **código de verificación (SAS) comparado fuera de banda** | ⚠️ Mitigado *solo si los usuarios comparan el código* |
 | **Tampering de mensajes** | GCM Authentication Tag | ✅ Mitigado |
 | **Replay attacks** | IV único por mensaje + timestamps | ✅ Mitigado |
 | **Brute force de cifrado** | AES-256 (2^256 espacio de claves) | ✅ Mitigado |
-| **Compromiso del servidor** | Arquitectura zero-knowledge | ✅ Mitigado |
+| **Compromiso del servidor** | Arquitectura zero-knowledge + el SAS detecta sustitución de claves | ✅ Mitigado |
+| **Path traversal** | `express.static` con normalización (sin construir rutas a mano) | ✅ Mitigado |
 | **Inyección XSS** | `textContent` solo, sin `innerHTML` | ✅ Mitigado |
 | **Ataques de sincronización** | Implementación en tiempo constante de GCM | ✅ Mitigado |
+| **DoS con mensajes gigantes** | Tamaño validado *antes* de `JSON.parse` + rate limiting | ✅ Mitigado |
+
+> **Importante sobre el MITM:** el servidor es quien reparte las claves
+> públicas, así que un servidor malicioso puede intentar un doble handshake.
+> Lo que lo impide es el **código de verificación**: cada lado lo deriva a
+> partir de *ambas* claves públicas, de modo que una interceptación produce
+> códigos distintos en cada extremo. **Esto solo te protege si ambos usuarios
+> comparan realmente el código** por otro canal (voz, en persona). Si nadie lo
+> compara, el MITM *no* está mitigado.
 
 #### Amenazas No Mitigadas (Limitaciones Conocidas)
 
 | Amenaza | Razón | Roadmap |
 |---------|--------|--------|
 | **Forward Secrecy por mensaje** | Complejidad vs MVP | v2.0 (Double Ratchet) |
-| **Autenticación de identidad** | Fuera del scope de MVP | v2.0 (Key fingerprints) |
+| **Autenticación de identidad automática** | Requiere identidades persistentes (TOFU) | v2.0 |
 | **Análisis de metadata** | Inherente a cualquier E2EE | Mitigación parcial posible |
 | **Compromiso del endpoint** | No prevenible por software | Educación del usuario |
-| **Ataques de denegación de servicio** | Sin rate limiting implementado | v2.0 |
+
+### Verificar una sesión (código de verificación)
+
+Cuando la segunda persona entra, aparece un badge en la barra de la sala:
+
+- `⚠️ Sin verificar` — hay un código derivado pero nadie lo ha confirmado
+- `✅ Sesión verificada` — confirmaste que coincide
+
+Pulsa el badge para ver 5 emojis y 6 grupos de 5 dígitos, por ejemplo:
+
+```
+📷 🌲 🐵 🍕 🌽
+65601 42690 15129 27280 80328 74978
+```
+
+Ambas personas deben ver **exactamente** lo mismo. Compáralo por voz, en
+persona o por otro canal de confianza — nunca dentro del propio WindChat, que
+es justo el canal que un MITM controlaría.
+
+Si no coincide, **cierra la sala inmediatamente**: alguien está interceptando.
+
+El código se invalida al reconectar (se generan claves ECDH nuevas) y hay que
+volver a compararlo.
 
 ### Características de Seguridad Implementadas
 
@@ -730,7 +766,7 @@ WindChat v1 stable presenta las siguientes limitaciones conocidas:
 | Limitación | Descripción | Impacto | Plan de Mitigación |
 |------------|--------------|---------|----------------------|
 | **Sin Forward Secrecy** | La misma clave AES se usa para todos los mensajes de una sesión | Si la clave se compromete, todos los mensajes de esa sesión pueden descifrarse | v2.0: Implementar Double Ratchet Algorithm |
-| **Sin autenticación de identidad** | No hay verificación de que el peer es quien dice ser | Vulnerable a MITM si el Room ID se intercepta | v2.0: Key fingerprints y verificación out-of-band |
+| **Sin autenticación de identidad** | No hay identidades persistentes; los peers son anónimos por sesión | El MITM es posible **salvo que se compare el código de verificación** fuera de banda | Implementado: SAS. v2.0: TOFU con claves persistentes |
 | **Metadata visible** | Servidor ve timestamps, tamaño de mensajes, patrones de comunicación | Análisis de tráfico posible | Parcialmente mitigable con padding |
 | **Sin persistencia** | Mensajes se pierden al cerrar la pestaña | No hay historial | Diseño intencional; v2.0 podría agregar IndexedDB local opcional |
 | **Máximo 2 usuarios** | Hard limit de diseño | No soporta chats grupales | v2.0: Chats grupales con claves por participante |

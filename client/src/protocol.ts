@@ -1,5 +1,12 @@
+// ⚠️ ARCHIVO GENERADO — NO EDITAR A MANO.
+// Fuente: shared/protocol.ts · Regenerar: npm run sync:protocol
 /**
  * WindChat Protocol - Tipos compartidos entre servidor y cliente
+ *
+ * ⚠️ FUENTE ÚNICA DE VERDAD.
+ * `client/src/protocol.ts` y `server/src/protocol.ts` son copias generadas
+ * por `npm run sync:protocol` (scripts/sync-protocol.js). NO las edites a mano:
+ * cualquier cambio debe hacerse aquí y luego sincronizarse.
  *
  * Especificación E2EE:
  * - ECDH P-256 para intercambio de claves
@@ -7,6 +14,7 @@
  * - AES-256-GCM para cifrado con autenticación
  * - IV de 12 bytes aleatorio POR MENSAJE
  * - Timestamp DENTRO del ciphertext (no visible al servidor)
+ * - SAS (safety number) derivado de ambas claves públicas para detectar MITM
  */
 
 // ===== HANDSHAKE MESSAGES =====
@@ -82,19 +90,50 @@ export interface DisconnectMessage {
   reason?: string;
 }
 
+// ===== HEARTBEAT MESSAGES =====
+
+/**
+ * Ping enviado por el cliente para verificar conexión activa
+ */
+export interface PingMessage {
+  type: "ping";
+}
+
+/**
+ * Pong respondido por el servidor confirmando conexión activa
+ */
+export interface PongMessage {
+  type: "pong";
+}
+
+// ===== SERVER HEALTH =====
+
+/**
+ * Aviso de salud del servidor difundido a todos los clientes.
+ * No contiene datos de conversación.
+ */
+export interface ServerStatusMessage {
+  type: "server_status";
+  level: "ok" | "degraded" | "alert";
+  message?: string;
+}
+
 // ===== UNION TYPES =====
 
 export type ClientToServerMessage =
   | HandshakeMessage
   | EncryptedMessage
   | TypingIndicator
-  | DisconnectMessage;
+  | DisconnectMessage
+  | PingMessage;
 
 export type ServerToClientMessage =
   | PeerJoinedMessage
   | PeerDisconnectedMessage
   | EncryptedMessage
-  | TypingIndicator;
+  | TypingIndicator
+  | PongMessage
+  | ServerStatusMessage;
 
 // ===== CONSTANTS =====
 
@@ -103,6 +142,9 @@ export const IV_SIZE = 12;              // bytes
 export const KEY_SIZE = 256;            // bits
 export const MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const MAX_USERS_PER_ROOM = 2;    // Hard limit
+
+/** Longitud exacta de una clave pública P-256 sin comprimir: 0x04 + X(32) + Y(32) */
+export const P256_RAW_PUBLIC_KEY_SIZE = 65;
 
 // File sharing constants
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB

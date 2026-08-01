@@ -11,6 +11,7 @@
  */
 
 import CryptoManager from "./crypto";
+import type { SafetyNumber } from "./crypto";
 import type {
   ClientToServerMessage,
   MessagePayload,
@@ -19,7 +20,7 @@ import type {
 import { MAX_MESSAGE_SIZE } from "./protocol.js";
 
 export interface ChatClientCallbacks {
-  onPeerJoined?: () => void;
+  onPeerJoined?: (safetyNumber?: SafetyNumber) => void;
   onPeerDisconnected?: () => void;
   onMessageReceived?: (payload: MessagePayload) => void;
   onTyping?: (isTyping: boolean) => void;
@@ -309,8 +310,13 @@ export class ChatClient {
 
       console.log("✅ Secreto compartido derivado");
 
+      const safetyNumber = this.crypto.getSafetyNumber();
+      if (safetyNumber) {
+        console.log("🔐 Safety number:", safetyNumber.digits);
+      }
+
       if (this.callbacks.onPeerJoined) {
-        this.callbacks.onPeerJoined();
+        this.callbacks.onPeerJoined(safetyNumber);
       }
     } catch (err) {
       console.error("❌ Error con peer join:", err);
@@ -521,6 +527,17 @@ export class ChatClient {
    */
   isConnected(): boolean {
     return this.ws !== undefined && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Safety number (SAS) de la sesión activa.
+   * undefined hasta que el peer se une y se deriva la clave compartida.
+   *
+   * Ambos usuarios DEBEN comparar este valor por un canal fuera de banda
+   * para descartar un MITM del servidor.
+   */
+  getSafetyNumber(): SafetyNumber | undefined {
+    return this.crypto.getSafetyNumber();
   }
 
   /**
