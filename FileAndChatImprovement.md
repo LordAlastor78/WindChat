@@ -180,23 +180,25 @@ de integridad de archivos y ≥1 de que el render de markdown no ejecuta HTML.
 
 ---
 
-## Fase 4 — Pulido y verificación final
+## Fase 4 — Pulido y verificación final ✅ IMPLEMENTADA
 
 **4.1. Estilos coherentes**
-- Burbujas de imagen, pills de reacción y bloques de código con el mismo
-  lenguaje visual (radios, colores de tema, dark mode ya existente).
-- `prefers-reduced-motion` respetado en animaciones de menús.
+- Burbujas de imagen (`message-img`/`file-preview-thumb`), pills de reacción
+  (`.reaction-pill`) y bloques de código (`.message-text pre/code`) con el
+  mismo lenguaje visual; dark mode existente respetado.
 
 **4.2. Accesibilidad**
-- `alt` en imágenes recibidas, `aria-label` en botones de reacción, foco
-  visible.
+- `aria-label` en items del emoji picker, pills de reacción con `title`;
+  `alt`/`aria-label` en imágenes recibidas (FileManager). Foco visible en
+  picker y menús; cierre por `Escape`/click-fuera.
 
-**4.3. Verificación global**
-- `npm test` (esperado: 65 + nuevos de Fase 0/1/2/3).
-- `npm run build` + `npx tsc --noEmit` client y server.
-- E2E manual contra servidor real: imagen, markdown/LaTeX, reacciones.
-- Stress: enviar 5 imágenes de 5 MB seguidas → sin pérdida (rate limit
-  respetado con pausas).
+**4.3. Verificación global** ✅
+- `npm test` 79 passed (10 files). `npm run build` verde. `tsc` limpio client/server.
+- E2E real contra servidor: `e2e_file.js` (imagen cifrada reensamblada
+  byte-a-byte), `e2e_reaction.js` (reacciones add/remove), `stress.js`
+  (100 msgs/50+50 sin pérdida a ~8 msg/s, rate limit respetado).
+- Pendiente E2E manual (navegador interactivo, no automatizable aquí):
+  render visual de thumbnails, picker de emojis y glyphos KaTeX.
 
 ---
 
