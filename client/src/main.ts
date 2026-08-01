@@ -1030,7 +1030,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       // ===== MANEJO DE ARCHIVOS =====
-      const fileInput = document.getElementById("fileInput") as HTMLInputElement | null;
+      const cameraInput = document.getElementById("cameraInput") as HTMLInputElement | null;
+      const galleryInput = document.getElementById("galleryInput") as HTMLInputElement | null;
+      const docInput = document.getElementById("docInput") as HTMLInputElement | null;
+      const attachMenu = document.getElementById("attachMenu") as HTMLDivElement | null;
       const attachFileBtn = document.getElementById("attachFileBtn") as HTMLButtonElement | null;
       const fileCancelBtn = document.getElementById("fileCancelBtn") as HTMLButtonElement | null;
       const filePreview = document.getElementById("filePreview") as HTMLDivElement | null;
@@ -1069,28 +1072,42 @@ document.addEventListener("DOMContentLoaded", () => {
             sender.textContent = t("fileLabel");
             fileMsg.appendChild(sender);
 
-            const fileLink = document.createElement("a");
-            fileLink.href = URL.createObjectURL(file);
-            fileLink.download = metadata.name;
-            fileLink.style.color = "inherit";
-            fileLink.style.textDecoration = "none";
-            fileLink.style.display = "flex";
-            fileLink.style.alignItems = "center";
-            fileLink.style.gap = "0.5rem";
-            fileLink.style.padding = "0.5rem";
-            fileLink.style.borderRadius = "8px";
-            fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
-            fileLink.style.cursor = "pointer";
-
-            let icon = "📎";
-            if (metadata.type.startsWith("image/")) icon = "🖼️";
-            else if (metadata.type.startsWith("video/")) icon = "🎥";
-            else if (metadata.type === "application/pdf") icon = "📄";
-            else if (metadata.type.includes("text")) icon = "📝";
-            else if (metadata.type.includes("zip")) icon = "📦";
-
-            fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${metadata.name}</span>`;
-            fileMsg.appendChild(fileLink);
+            // Thumbnail real si es imagen/video; si no, enlace de descarga
+            const url = URL.createObjectURL(file);
+            if (metadata.type.startsWith("image/")) {
+              const img = document.createElement("img");
+              img.className = "message-img";
+              img.src = url;
+              img.alt = metadata.name;
+              img.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+              fileMsg.appendChild(img);
+            } else if (metadata.type.startsWith("video/")) {
+              const video = document.createElement("video");
+              video.className = "message-video";
+              video.src = url;
+              video.controls = true;
+              video.addEventListener("loadeddata", () => URL.revokeObjectURL(url), { once: true });
+              fileMsg.appendChild(video);
+            } else {
+              const fileLink = document.createElement("a");
+              fileLink.href = url;
+              fileLink.download = metadata.name;
+              fileLink.style.color = "inherit";
+              fileLink.style.textDecoration = "none";
+              fileLink.style.display = "flex";
+              fileLink.style.alignItems = "center";
+              fileLink.style.gap = "0.5rem";
+              fileLink.style.padding = "0.5rem";
+              fileLink.style.borderRadius = "8px";
+              fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
+              fileLink.style.cursor = "pointer";
+              let icon = "📎";
+              if (metadata.type === "application/pdf") icon = "📄";
+              else if (metadata.type.includes("text")) icon = "📝";
+              else if (metadata.type.includes("zip")) icon = "📦";
+              fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${metadata.name}</span>`;
+              fileMsg.appendChild(fileLink);
+            }
 
             const timestamp = document.createElement("span");
             timestamp.className = "message-timestamp";
@@ -1125,19 +1142,34 @@ document.addEventListener("DOMContentLoaded", () => {
         filePreviewName.textContent = file.name;
         filePreviewSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
 
-        // Icono según tipo de archivo
-        if (file.type.startsWith("image/")) {
-          filePreviewIcon.textContent = "🖼️";
-        } else if (file.type.startsWith("video/")) {
-          filePreviewIcon.textContent = "🎥";
-        } else if (file.type === "application/pdf") {
-          filePreviewIcon.textContent = "📄";
-        } else if (file.type.includes("text")) {
-          filePreviewIcon.textContent = "📝";
-        } else if (file.type.includes("zip") || file.type.includes("compress")) {
-          filePreviewIcon.textContent = "📦";
+        // Limpiar thumbnail previo
+        const prevThumb = filePreviewIcon.querySelector("img, video");
+        if (prevThumb) prevThumb.remove();
+
+        // Thumbnail real si es imagen/video; si no, icono por tipo
+        if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+          const url = URL.createObjectURL(file);
+          let media: HTMLImageElement | HTMLVideoElement;
+          if (file.type.startsWith("image/")) {
+            media = document.createElement("img");
+            media.className = "file-preview-thumb";
+            media.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+          } else {
+            media = document.createElement("video");
+            media.className = "file-preview-thumb video";
+            media.controls = false;
+            media.muted = true;
+            media.addEventListener("loadeddata", () => URL.revokeObjectURL(url), { once: true });
+          }
+          media.src = url;
+          filePreviewIcon.textContent = "";
+          filePreviewIcon.appendChild(media);
         } else {
-          filePreviewIcon.textContent = "📎";
+          let icon = "📎";
+          if (file.type === "application/pdf") icon = "📄";
+          else if (file.type.includes("text")) icon = "📝";
+          else if (file.type.includes("zip") || file.type.includes("compress")) icon = "📦";
+          filePreviewIcon.textContent = icon;
         }
 
         filePreview.classList.remove("hidden");
@@ -1145,9 +1177,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const hideFilePreview = () => {
         if (!filePreview) return;
+        const thumb = filePreviewIcon?.querySelector("img, video") as HTMLImageElement | HTMLVideoElement | null;
+        if (thumb && thumb.src.startsWith("blob:")) {
+          // El revoke en onload cubre el caso de éxito; forzar aquí por si no cargó
+          try { URL.revokeObjectURL(thumb.src); } catch { /* ya revocado */ }
+        }
         filePreview.classList.add("hidden");
         selectedFile = null;
-        if (fileInput) fileInput.value = "";
+        // Reset de los inputs ocultos para poder volver a elegir el mismo archivo
+        [cameraInput, galleryInput, docInput].forEach((i) => { if (i) i.value = ""; });
       };
 
       const sendFile = async () => {
@@ -1168,9 +1206,14 @@ document.addEventListener("DOMContentLoaded", () => {
           const { fileId, payloads } = await fileManager.prepareFileForSending(selectedFile);
           console.log(`📤 Enviando archivo en ${payloads.length} mensajes...`);
 
-          // Enviar cada payload
+          // Enviar cada payload. Pausa de 110ms entre chunks para respetar el
+          // rate limit del servidor (10 msg/s por conexión) en archivos grandes
+          // (50 MB / 256 KB = 200 chunks -> ~22s sin pausa, descartados).
           for (const payload of payloads) {
             await chatClient.sendFilePayload(payload);
+            if (payload.type === "file_chunk") {
+              await new Promise((r) => setTimeout(r, 110));
+            }
           }
 
           console.log(`✅ Archivo "${selectedFile.name}" enviado completamente`);
@@ -1190,28 +1233,44 @@ document.addEventListener("DOMContentLoaded", () => {
           sender.textContent = t("fileLabel");
           fileMsg.appendChild(sender);
 
-          const fileLink = document.createElement("a");
-          fileLink.href = URL.createObjectURL(selectedFile);
-          fileLink.download = selectedFile.name;
-          fileLink.style.color = "inherit";
-          fileLink.style.textDecoration = "none";
-          fileLink.style.display = "flex";
-          fileLink.style.alignItems = "center";
-          fileLink.style.gap = "0.5rem";
-          fileLink.style.padding = "0.5rem";
-          fileLink.style.borderRadius = "8px";
-          fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
-          fileLink.style.cursor = "pointer";
+          // Thumbnail real si es imagen/video; si no, enlace de descarga
+          const sendUrl = URL.createObjectURL(selectedFile);
+          if (selectedFile.type.startsWith("image/")) {
+            const img = document.createElement("img");
+            img.className = "message-img";
+            img.src = sendUrl;
+            img.alt = selectedFile.name;
+            img.addEventListener("load", () => URL.revokeObjectURL(sendUrl), { once: true });
+            fileMsg.appendChild(img);
+          } else if (selectedFile.type.startsWith("video/")) {
+            const video = document.createElement("video");
+            video.className = "message-video";
+            video.src = sendUrl;
+            video.controls = true;
+            video.addEventListener("loadeddata", () => URL.revokeObjectURL(sendUrl), { once: true });
+            fileMsg.appendChild(video);
+          } else {
+            const fileLink = document.createElement("a");
+            fileLink.href = sendUrl;
+            fileLink.download = selectedFile.name;
+            fileLink.style.color = "inherit";
+            fileLink.style.textDecoration = "none";
+            fileLink.style.display = "flex";
+            fileLink.style.alignItems = "center";
+            fileLink.style.gap = "0.5rem";
+            fileLink.style.padding = "0.5rem";
+            fileLink.style.borderRadius = "8px";
+            fileLink.style.backgroundColor = "rgba(56, 189, 248, 0.2)";
+            fileLink.style.cursor = "pointer";
 
-          let icon = "📎";
-          if (selectedFile.type.startsWith("image/")) icon = "🖼️";
-          else if (selectedFile.type.startsWith("video/")) icon = "🎥";
-          else if (selectedFile.type === "application/pdf") icon = "📄";
-          else if (selectedFile.type.includes("text")) icon = "📝";
-          else if (selectedFile.type.includes("zip")) icon = "📦";
+            let icon = "📎";
+            if (selectedFile.type === "application/pdf") icon = "📄";
+            else if (selectedFile.type.includes("text")) icon = "📝";
+            else if (selectedFile.type.includes("zip")) icon = "📦";
 
-          fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${selectedFile.name}</span>`;
-          fileMsg.appendChild(fileLink);
+            fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${selectedFile.name}</span>`;
+            fileMsg.appendChild(fileLink);
+          }
 
           const timestamp = document.createElement("span");
           timestamp.className = "message-timestamp";
@@ -1235,20 +1294,49 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       // Event listeners de archivos
+      const hideAttachMenu = () => attachMenu?.classList.add("hidden");
+      const toggleAttachMenu = () => attachMenu?.classList.toggle("hidden");
+
       if (attachFileBtn) {
-        attachFileBtn.addEventListener("click", () => {
-          fileInput?.click();
+        attachFileBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleAttachMenu();
         });
       }
 
-      if (fileInput) {
-        fileInput.addEventListener("change", (e) => {
-          const files = (e.target as HTMLInputElement).files;
-          if (files && files.length > 0) {
-            showFilePreview(files[0]);
-          }
+      // Cerrar el menú al hacer click fuera o con Escape
+      document.addEventListener("click", (e) => {
+        if (attachMenu && !attachMenu.contains(e.target as Node) && !attachFileBtn?.contains(e.target as Node)) {
+          hideAttachMenu();
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") hideAttachMenu();
+      });
+
+      // Items del menú -> disparan su input correspondiente
+      const wireMenu = (selector: string, input: HTMLInputElement | null) => {
+        const item = attachMenu?.querySelector<HTMLButtonElement>(`[data-target="${selector}"]`);
+        item?.addEventListener("click", () => {
+          hideAttachMenu();
+          input?.click();
         });
-      }
+      };
+      wireMenu("camera", cameraInput);
+      wireMenu("gallery", galleryInput);
+      wireMenu("doc", docInput);
+
+      const onFilePicked = (e: Event) => {
+        const files = (e.target as HTMLInputElement).files;
+        if (files && files.length > 0) {
+          showFilePreview(files[0]);
+        }
+        (e.target as HTMLInputElement).value = "";
+      };
+
+      cameraInput?.addEventListener("change", onFilePicked);
+      galleryInput?.addEventListener("change", onFilePicked);
+      docInput?.addEventListener("change", onFilePicked);
 
       if (fileCancelBtn) {
         fileCancelBtn.addEventListener("click", () => {

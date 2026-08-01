@@ -174,7 +174,14 @@ export const ALLOWED_FILE_TYPES = [
   "image/png",
   "image/gif",
   "image/webp",
+  "image/bmp",
+  "image/avif",
   "image/svg+xml",
+  // Video
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
   // Documentos
   "application/pdf",
   "text/plain",

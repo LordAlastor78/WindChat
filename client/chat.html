@@ -575,6 +575,89 @@
                 0 0 20px rgba(56, 189, 248, 0.12);
         }
 
+        /* ===== Menú de adjuntos tipo WhatsApp ===== */
+        .attach-menu {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.4rem;
+            min-width: 180px;
+            background: var(--glass-bg, rgba(20, 26, 38, 0.92));
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        }
+
+        .attach-menu.hidden {
+            display: none;
+        }
+
+        .attach-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s ease;
+        }
+
+        .attach-menu-item:hover,
+        .attach-menu-item:focus-visible {
+            background: rgba(56, 189, 248, 0.18);
+            outline: none;
+        }
+
+        /* ===== Imagen/video dentro de la burbuja de mensaje ===== */
+        .message-img {
+            display: block;
+            max-width: 240px;
+            max-height: 320px;
+            width: auto;
+            height: auto;
+            border-radius: 12px;
+            object-fit: cover;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .message-img:hover {
+            filter: brightness(1.05);
+        }
+
+        .message-video {
+            display: block;
+            max-width: 260px;
+            max-height: 320px;
+            border-radius: 12px;
+            background: #000;
+        }
+
+        /* Thumbnail en la previsualación antes de enviar */
+        .file-preview-thumb {
+            width: 56px;
+            height: 56px;
+            border-radius: 10px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .file-preview-thumb.video {
+            object-fit: contain;
+        }
+
         .theme-toggle,
         .notif-toggle,
         .sound-toggle,
@@ -1181,7 +1264,16 @@
                 </div>
             </div>
             <footer class="input-area">
-                <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.zip" class="hidden" />
+                <!-- Selectores ocultos: cámara / galería / documento -->
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" />
+                <input type="file" id="galleryInput" accept="image/*,video/*" class="hidden" />
+                <input type="file" id="docInput" class="hidden" />
+                <!-- Menú tipo WhatsApp -->
+                <div id="attachMenu" class="attach-menu hidden" role="menu" aria-label="Adjuntar">
+                    <button class="attach-menu-item" data-target="camera" role="menuitem">📷 <span>Cámara</span></button>
+                    <button class="attach-menu-item" data-target="gallery" role="menuitem">🖼️ <span>Galería</span></button>
+                    <button class="attach-menu-item" data-target="doc" role="menuitem">📄 <span>Documento</span></button>
+                </div>
                 <button id="attachFileBtn" class="file-attach-btn" data-i18n="attachFileTitle" data-i18n-attr="title"
                     title="Attach file">📎</button>
                 <input type="text" id="messageInput" data-i18n="messageInputPlaceholder" data-i18n-attr="placeholder"

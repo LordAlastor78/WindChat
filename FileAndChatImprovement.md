@@ -41,7 +41,35 @@ de integridad de archivos y ≥1 de que el render de markdown no ejecuta HTML.
 
 ---
 
-## Fase 1 — Imágenes estilo WhatsApp
+## Fase 1 — Imágenes estilo WhatsApp ✅ IMPLEMENTADA
+
+- **Menú de adjuntos** (`📷 Cámara` / `🖼️ Galería` / `📄 Documento`) en
+  `chat.html` + listeners en `main.ts` (popover con cierre por click-fuera y
+  `Escape`, accesible).
+- **Thumbnail real al enviar**: `showFilePreview` pinta `<img>`/`<video>`
+  (`file-preview-thumb`) en lugar del icono; `hideFilePreview` revoca el blob
+  URL para no filtrar memoria.
+- **Render de imagen/video recibido**: el callback `onFileReady` del
+  `FileManager` ahora crea `<img class="message-img">` / `<video
+  class="message-video">` dentro de la burbuja `.message.other` y revoca el
+  blob URL en `load`/`loadeddata`. También el emisor pinta thumbnail en su
+  burbuja `.message.me`.
+- **Tipos y límites**: `ALLOWED_FILE_TYPES` ampliado a bmp/avif + video
+  (mp4/webm/ogg/quicktime). Sincronizado a client/server vía `sync:protocol`.
+- **Rate limit respetado**: pausa de 110 ms entre chunks en `sendFile`
+  (50 MB / 256 KB = 200 chunks → ~22 s, sin descartes del servidor).
+
+**Verificación Fase 1**:
+- `npm test` 71 passed | 6 skipped; `npm run build` verde; `tsc` limpio.
+- E2E real (`tools/integration/e2e_file.js`) contra servidor: PNG 4 KB cifrado
+  por chunks viaja por el relay con ratchet y el receptor lo reensambla
+  byte-a-byte idéntico (tipo/size/content = true).
+- **Pendiente E2E manual en navegador**: confirmar visualmente el thumbnail en
+  ambas burbujas (no automatizable sin navegador interactivo en este entorno).
+
+---
+
+## Fase 1 (detalle original — ya implementado arriba)
 
 **1.1. Selector con menú (estilo WhatsApp)**
 - Reemplazar el `<input type=file>` único por un botón "➕" que abre un menú
