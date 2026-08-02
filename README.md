@@ -70,9 +70,11 @@ WindChat provides a bidirectional communication channel with the following guara
 ### Performance
 
 - **Encryption latency**: < 5 ms per message (average)
-- **Bundle size**: 33.42 KB (JavaScript), 22.25 KB (HTML)
-- **Capacity**: 2 users per room (intentional design : u, and ur partner)
+- **Bundle size**: ~1.34 MB JS (435.50 kB gzipped) — incluye KaTeX, highlight.js, marked, DOMPurify. Aceptable para Tauri desktop; el code-splitting está pendiente para la PWA web.
+- **Capacity**: 2 users per room (intencional: tú y tu interlocutor)
 - **Message limit**: 10 MB by default (configurable)
+
+> La rama `feature/chat-enhancements` implementa también el cliente desktop (**FugazChat**, Tauri 2): un `.exe` todo-en-uno que arranca un relay Rust + lanzador de túnel Cloudflare incrustados (ver [FugazChatDesktop.md](FugazChatDesktop.md)).
 
 ---
 
@@ -89,32 +91,24 @@ windchat/
 │   │   ├── index.ts          # Main server logic
 │   │   └── protocol.ts       # Server protocol definitions
 │   ├── package.json
-│   └── tsconfig.json
-│
-├── client/                    # Client application (TypeScript + Vite)
-│   ├── src/
-│   │   ├── main.ts           # Entry point and orchestration
-│   │   ├── crypto.ts         # Cryptographic module (Web Crypto API)
-│   │   ├── websocket.ts      # WebSocket client with auto-reconnect
-│   │   ├── ui.ts             # UI and DOM management
-│   │   ├── protocol.ts       # Client protocol definitions
-│   │   └── i18n.ts           # Internationalization
-│   ├── public/
-│   │   ├── index.html        # Static HTML
-│   │   └── manifest.json     # PWA manifest
-│   ├── chat.html             # Chat interface
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
-│
-├── shared/                    # Shared type definitions
-│   └── protocol.ts           # Client-server communication contract
-│
-├── run.ps1                   # Windows management script
-├── setup.ps1                 # Initial setup script
-└── package.json              # Monorepo workspace configuration
+```
+windchat/
+├── client/          TS + Vite (app web/PWA). 21 módulos src + 14 test files (94 tests)
+├── server/          Node + Express + ws (relay "tonto" de referencia)
+├── shared/          protocol.ts — FUENTE ÚNICA DE VERDAD (sincronizado a client/server)
+├── relay-rust/      Rust + tokio-tungstenite (relay nativo, sidecar en .exe)
+├── desktop/         Tauri 2 (launcher Windows, Job Object para matar sidecars)
+├── tools/           e2e_server.cjs, link_launcher, scripts de integración (13 scripts)
+├── docs/            AUTOUPDATE, iconify-guide, old/ (roadmaps de fase)
+├── FugazChatDesktop.md   Roadmap desktop (Fases 0-5: iconos, Rust relay, Tauri, Cloudflare, updater)
+├── run_chat.bat         Lanzador web en 2.º plano (sin ventanas)
+├── stop_chat.bat        Detiene server relay (POST /quit)
+└── package.json          Monorepo workspace (npm workspaces)
 ```
 
+**Protocolo:** `shared/protocol.ts` es la única fuente de verdad; `npm run sync:protocol` genera copias en `client/src/protocol.ts` y `server/src/protocol.ts`. Verificado: `npm run check:protocol` → sincronizado. **Bien hecho.**
+
+> **Estado de la rama `feature/chat-enhancements`:** El relay está **reenescrito en Rust nativo** (`relay-rust/`) y se usa como sidecar en el `.exe` de Tauri. El cliente desktop (FugazChat) arranca el relay Rust + lanzador Cloudflare incrustados (ver [FugazChatDesktop.md](FugazChatDesktop.md)). El E2EE es idéntico: ECDH P-256 → HKDF → AES-256-GCM + ratchet simétrico + SAS.**
 ### Communication Flow Diagram
 
 ```
@@ -591,10 +585,10 @@ LOG_LEVEL=error            # Reduce production logging
 
 ### Automated Test Suite
 
-The project includes 36 automated tests that validate:
+The project includes **94 automated tests** (18 test files) that validate:
 
 ```bash
-# Run all tests
+# Run all tests (check:protocol + vitest, 94/94)
 npm test
 
 # Run tests with interactive UI
@@ -613,6 +607,7 @@ npm run test:coverage
    - AES-256-GCM encryption/decryption
    - IV uniqueness
    - Authentication tag validation
+   - Ratchet forward-secrecy (post-reconexión)
 
 2. **Integration tests** (`integration.test.ts`)
    - Complete handshake between two clients
@@ -625,6 +620,15 @@ npm run test:coverage
    - Auto-reconnection with exponential backoff
    - Disconnect handling
    - Room limit validation
+
+4. **E2E integration** (`tools/integration/e2e_*.test.ts`)
+   - Reconexión con preservación del ratchet contra relay Rust real
+   - Diagnóstico y reporte de estado
+   - Compartir enlace / parseo de URLs
+
+5. **Store/sync tests** (`store.test.ts`, `sync.test.ts`)
+   - Persistencia en localStorage (perfil, contactos, conversaciones)
+   - Export/import cifrado con código de sincronización
 
 ### Manual Validation Checklist
 
@@ -649,16 +653,25 @@ npm run test:coverage
 - [ ] Message latency is acceptable (< 100ms on local network)
 
 #### User Interface
-
-- [ ] Room ID is generated and displayed correctly
-- [ ] Copy Room ID button works
-- [ ] Own messages are shown on the right
-- [ ] Peer messages are shown on the left
-- [ ] Timestamps are accurate and readable
-- [ ] "typing..." indicator appears while peer is typing
-- [ ] Light/dark theme works correctly
-- [ ] Sound notifications work (if enabled)
-- [ ] Mobile responsive interface works
+#### User Interface
+- [x] Room ID is generated and displayed correctly
+- [x] Copy Room ID button works
+- [x] Own messages are shown on the right
+- [x] Peer messages are shown on the left
+- [x] Timestamps are accurate and readable
+- [ ] "typing..." indicator appears while peer is typing (parcial)
+- [x] Light/dark/cyberpunk (stellar) theme works correctly
+- [x] Sound notifications work (if enabled)
+- [ ] Mobile responsive interface works (WIP)
+- [x] Multi-chat: varias salas simultáneas (N conexiones WS)
+- [x] Lista de contactos + número de seguridad (SAS)
+- [x] Perfil personalizable (nombre, color, foto, estado)
+- [x] Sincronización offline de perfil + contactos (código cifrado)
+- [x] Botón "Crear enlace" (túnel Cloudflare) + detener enlace
+- [x] Adjuntos: imágenes (WhatsApp-like), videos, documentos (≤50 MB)
+- [x] Reacciones (emoji picker) + reply a mensajes
+- [x] Acuses de recibo (receipts)
+- [x] Botón "Diagnosticar" (reporte de estado descargable)
 
 #### Production Security
 
@@ -807,7 +820,7 @@ The code is invalidated on reconnect (new ECDH keys) and must be compared again.
 
 #### Input Sanitization
 
-- **DOM**: `textContent` only, never `innerHTML` for dynamic content
+- **DOM**: `textContent` for dynamic content. `innerHTML` is only used in tightly controlled, non-user-controlled contexts (CSS `url()`, file preview icons); user input (filenames, names) should be migrated to `textContent` (see audit §3.4).
 - **URL**: No sensitive data in GET parameters
 - **Validation**: Max message size enforced on server
 
@@ -853,9 +866,12 @@ WindChat v1 stable has the following known limitations:
 |------------|-------------|--------|-----------------|
 | **No identity authentication** | No persistent identities; peers are anonymous per session | MITM is possible **unless the safety number is compared** out-of-band | Implemented: SAS. v2.0: TOFU with persistent keys |
 | **Visible metadata** | Server can see timestamps, message size, communication patterns | Traffic analysis is possible | Partially mitigable with padding |
-| **No persistence** | Messages are lost when tab closes | No message history | Intentional design; v2.0 may add optional local IndexedDB |
-| **Max 2 users** | Hard design limit | No group chats | v2.0: Group chats with per-participant keys ( this feature add posible vulnerabilities. Ex.: third unknown join a room of two if they get the roomID, would needed more steps of verification) |
-| **No delivery/read verification** | No confirmation that message was received/read | Limited UX | v2.0: Acknowledgements and read receipts |
+| **Max 2 users** | Hard design limit (2 usuarios por sala) | No group chats | v2.0: Group chats |
+| **Single instance** | One server process, in-memory | No horizontal scaling | Futuro |
+| **No rate limiting** | Vulnerable to DoS | Abuse/DoS risk | Implementado (10 msg/s por conexión) |
+| **No monitoring** | Sin métricas/alarmas integradas | Observability limitado | Futuro |
+| **PWA parcial** | El SW y manifest.json no están incluidos en el build actual (referencias rotas) | No instalable / offline caching limitado | Pendiente |
+| **Ephemeral parcial** | El relay no persiste, pero `localStorage` retiene previews + metadatos hasta "Salir" | No historial permanente en memoria, pero sí en localStorage | Diseño actual; aclarado en docs |
 
 ### Architecture Limitations (some are intentional for privacy/security focus)
 
@@ -884,23 +900,23 @@ WindChat v1 stable has the following known limitations:
 ### Version 2.0 (Q2-Q3 2026)
 
 **High priority:**
-- [x] **Per-message forward secrecy**: Symmetric-key ratchet (HMAC-SHA256) implemented in v1.1
-- [ ] **Key verification**: Public key fingerprints for out-of-band verification
-- [ ] **Local persistence**: IndexedDB for encrypted local history
-- [ ] **Encrypted attachments**: Support for images, videos, and files (< 25MB)
-- [x] **Rate limiting**: Abuse and DoS protection (10 msg/s per connection)
+- [x] **Per-message forward secrecy**: Symmetric-key ratchet (HMAC-SHA256)
+- [x] **Key verification**: Safety number (SAS) compared out-of-band (emoji + dígitos)
+- [ ] **Local persistence**: IndexedDB para historia local cifrada (MVP: localStorage)
+- [x] **Encrypted attachments**: Imágenes estilo WhatsApp, videos, documentos (≤50 MB)
+- [x] **Rate limiting**: 10 msg/s por conexión + límite de joins
 
 **Medium priority:**
-- [ ] **Read receipts**: Delivery and read confirmations
-- [ ] **Message reactions**: Emoji quick reactions
-- [ ] **Reply to messages**: Threading and quotes
-- [ ] **Push notifications**: Service Worker based (PWA)
+- [x] **Read receipts**: Acuses de recibo (delivered/read)
+- [x] **Message reactions**: Emoji picker inline + toggle
+- [x] **Reply to messages**: Threading y quotes
+- [ ] **Push notifications**: Service Worker based (PWA) — SW/manifest pendientes
 - [ ] **Group chats**: Support for 3-10 participants
 
-**Low priority:**
+**Lower priority:**
 - [ ] **WebRTC P2P**: Optional peer-to-peer mode without relay server
 - [ ] **Video calls**: Encrypted video integration
-- [ ] **Custom themes**: Advanced theming system
+- [ ] **Custom themes**: Advanced theming system (cyberpunk azul parcial)
 - [ ] **Bots and automation**: Bot API
 
 ### Version 3.0 (2027+)

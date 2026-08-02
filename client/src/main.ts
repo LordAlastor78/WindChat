@@ -63,13 +63,22 @@ class UnreadCounter {
 // Registrar Service Worker para PWA (antes de DOMContentLoaded)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/service-worker.js')
+    // El service-worker.js solo existe en builds PWA; comprobar antes de registrar
+    // para evitar 404/noise en entornos donde no está (desarrollo, Tauri WebView2 sin PWA).
+    fetch('/service-worker.js', { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) {
+          console.warn('⚠️ Service Worker no disponible (', res.status, ') — PWA deshabilitada.');
+          return null;
+        }
+        return navigator.serviceWorker.register('/service-worker.js');
+      })
       .then((registration) => {
-        console.log('✅ Service Worker registrado:', registration.scope);
+        if (registration) console.log('✅ Service Worker registrado:', registration.scope);
       })
       .catch((error) => {
-        console.warn('⚠️ Failed to register Service Worker:', error);
+        // No es fatal: la app funciona sin SW. Evitamos ruido de 404 en consola.
+        console.debug('Service Worker no registrado (entorno sin PWA):', error.message || error);
       });
   });
 }
@@ -359,7 +368,7 @@ function initApp() {
       const roomIdValue = document.getElementById("roomIdValue") as HTMLSpanElement | null;
       const copyRoomBtn = document.getElementById("copyRoomBtn") as HTMLButtonElement | null;
       const messageInput = document.getElementById("messageInput") as HTMLInputElement | null;
-      const sendButton = document.querySelector("#chatContainer .icon-btn") as HTMLButtonElement | null;
+      const sendButton = document.getElementById("sendButton") as HTMLButtonElement | null;
 
       // Validar elementos críticos del DOM
       if (!loginScreen || !chatContainer || !messagesContainer || !messageInput || !sendButton) {
