@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../../client/dist",
     "devUrl": "http://localhost:4173",
-    "beforeDevCommand": "pushd ..\\..\\client && npx vite preview --port 4173 --strictPort",
-    "beforeBuildCommand": "echo skip"
+    "beforeDevCommand": "cd $CARGO_MANIFEST_DIR/../.. && cd client && npx vite preview --port 4173 --strictPort",
+    "beforeBuildCommand": "cd $CARGO_MANIFEST_DIR/../.. && cd client && npm run build"
   },
   "app": {
     "windows": [
@@ -46,7 +46,7 @@
       "endpoints": [
         "https://github.com/LordAlastor78/WindChat/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1tZW50OiBtaW5pc2lnbiBwdWJsaWMga2V5OiA2OEE0RkRCMVQ1RkEzODNBCkJXVTZPUHJGSWYyazFIYXZmNkxMVWF4aU1VZGdvNDBvZC9mczM5WDFYN3R2Y2ZMbTBvWG8K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1tZW50OiBtaW5pc2lnbiBwdWJsaWMga2V5OiA2OEE0RkRCMVQ1RkEzODNBCkJXVTZPUHJGSWYyazFIYXZmNkxMVVF4aU1VZGdvNDBvZC9mczM5WDFYN3R2Y2ZMbTBvWG8K"
     }
   }
 }

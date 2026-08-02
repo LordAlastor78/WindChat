@@ -65,11 +65,16 @@ reconocidos en la auditoría. **Build verde, 96/96 tests, build desktop portable
 - `.gitignore` endurecido: `desktop/tauri.key`, `desktop/tauri.key.pub`,
   `desktop/src-tauri/binaries/` ahora explícitos.
 - README reorganizado bajo `docs/{architecture,desktop,ops,development,audit}/`.
+- **Build system Tauri corregido**:
+  - `beforeBuildCommand` buildea el cliente desde `$CARGO_MANIFEST_DIR` (antes `echo skip`).
+  - `externalBin` usa path relativo `binaries/relay-rust` (resuelve el triple con target).
+  - Workflow de release construye `relay-rust.exe` en CI y lo coloca en `binaries/`.
+- Workflow de release reescrito: instala workspace root → build relay-rust → build Tauri.
 
 ### Verificación
 
 | Check | Resultado |
-|---|---|
+|---|---
 | `npm test` | ✅ 96/96 (14 archivos) |
 | `npm run build` | ✅ 262ms, 0 errores, chunks separados |
 | `npm run check:protocol` | ✅ sincronizado |
@@ -79,6 +84,7 @@ reconocidos en la auditoría. **Build verde, 96/96 tests, build desktop portable
 | E2E multichat | ✅ MULTICHAT_OK |
 | E2E share link | ✅ SHARE_E2E_OK |
 | `npm audit --audit-level=high` | ✅ 0 vulnerabilidades high |
+| `npx tauri build` | ✅ NSIS `.exe` + MSI + portable construidos (55s) |
 
 ### Roadmap
 

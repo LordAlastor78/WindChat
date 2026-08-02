@@ -12,6 +12,7 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,28 +25,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       # NSIS (instalador) y WebView2 runtime los trae el runner de Windows.
-      - name: Install frontend deps + build
-        run: |
-          cd client
-          npm ci
-          npm run build
+
+      # Instalamos el workspace ROOT (instala server, client y root deps):
+      # dompurify, highlight.js, katex, marked, @tauri-apps/cli...
+      - name: Install root workspace dependencies
+        run: npm ci
         shell: bash
 
-      - name: Install desktop deps
+      # Construir el relay-rust en release y colocar el binario en
+      # desktop/src-tauri/binaries/ — Tauri lo rescata via externalBin.
+      # El nombre incluye el target triple (x86_64-pc-windows-msvc) que
+      # Tauri resuelve automáticamente al hacer bundle.
+      - name: Build relay-rust sidecar
         run: |
-          cd desktop
-          npm ci
+          cd relay-rust
+          cargo build --release
+          mkdir -p ../desktop/src-tauri/binaries
+          TARGET=$(rustc -vV | grep host | awk '{print $2}')
+          cp target/release/relay-rust.exe ../desktop/src-tauri/binaries/relay-rust-${TARGET}.exe
+          cp target/release/relay-rust.exe ../desktop/src-tauri/binaries/relay-rust.exe
         shell: bash
 
       - name: Tauri build (firma el latest.json con TAURI_SIGNING_PRIVATE_KEY)
-        run: |
-          cd desktop
-          npx tauri build
+        run: npx tauri build
+        working-directory: desktop
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -60,4 +69,4 @@ jobs:
             desktop/src-tauri/target/release/bundle/nsis/latest.json
             desktop/src-tauri/target/release/bundle/msi/latest.json
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
