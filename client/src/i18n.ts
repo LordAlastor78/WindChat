@@ -9,6 +9,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // Header
     headerInfo: 'Chat cifrado extremo a extremo',
     themeToggle: 'Tema',
+    themeToggleTitle: 'Tema',
     diagnoseButton: 'Diagnosticar',
     diagnoseButtonText: 'Diagnosticar',
 
@@ -164,6 +165,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // Header
     headerInfo: 'End-to-end encrypted chat',
     themeToggle: 'Theme',
+    themeToggleTitle: 'Theme',
     diagnoseButton: 'Diagnose',
     diagnoseButtonText: 'Diagnose',
 

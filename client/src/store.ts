@@ -17,6 +17,7 @@ export interface Profile {
   avatarColor: string; // hex, p.ej. "#7db4ff"
   status: string; // mensaje de estado libre
   identityPublicKey?: string; // base64 raw P-256 (la identidad del usuario)
+  avatarDataUrl?: string; // foto de perfil en dataURL (opcional)
 }
 
 export interface Contact {

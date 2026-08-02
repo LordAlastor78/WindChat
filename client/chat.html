@@ -1513,6 +1513,7 @@
             width: 40px; height: 40px; border-radius: 50%; background: var(--bg-tertiary);
             border: none; color: var(--text-primary); cursor: pointer;
             display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+            flex: 0 0 auto; white-space: nowrap; padding: 0;
         }
         .icon-btn:hover { background: var(--primary); transform: translateY(-2px); }
 
@@ -1537,6 +1538,8 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem;
         }
         .share-link-btn { border: 1px solid var(--accent-stellar, #7c5cff); }
+        .profile-avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+        .profile-avatar-preview { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--bg-tertiary); border: 1px solid var(--border-color); }
     </style>
 
 </head>
@@ -1576,8 +1579,7 @@
 
             <!-- Menú desplegable (Contáctos / Ajustes / Reparar) -->
             <div id="sidebarMenu" class="sidebar-menu hidden">
-                <button id="contactsBtn" class="sidebar-menu-item" type="button"><iconify-icon icon="mdi:contacts"></iconify-icon> <span data-i18n="contactsLabel">Contactos</span></button>
-                <button id="settingsBtnMenu" class="sidebar-menu-item" type="button"><iconify-icon icon="mdi:cog"></iconify-icon> <span data-i18n="settingsLabel">Ajustes</span></button>
+                <button id="profileBtnMenu" class="sidebar-menu-item" type="button"><iconify-icon icon="mdi:account-edit"></iconify-icon> <span data-i18n="profileLabel">Perfil</span></button>
             </div>
 
             <div class="sidebar-section-label" data-i18n="chatsLabel">Chats</div>
@@ -1610,15 +1612,14 @@
                         <option value="en" data-i18n="languageEn">EN</option>
                         <option value="es" data-i18n="languageEs">ES</option>
                     </select>
-                    <button id="enableNotifications" class="notif-toggle" data-i18n="notifEnableTitle"
-                        data-i18n-attr="title" title="Enable notifications"><iconify-icon icon="mdi:bell-off"></iconify-icon></button>
-                    <button id="soundToggle" class="sound-toggle" data-i18n="soundEnableTitle" data-i18n-attr="title"
-                        title="Enable sounds"><iconify-icon icon="mdi:volume-off"></iconify-icon></button>
-                    <button id="themeToggle" class="theme-toggle" data-i18n="themeToggle">Theme</button>
-                    <button id="diagnoseBtn" class="icon-btn diagnose-btn" type="button" title="Ejecutar diagnóstico y descargar reporte"
-                        data-i18n="diagnoseButton"><iconify-icon icon="mdi:stethoscope"></iconify-icon> <span data-i18n="diagnoseButtonText">Diagnosticar</span></button>
-                    <button id="shareLinkBtn" class="icon-btn share-link-btn" type="button" title="Crear enlace público (túnel Cloudflare)" data-i18n="shareLinkButton">Create link</button>
-                    <button id="exitAppBtn" class="icon-btn exit-app-btn" type="button" title="Cerrar WindChat (detiene el servidor local)" data-i18n="exitAppButton">Exit</button>
+                    <button id="enableNotifications" class="icon-btn notif-toggle" data-i18n="notifEnableTitle"
+                        data-i18n-attr="title" title="Enable notifications" aria-label="Notificaciones"><iconify-icon icon="mdi:bell-off"></iconify-icon></button>
+                    <button id="soundToggle" class="icon-btn sound-toggle" data-i18n="soundEnableTitle" data-i18n-attr="title"
+                        title="Enable sounds" aria-label="Sonidos"><iconify-icon icon="mdi:volume-off"></iconify-icon></button>
+                    <button id="themeToggle" class="icon-btn theme-toggle" data-i18n="themeToggleTitle" data-i18n-attr="title" title="Theme" aria-label="Tema"><iconify-icon icon="mdi:palette"></iconify-icon></button>
+                    <button id="diagnoseBtn" class="icon-btn diagnose-btn" type="button" title="Ejecutar diagnóstico y descargar reporte" aria-label="Diagnosticar"><iconify-icon icon="mdi:stethoscope"></iconify-icon></button>
+                    <button id="shareLinkBtn" class="icon-btn share-link-btn" type="button" title="Crear enlace público (túnel Cloudflare)" aria-label="Crear enlace"><iconify-icon icon="mdi:link-variant"></iconify-icon></button>
+                    <button id="exitAppBtn" class="icon-btn exit-app-btn" type="button" title="Cerrar WindChat (detiene el servidor local)" aria-label="Salir"><iconify-icon icon="mdi:logout"></iconify-icon></button>
                 </div>
             </header>
 
@@ -1719,6 +1720,13 @@
     <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
             <div class="modal-head"><strong data-i18n="profileTitle">Perfil</strong><button class="modal-close" data-close="profileModal" aria-label="Cerrar"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
+            <div class="profile-avatar-row">
+                <img id="profileAvatarPreview" class="profile-avatar-preview" alt="avatar" />
+                <div>
+                    <label class="field-label" data-i18n="profilePhoto">Foto</label>
+                    <input type="file" id="profilePhotoInput" accept="image/*" aria-label="Foto de perfil" />
+                </div>
+            </div>
             <label class="field-label" data-i18n="profileName">Nombre</label>
             <input type="text" id="profileNameInput" maxlength="24" aria-label="Nombre" />
             <label class="field-label" data-i18n="profileStatus">Estado</label>

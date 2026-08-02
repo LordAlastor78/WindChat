@@ -1591,7 +1591,16 @@ function initApp() {
   
   const setProfileDisplay = (p: Profile) => {
   const av = $("sidebarAvatar");
-  if (av) { av.textContent = (p.displayName || "A").slice(0, 1).toUpperCase(); (av as HTMLElement).style.background = p.avatarColor; }
+  if (av) {
+    const el = av as HTMLElement;
+    if (p.avatarDataUrl) {
+      el.textContent = "";
+      el.style.background = `center/cover no-repeat url("${p.avatarDataUrl}"), ${p.avatarColor}`;
+    } else {
+      el.textContent = (p.displayName || "A").slice(0, 1).toUpperCase();
+      el.style.background = p.avatarColor;
+    }
+  }
   const nm = $("sidebarName"); if (nm) nm.textContent = p.displayName;
   const st = $("sidebarStatus"); if (st) st.textContent = p.status;
   };
@@ -1696,6 +1705,13 @@ function initApp() {
 
   // El botón de 3 puntitos también abre el menú
   $("sidebarMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); toggleSidebarMenu(); });
+
+  // 3 puntitos -> menu de Perfil (abre profileModal)
+  $("profileBtnMenu")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    sidebarMenu?.classList.add("hidden");
+    showModal($("profileModal"));
+  });
   // Cerrar el menú al hacer click fuera
   document.addEventListener("click", (e) => {
   if (sidebarMenu && !sidebarMenu.contains(e.target as Node) && e.target !== $("sidebarMenuBtn")) {
@@ -1710,6 +1726,17 @@ function initApp() {
   $("newChatBtn")?.addEventListener("click", () => { showModal(newChatModal); });
   document.querySelectorAll("[data-close]").forEach((b) => {
   b.addEventListener("click", () => { const id = b.getAttribute("data-close"); hideModal($(id!)); });
+  });
+
+  // Cerrar cualquier modal con ESC o clic en el fondo (backdrop)
+  const closeAllModals = () => {
+    document.querySelectorAll(".modal:not(.hidden)").forEach((m) => m.classList.add("hidden"));
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAllModals();
+  });
+  document.querySelectorAll(".modal").forEach((m) => {
+    m.addEventListener("click", (e) => { if (e.target === m) hideModal(m as HTMLElement); });
   });
   $("createRoomBtn")?.addEventListener("click", () => {
   const id = generateRoomId();
@@ -1739,6 +1766,10 @@ function initApp() {
   colorPicker.appendChild(sw);
   }
   };
+  // --- Perfil: estado de foto ---
+  let pendingAvatar: string | undefined = undefined;
+  const avatarPrev = $("profileAvatarPreview") as HTMLImageElement | null;
+  const photoInput = $("profilePhotoInput") as HTMLInputElement | null;
   $("sidebarProfile")?.addEventListener("click", () => {
   const p = Store.getProfile();
   selectedColor = p.avatarColor;
@@ -1746,13 +1777,26 @@ function initApp() {
   const si = $("profileStatusInput") as HTMLInputElement | null;
   if (ni) ni.value = p.displayName;
   if (si) si.value = p.status;
+  if (avatarPrev) avatarPrev.src = p.avatarDataUrl || "";
+  pendingAvatar = undefined;
+  if (photoInput) photoInput.value = "";
   renderColorPicker();
   showModal(profileModal);
+  });
+  photoInput?.addEventListener("change", () => {
+    const f = photoInput?.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingAvatar = reader.result as string;
+      if (avatarPrev) avatarPrev.src = pendingAvatar;
+    };
+    reader.readAsDataURL(f);
   });
   $("profileSaveBtn")?.addEventListener("click", () => {
   const ni = $("profileNameInput") as HTMLInputElement | null;
   const si = $("profileStatusInput") as HTMLInputElement | null;
-  const saved = Store.saveProfile({ displayName: ni?.value.trim() || "Anon", status: si?.value.trim() || "", avatarColor: selectedColor });
+  const saved = Store.saveProfile({ displayName: ni?.value.trim() || "Anon", status: si?.value.trim() || "", avatarColor: selectedColor, avatarDataUrl: pendingAvatar ?? Store.getProfile().avatarDataUrl });
   setProfileDisplay(saved);
   // Actualizar nombre mostrado en el chat activo
   currentDisplayName = saved.displayName;
