@@ -26,3 +26,4 @@ relay-rust/target/release/
 # Capturas de debug / assets efímeros de herramientas
 tools/*.png
 tools/**/*.png
+iconify.md
