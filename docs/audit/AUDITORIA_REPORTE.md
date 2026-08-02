@@ -95,11 +95,12 @@ WindChat/
 - Comandos: `repair`, `share_link` (cloudflared tunnel), `stop_link`, `check_update`, `install_update`.
 - ✅ **§4.3 RETRACTADO**: `regex` SÍ está en `desktop/Cargo.toml` — no es un bug. (Error de la auditoría original corregido.)
 
-### 3.6 Sanitización de Markdown (`client/src/markdown/renderer.ts`) — ✅ Seguro (defense-in-depth)
-- Pipeline: `marked → stripDangerous (regex) → DOMPurify → KaTeX → highlight.js`.
+### 3.6 Sanitización de Markdown (`client/src/markdown/renderer.ts`) — ✅ Seguro + optimizado
+- Pipeline: `marked → stripDangerous (regex) → DOMPurify → KaTeX → highlight.js (lazy)`.
 - DOMPurify configurado para permitir solo tags de KaTeX (svg/path) y bloquear `script/iframe/object/embed/style/img`.
 - **Red independiente del motor DOM** (`stripDangerous`) para happy-dom.
-- Rechaza `javascript:`, `on*`, `<img>` externas. Verificado por `markdown-safety.test.ts`.
+- Rechaza `javascript:`, `on*`, `<img>` externas. Verificado por `markdown-safety.test.ts` (8/8).
+- ✅ **§5.7 POST-FIX**: `highlight.js` (915KB) **lazy-importado** vía `import()` dinámico en `getHighlightJs()`. El `highlightCode` aplica resaltado fire-and-forget (post-render) → no bloquea el mensaje ni propaga async a `renderMarkdownSafe`/`main.ts`. Main chunk libre de highlight.js.
 
 ### 3.7 Almacenamiento (`client/src/store.ts`) — ✅ Correcto
 - `localStorage` con fallback en memoria para Node/tests.
