@@ -1,0 +1,63 @@
+name: Release (Windows, signed updater)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Clave privada de firma del updater (Ed25519). Se genera con:
+      #   npx tauri signer generate
+      # y se guarda en GitHub Secrets como TAURI_SIGNING_PRIVATE_KEY.
+      # La pubkey resultante va en desktop/src-tauri/tauri.conf.json (campo "pubkey").
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # NSIS (instalador) y WebView2 runtime los trae el runner de Windows.
+      - name: Install frontend deps + build
+        run: |
+          cd client
+          npm ci
+          npm run build
+        shell: bash
+
+      - name: Install desktop deps
+        run: |
+          cd desktop
+          npm ci
+        shell: bash
+
+      - name: Tauri build (firma el latest.json con TAURI_SIGNING_PRIVATE_KEY)
+        run: |
+          cd desktop
+          npx tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: bash
+
+      - name: Upload release artifacts (incluye latest.json firmado)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/bundle/msi/*.msi
+            desktop/src-tauri/target/release/bundle/nsis/latest.json
+            desktop/src-tauri/target/release/bundle/msi/latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

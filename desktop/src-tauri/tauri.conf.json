@@ -40,6 +40,13 @@
   "plugins": {
     "shell": {
       "open": false
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/<GITHUB_USER>/WindChat/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IFBUE3hYRFZycyBCaW5hcnkgcGxhY2Vob2xkZXIgLS0gcmVlbXBsYXogY29uIGxhIGNsYXZlIFBVQkxJQ0Egb24gPGEgdGF1cmkgc2lnbmVyIGdlbmVyYXRlPiBhbmQgcGVnYWhlIGxhIHB1YmtleSBlbiB0YXVyaS5jb25mLmpzb24="
     }
   }
 }

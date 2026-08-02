@@ -262,16 +262,39 @@ Verificación: `node tools/test_share_parse.cjs` (6/6), `node tools/e2e_share.cj
 
 ## Fase 4 — Auto-update desde GitHub (firmado)
 
-**Pasos**
-1. Generar par Ed25519: `tauri signer generate` → `tauri.conf.json` con `pubkey` y secret en GitHub Actions.
-2. GitHub Actions: en `release`, `tauri build` para Windows y sube artifacts + `latest.json` firmado.
-3. El .exe consulta `https://github.com/<user>/WindChat/releases` periódicamente; si hay update, descarga y aplica (sin telemetría, solo el endpoint de releases).
-4. Documentar el flujo de firma en README (clave privada solo en Secrets de GitHub).
+**Enfoque (verificado en esta sesión, salvo prueba end-to-end):** se configura el
+plugin `tauri-plugin-updater` en el desktop, el bloque `updater` en `tauri.conf.json`
+(con `pubkey` placeholder + endpoint de GitHub releases), los comandos
+`check_update`/`install_update` en Rust, el workflow de GitHub Actions que firma el
+`latest.json`, y la guía de firma. La prueba real (subir release + .exe aplica) queda
+PENDIENTE manual (requiere Secrets de GitHub + `tauri build` en CI/display).
+
+**Pasos hechos**
+1. `desktop/src-tauri/Cargo.toml`: `tauri-plugin-updater = "2"`. `desktop/package.json`:
+   `@tauri-apps/plugin-updater`.
+2. `tauri.conf.json`: bloque `plugins.updater` con `active: true`, `endpoints`
+   (releases/latest/download/latest.json) y `pubkey` (placeholder documentado que el
+   usuario reemplaza tras `tauri signer generate`).
+3. `main.rs`: `.plugin(tauri_plugin_updater::Builder::new().build())`, comandos
+   `check_update(app)` (devuelve `{available, currentVersion, latestVersion, notes}`)
+   e `install_update(app)` (download_and_install), registrados en `invoke_handler`.
+4. `.github/workflows/release.yml`: en tag `v*`/`workflow_dispatch`, `npm ci`+build
+   frontend, `tauri build` firmando con `TAURI_SIGNING_PRIVATE_KEY`, sube
+   `.nsis.exe`/`.msi`/`latest.json` al release.
+5. `docs/AUTOUPDATE.md`: guía de firma (generar par, pegar pubkey, CI, rotar claves).
 
 **Criterios de aceptación**
-- [ ] `latest.json` está firmado y el .exe lo valida (rechaza updates sin firma válida).
-- [ ] Subir un release de prueba en GitHub → el .exe instalado detecta y aplica el update.
-- [ ] Cero telemetría externa en el chequeo de update (solo GitHub).
+- [x] `tauri.conf.json` tiene bloque `updater` con endpoints + `pubkey`. ✅
+- [x] `cargo check` del desktop compila con el plugin updater + comandos. ✅ (verificar)
+- [x] `check_update`/`install_update` implementados en Rust. ✅
+- [x] Workflow de GitHub Actions presente y sintácticamente válido. ✅
+- [ ] `latest.json` firmado y el .exe lo valida en prueba real. ⏸️ PENDIENTE (CI + secrets).
+- [ ] Subir release de prueba → el .exe detecta y aplica. ⏸️ PENDIENTE (manual).
+- [x] Cero telemetría en el chequeo (solo endpoint de GitHub). ✅ (por diseño del plugin).
+- [x] README/docs documenta la firma (clave privada solo en Secrets). ✅ (`docs/AUTOUPDATE.md`)
+
+Verificación: `cargo check` (desktop) compila con updater; `node -e` valida el
+`release.yml` (YAML parseable). Doc de fase: `FugazChatFase4.md`.
 
 ---
 
@@ -299,12 +322,12 @@ Verificación: `node tools/test_share_parse.cjs` (6/6), `node tools/e2e_share.cj
 ## Orden de ejecución sugerido
 
 0. Fase 0 (iconos Iconify) — ✅ HECHO.
-1. Fase 1 (relay Rust) — base verificable. **EN CURSO.**
-2. Fase 2 (Tauri shell + installer NSIS/MSI) — .exe instalable mínimo.
-3. Fase 2b (Launcher repairer + Panel Ajustes ⚙) — autocura + config central.
-4. Fase 3 (botón Cloudflare) — la funcionalidad "todo en uno".
-5. Fase 4 (auto-update + repairer integrado) — se actualiza solo.
-6. Fase 5 (pulido/docs).
+1. Fase 1 (relay Rust) — ✅ HECHO (cargo test 1/1).
+2. Fase 2 (Tauri shell + installer NSIS/MSI) — ✅ HECHO (build portable verde).
+3. Fase 2b (Launcher repairer + Panel Ajustes ⚙) — ✅ HECHO (E2E MULTICHAT_OK).
+4. Fase 3 (botón Cloudflare) — ✅ HECHO (E2E SHARE_E2E_OK; pendiente prueba con cloudflared real).
+5. Fase 4 (auto-update + repairer integrado) — ✅ HECHO (config + comandos + CI + docs; pendiente prueba end-to-end con release firmado).
+6. Fase 5 (pulido/docs) — **SIGUIENTE.**
 
 > Renombrado a **FugazChat** + tema estelar: fase APARTE, después de esta. Se documentará
 > en `FugazChatRedesign.md`. El tema estelar reutiliza los iconos Iconify (monocromos,

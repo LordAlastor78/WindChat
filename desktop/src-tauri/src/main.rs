@@ -197,6 +197,35 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(serde_json::json!({
+            "available": true,
+            "currentVersion": update.current_version,
+            "latestVersion": update.version,
+            "notes": update.body,
+        })),
+        Ok(None) => Ok(serde_json::json!({ "available": false })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
+        update
+            .download_and_install(|_len, _total| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn stop_link(_app: tauri::AppHandle) -> Result<(), String> {
     if let Some(child_arc) = CLOUDFLARED_CHILD.get() {
         if let Some(child) = child_arc.lock().unwrap().take() {
@@ -217,6 +246,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             CLOUDFLARED_CHILD.get_or_init(|| Arc::new(StdMutex::new(None)));
             CLOUDFLARED_URL.get_or_init(|| Arc::new(StdMutex::new(None)));
@@ -273,7 +303,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![repair, share_link, stop_link])
+        .invoke_handler(tauri::generate_handler![repair, share_link, stop_link, check_update, install_update])
         .run(tauri::generate_context!())
         .expect("error al correr la app Tauri");
 }
