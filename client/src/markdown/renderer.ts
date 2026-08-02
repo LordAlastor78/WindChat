@@ -20,8 +20,27 @@ import { marked } from "marked";
 import createDOMPurify from "dompurify";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import hljs from "highlight.js";
-import "highlight.js/styles/github-dark.css";
+// §5.7 lazy-import: highlight.js (915KB) se carga bajo demanda solo cuando
+// se renderiza el primer bloque de código, NO en el bundle inicial.
+// import hljs from "highlight.js";
+// import "highlight.js/styles/github-dark.css";
+
+// Loader lazy cacheado de highlight.js (promesa única para lifetime del módulo).
+// §5.7: highlight.js (915KB) + su CSS se cargan bajo demanda solo cuando se
+// renderiza el primer bloque de código, NO en el bundle inicial.
+// Usa import() dinámico: Vite/Rolldown genera chunks separados + inyecta CSS.
+let hljsPromise: Promise<typeof import("highlight.js")> | null = null;
+async function getHighlightJs(): Promise<typeof import("highlight.js")> {
+  if (!hljsPromise) {
+    // Import CSS dinámico: Vite/Rolldown inyecta el <style> al cargar.
+    // Se awaits junto con el JS para asegurar estilos + lógica sincronizados.
+    hljsPromise = Promise.all([
+      import("highlight.js"),
+      import("highlight.js/styles/github-dark.css"),
+    ]).then(([hljs]) => hljs);
+  }
+  return hljsPromise;
+}
 
 // Crear instancia ligada al DOM actual (happy-dom en tests, window real en
 // navegador). Si no hay window (entorno sin DOM), DOMPurify no filtra y el
@@ -106,16 +125,26 @@ function stripDangerous(html: string): string {
   return out;
 }
 
-// Renderiza bloques de código con highlight.js tras el sanitizado
+// Renderiza bloques de código. En primer lugar devuelve el HTML tal cual
+// (sin resaltar) para que el mensaje se muestre al instante; el resaltado
+// con highlight.js se aplica de forma asíncrona/fire-and-forget tras el lazy
+// import (§5.7). Así NO se propaga async por renderMarkdownSafe ni su caller.
 function highlightCode(html: string): string {
   const container = document.createElement("div");
   container.innerHTML = html;
-  container.querySelectorAll("pre code").forEach((block) => {
-    try {
-      hljs.highlightElement(block as HTMLElement);
-    } catch {
-      /* dejar como está */
+  const blocks = Array.from(container.querySelectorAll("pre code"));
+  if (blocks.length === 0) return container.innerHTML;
+  // §5.7: lazy-load de highlight.js + aplicar resaltado post-render (no bloqueante)
+  void getHighlightJs().then((hljs: any) => {
+    for (const block of blocks) {
+      try {
+        hljs.highlightElement(block as HTMLElement);
+      } catch {
+        /* dejar como está */
+      }
     }
+  }).catch(() => {
+    /* highlight.js no disponible: degradado a código sin color (seguro) */
   });
   return container.innerHTML;
 }
