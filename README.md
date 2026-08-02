@@ -231,6 +231,63 @@ The `run.ps1` script provides an interactive menu with these options:
 - Run tests
 - Manage Cloudflare Tunnel processes
 
+### Desktop app (FugazChat / Tauri)
+
+WindChat también se empaqueta como una app de escritorio **todo en uno** con
+[Tauri](https://tauri.app/): un solo instalable (`.msi` / `.nsis.exe`) que arranca el
+relay Rust y el túnel de Cloudflare incrustados, sin necesidad de terminales.
+
+#### Dependencias y build
+
+```bash
+# Dependencias del workspace (server + client)
+npm install
+
+# Construir el frontend (client/dist)
+cd client && npm run build && cd ..
+
+# Build portable (solo el .exe, sin instalador) — útil para probar
+cd desktop && npm run build:portable
+
+# Build instalable (MSI + NSIS) — requiere NSIS en Windows
+cd desktop && npm run build
+```
+
+El binario usa WebView2 (ya presente en Windows 10/11), así que no descarga nada en
+runtime. El relay Rust y el túnel se lanzan como *sidecars* y mueren con la app (sin
+procesos huérfanos, vía Windows Job Object).
+
+> El renombrado de la marca a **FugazChat** y el tema estelar es una fase aparte
+> (`FugazChatRedesign.md`); el build actual usa el nombre `WindChat` / `FugazChat`
+> según el `productName` en `desktop/src-tauri/tauri.conf.json`.
+
+#### Crear enlace público (túnel Cloudflare)
+
+Desde la app, el botón **"Crear enlace"** (en la barra superior) lanza un túnel
+efímero de Cloudflare (`cloudflared tunnel --url http://localhost:8080`) y muestra una
+URL `https://*.trycloudflare.com` que puedes compartir. El túnel **solo reenvía el
+tráfico WebSocket ya cifrado**: el E2EE punto a punto no se ve afectado (el relay sigue
+siendo "tonto" y no puede leer los mensajes). "Detener enlace" mata el túnel.
+
+En la web pura (sin el .exe), el mismo botón usa un *launcher* local
+(`tools/link_launcher.cjs`) que puentea al `cloudflared`. En el .exe, llama al comando
+Rust `share_link()`.
+
+#### Auto-update (firmado)
+
+La app se actualiza sola desde los *Releases* de GitHub, validando una firma
+**Ed25519** (cero telemetría: solo consulta el endpoint de releases). Ver
+[`docs/AUTOUPDATE.md`](docs/AUTOUPDATE.md) para generar el par de claves, configurar
+el `pubkey` en `tauri.conf.json` y el secreto `TAURI_SIGNING_PRIVATE_KEY` en GitHub
+Actions (`.github/workflows/release.yml`).
+
+#### Privacidad: el relay es local
+
+El relay Rust corre en **tu máquina** (o la de tu interlocutor). No almacena mensajes
+ni puede descifrarlos: solo reenvía los *blobs* cifrados. El E2EE (ECDH P-256 →
+HKDF-SHA256 → AES-256-GCM, con ratchet simétrico por mensaje y SAS anti-MITM) se
+negocia entre los dos clientes; el servidor nunca ve las claves.
+
 ### Manual Setup (Cross-platform)
 
 #### 1. Install Dependencies

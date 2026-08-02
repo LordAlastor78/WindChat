@@ -300,10 +300,16 @@ Verificación: `cargo check` (desktop) compila con updater; `node -e` valida el
 
 ## Fase 5 — Pulido y verificación final
 
-- [ ] `npm test` (suite cliente 81/81) sigue verde tras los cambios de conexión.
-- [ ] E2E de reconexión sigue verde contra relay Rust.
-- [ ] README documenta: instalar, crear enlace, auto-update, y que el relay es local (E2EE intacto).
-- [ ] Sin credenciales ni claves en el repo.
+- [x] `npm test` (suite cliente 92/92) sigue verde tras los cambios de conexión. ✅
+- [x] E2E de reconexión sigue verde contra relay Rust. ✅ (`npx vitest run --environment happy-dom tools/integration/e2e_reconnect.test.ts` → ratchet intacto, 0 errores)
+- [x] E2E de diagnóstico sigue verde. ✅ (`e2e_diagnostics.test.ts` → FAIL: 0)
+- [x] README documenta: instalar, crear enlace, auto-update, y que el relay es local (E2EE intacto). ✅ (sección "Desktop app (FugazChat / Tauri)")
+- [x] Sin credenciales ni claves en el repo. ✅ (grep de secretos: solo menciones de nombres de Secrets en docs/CI, `pubkey` público en tauri.conf.json, WebCrypto en crypto.ts; ningún secreto real)
+- [x] Script `test:e2e` añadido a package.json para correr los integration tests con happy-dom.
+
+Verificación completa de la sesión: `npm test` 92/92, `cargo test` relay 1/1,
+`test_share_parse` 6/6, E2E Playwright MULTICHAT_OK + SHARE_E2E_OK, E2E reconexión
++ diagnósticos verdes, `cargo check` desktop OK. Doc de fase: `FugazChatFase5.md`.
 
 ---
 
@@ -327,7 +333,7 @@ Verificación: `cargo check` (desktop) compila con updater; `node -e` valida el
 3. Fase 2b (Launcher repairer + Panel Ajustes ⚙) — ✅ HECHO (E2E MULTICHAT_OK).
 4. Fase 3 (botón Cloudflare) — ✅ HECHO (E2E SHARE_E2E_OK; pendiente prueba con cloudflared real).
 5. Fase 4 (auto-update + repairer integrado) — ✅ HECHO (config + comandos + CI + docs; pendiente prueba end-to-end con release firmado).
-6. Fase 5 (pulido/docs) — **SIGUIENTE.**
+6. Fase 5 (pulido/docs) — ✅ HECHO (suites verdes, README al día, sin secretos).
 
 > Renombrado a **FugazChat** + tema estelar: fase APARTE, después de esta. Se documentará
 > en `FugazChatRedesign.md`. El tema estelar reutiliza los iconos Iconify (monocromos,

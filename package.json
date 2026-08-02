@@ -23,7 +23,8 @@
     "postinstall": "node ./scripts/run-script.js fix-perms",
     "test": "npm run check:protocol && vitest run -c client/vitest.config.ts",
     "test:watch": "vitest -c client/vitest.config.ts",
-    "test:integration": "node ./tools/integration/run_integration.js"
+    "test:integration": "node ./tools/integration/run_integration.js",
+    "test:e2e": "npx vitest run --environment happy-dom tools/integration/*.test.ts"
   },
   "keywords": [
     "encryption",
