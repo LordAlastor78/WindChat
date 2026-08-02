@@ -97,6 +97,17 @@ class Client {
     // Reusa la clave pública existente (no genera par nuevo)
     const raw = this.crypto.getPublicKeyRaw();
     const pubB64 = raw ? b64(raw) : b64(new Uint8Array(await this.crypto.generateKeyPair()));
+
+    // Spy: capturar el handshake de reconexión para validar §4.1a (connectionId)
+    let lastHandshake: any = null;
+    const origSend = this.ws.send.bind(this.ws);
+    this.ws.send = (data: any) => {
+      if (typeof data === "string") {
+        try { lastHandshake = JSON.parse(data); } catch {}
+      }
+      return origSend(data);
+    };
+
     this.ws.send(
       JSON.stringify({
         type: "join",
@@ -106,6 +117,10 @@ class Client {
         connectionId: this.connectionId,
       })
     );
+    // Validar contract §4.1a: el handshake de reconexión incluye connectionId
+    expect(lastHandshake).not.toBeNull();
+    expect(lastHandshake.type).toBe("join");
+    expect(lastHandshake.connectionId).toBe(this.connectionId);
     // En reconexión NO debe llegar peer_joined (el servidor lo omite)
     await new Promise((r) => setTimeout(r, 500));
   }

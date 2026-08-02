@@ -19,12 +19,26 @@ export default defineConfig({
     cssMinify: 'esbuild',
     outDir: 'dist',
     sourcemap: true,
-    rollupOptions: {
+    // Code-splitting (§5.7): Vite 8 usa Rolldown → build.rolldownOptions.
+    // Separar vendors pesados (KaTeX/highlight.js/marked/DOMPurify) del chunk
+    // principal (~1.34 MB) en chunks dedicados para carga paralela/lazy.
+    rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         chat: resolve(__dirname, 'chat.html')
-      }
-    }
+      },
+      output: {
+        // §5.7: Rolldown requiere manualChunks como FUNCTION (no objeto).
+        // Función que clasifica cada módulo en un chunk vendor dedicado.
+        manualChunks(id) {
+          if (id.includes('katex')) return 'katex';
+          if (id.includes('highlight.js')) return 'highlight';
+          if (id.includes('marked')) return 'markdown';
+          if (id.includes('dompurify')) return 'dompurify';
+          // Fallback: Rolldown genera chunks por defecto para el resto
+        },
+      },
+    },
   },
   preview: {
     port: 4183,

@@ -35,12 +35,15 @@ async function ensureRelay() {
     console.log('[e2e_server] relay ya vivo en :8080, no se lanza otro');
     return;
   }
+  // §5.9: buscar tanto release como debug build del relay Rust
   const exe = path.join(ROOT, 'relay-rust', 'target', 'release', 'relay-rust.exe');
-  if (!fs.existsSync(exe)) {
-    console.warn('[e2e_server] relay-rust.exe no encontrado, el chat no conectara');
+  const debugExe = path.join(ROOT, 'relay-rust', 'target', 'debug', 'relay-rust.exe');
+  const relExe = fs.existsSync(exe) ? exe : (fs.existsSync(debugExe) ? debugExe : null);
+  if (!relExe) {
+    console.warn('[e2e_server] relay-rust.exe no encontrado en release ni debug, el chat no conectará');
     return;
   }
-  relayChild = spawn(exe, [], { cwd: path.join(ROOT, 'relay-rust'), windowsHide: true, stdio: 'ignore' });
+  relayChild = spawn(relExe, [], { cwd: path.join(ROOT, 'relay-rust'), windowsHide: true, stdio: 'ignore' });
   relayChild.on('exit', () => { relayChild = null; });
   console.log('[e2e_server] relay Rust lanzado como hijo en :8080');
   await new Promise((r) => setTimeout(r, 800));
