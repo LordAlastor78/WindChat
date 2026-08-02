@@ -39,7 +39,7 @@ FugazChat (WindChat) proporciona un canal de comunicación bidireccional con las
 - **Zero-knowledge**: el servidor (relay) **nunca** puede leer el contenido. Solo reenvía blobs cifrados.
 - **Forward secrecy por mensaje**: ratchet simétrico (HMAC-SHA256) deriva una clave única por mensaje; la chain key anterior se sobrescribe con ceros.
 - **Verificación anti-MITM (SAS)**: safety number derivado de ambas claves públicas + roomId; comparable out-of-band.
-- **Ephemeral by design**: los mensajes viven solo en memoria del relay. El cliente persiste *metadatos* en `localStorage` (previews, contactos, perfil) hasta que pulsas "Salir".
+- **⚠️ Persistente parcial en cliente**: *ephemeral* en el wire/relay (nada se guarda en el servidor), pero el **cliente** persiste en `localStorage` hasta "Salir": previews de mensajes (texto previamente descifrado), contactos, perfil, safety numbers y metadatos de conexión (timestamps, roomId, tamaño de archivos). El contenido cifrado (**ciphertext, claves privadas, claves de sesión**) **nunca** toca `localStorage` — solo el texto ya descifrado de previews. Ver `docs/architecture/PRIVACIDAD.md`.
 - **Desktop first**: un instalable `.exe` (Tauri) que incluye relay Rust + cloudflared, sin depender de terminales.
 
 ### Casos de uso

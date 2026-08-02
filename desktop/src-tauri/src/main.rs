@@ -17,7 +17,6 @@ static CLOUDFLARED_URL: OnceLock<Arc<StdMutex<Option<String>>>> = OnceLock::new(
 
 #[cfg(windows)]
 mod win_job {
-    use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
@@ -96,8 +95,6 @@ mod win_job {
 #[tauri::command]
 async fn repair(app: tauri::AppHandle) -> Result<String, String> {
     use std::fs;
-    use std::path::PathBuf;
-
     let resource_dir = app
         .path()
         .resource_dir()

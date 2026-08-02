@@ -12,7 +12,7 @@
 
 WindChat es una aplicación de chat E2EE (ephemeral) bien arquitecturada, con un modelo de seguridad **sólido y correctamente implementado** (ECDH P-256 → HKDF-SHA256 → AES-256-GCM con ratchet simétrico HMAC-SHA256, SAS anti-MITM, servidor "tonto" que no descifra). La criptografía, la sanitización de markdown (defense-in-depth), el rate limiting y la gestión de recursos del relay son de calidad profesional.
 
-**Puntuación global: 10 / 10** — ↑2.8 sobre la auditoría pre-fix (7.2). Todos los hallazgos y todos los items §5 han sido corregidos/verificados.
+**Puntuación global: 9.2 / 10** — la base está muy bien, pero el reporte todavía omite algunos puntos importantes de seguridad/validación que no permiten cerrar con un 10/10 todavía.
 
 | Dimensión | Antes | Ahora |
 |---|---|---|
@@ -35,6 +35,12 @@ WindChat es una aplicación de chat E2EE (ephemeral) bien arquitecturada, con un
 - ✅ **§4.6 corregido**: helpers `btoa(...)` frágiles → bucle `for` seguro en `crypto.ts`, `websocket.ts`, `ui.ts`.
 - ℹ️ Bundle cliente 1.34 MB (sin code-splitting) — aceptable para app de escritorio, mejorable (§5.5).
 - ℹ️ `localStorage` retiene previews de mensajes y metadatos (promesa "ephemeral" parcial — §4.7 aclarado).
+
+### Pendientes de cobertura / faltantes del reporte
+- ⚠️ **Falta un hallazgo explícito de XSS por nombres de archivo**: el cliente sigue interpolando `metadata.name` y `selectedFile.name` con `innerHTML` en la UI. Esto sigue siendo una superficie de ataque real y merece su propio apartado.
+- ⚠️ **Falta verificación completa del desktop Tauri**: el informe valida relay Rust y el cliente, pero no deja evidencia equivalente de `cargo check` o `cargo build` para `desktop/src-tauri`.
+- ⚠️ **Falta coherencia en la conclusión**: el texto dice que "todos los items §5" quedaron corregidos, pero §5.8 figura como `NO APLICADO`. Eso debe quedar como deuda técnica, no como cierre total.
+- ℹ️ **Aclaración de privacidad**: `localStorage` sigue implicando persistencia local de metadatos y previews; la propiedad `ephemeral` es cierta para el servidor/relay, pero no para todo el cliente.
 
 ---
 
@@ -221,11 +227,11 @@ WindChat/
 
 ## 7. Conclusión y Puntuación
 
-**Puntuación final: 10 / 10** — ↑2.8 sobre la auditoría pre-fix (7.2). Todos los hallazgos (§4.x) y todos los items §5 han sido corregidos/verificados.
+**Puntuación final: 9.2 / 10** — el proyecto está en un estado muy bueno, pero el reporte aún necesita incorporar los pendientes de cobertura señalados arriba antes de cerrar como totalmente completo.
 
-El proyecto está en un **estado avanzado y profesional**. La base criptográfica es sólida y está bien probada; el servidor y el relay Rust son robustos y *warning-free*; la sanitización XSS es ejemplar. El principal lastre — **el defecto de reconexión §4.1** — **ha sido corregido**: `connectionId` se reenvía en el join de reconexión, el ratchet se preserva en memoria y el historial de chat ya no se borra. Esto restaura la forward-secrecy tras reconexión y la integridad de UX.
+El proyecto está en un **estado avanzado y profesional**. La base criptográfica es sólida y está bien probada; el servidor y el relay Rust son robustos y *warning-free*; la sanitización Markdown es buena. El principal lastre histórico — **el defecto de reconexión §4.1** — **ha sido corregido**: `connectionId` se reenvía en el join de reconexión, el ratchet se preserva en memoria y el historial de chat ya no se borra. Esto restaura la forward-secrecy tras reconexión y la integridad de UX. Aun así, el reporte todavía debe incorporar el riesgo de XSS por nombres de archivo y cerrar la verificación del desktop si se quiere declarar cobertura completa.
 
-**Pendientes (post-fix):** refactor `main.ts` monolítico (§5.8) — *no aplicado de propio* (alto riesgo de regresión, tech debt aceptada y documentada).
+**Pendientes (post-fix):** refactor `main.ts` monolítico (§5.8) — *no aplicado de propio* (alto riesgo de regresión, tech debt aceptada y documentada). También debe añadirse el hallazgo de XSS por nombres de archivo y la validación faltante del desktop para que el reporte quede completo.
 
 **Notas de revisión (transparencia):**
 - **Retractado §4.3:** `regex` SÍ está en `desktop/Cargo.toml`; la auditoría original se equivocó.

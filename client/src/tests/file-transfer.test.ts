@@ -104,4 +104,18 @@ describe("FileManager — integridad de transferencia", () => {
     expect(chunks.length).toBe(meta!.totalChunks);
     expect(chunks.every((c) => c.chunkIndex === chunks.indexOf(c))).toBe(true);
   });
+
+  // §4.8 FIX: nombre de archivo con HTML no debe inyectarse como DOM (XSS).
+  // El render en main.ts usa textContent (no innerHTML) → el nombre se muestra
+  // como texto plano y el <img onerror> NO se ejecuta.
+  it("nombre de archivo con HTML se trata como texto plano (no XSS)", async () => {
+    const file = await makeFile(randomBytes(16), "text/plain", "<img src=x onerror=alert(1)>.txt");
+    // Simular el patrón de render seguro: textContent (no innerHTML)
+    const span = document.createElement("span");
+    span.textContent = file.name;
+    // textContent escapa HTML: el string se muestra literal, sin etiqueta <img>
+    expect(span.innerHTML).toBe("&lt;img src=x onerror=alert(1)&gt;.txt");
+    // Y no hay elementos <img> inyectados (no ejecutable)
+    expect(span.querySelector("img")).toBeNull();
+  });
 });

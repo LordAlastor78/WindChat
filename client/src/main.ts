@@ -1343,7 +1343,14 @@ function initApp() {
               if (metadata.type === "application/pdf") icon = "📄";
               else if (metadata.type.includes("text")) icon = "📝";
               else if (metadata.type.includes("zip")) icon = "📦";
-              fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${metadata.name}</span>`;
+              // §4.8 FIX: construir con DOM API (textContent) para evitar XSS.
+              // metadata.name proviene del peer → NO confiar; textContent escapa HTML.
+              const nameSpan = document.createElement("span");
+              nameSpan.style.overflow = "hidden";
+              nameSpan.style.textOverflow = "ellipsis";
+              nameSpan.style.whiteSpace = "nowrap";
+              nameSpan.textContent = metadata.name; // safe: texto puro, sin HTML
+              fileLink.append(icon, nameSpan);
               fileMsg.appendChild(fileLink);
             }
 
@@ -1506,7 +1513,14 @@ function initApp() {
             else if (selectedFile.type.includes("text")) icon = "📝";
             else if (selectedFile.type.includes("zip")) icon = "📦";
 
-            fileLink.innerHTML = `${icon} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${selectedFile.name}</span>`;
+            // §4.8 FIX: construir con DOM API (textContent) para evitar XSS.
+            // selectedFile.name proviene del input del usuario → escapar HTML.
+            const nameSpan = document.createElement("span");
+            nameSpan.style.overflow = "hidden";
+            nameSpan.style.textOverflow = "ellipsis";
+            nameSpan.style.whiteSpace = "nowrap";
+            nameSpan.textContent = selectedFile.name; // safe: texto puro, sin HTML
+            fileLink.append(icon, nameSpan);
             fileMsg.appendChild(fileLink);
           }
 
