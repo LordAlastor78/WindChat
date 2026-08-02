@@ -322,6 +322,11 @@ export class CryptoManager {
     return CryptoManager.advanceChain(this.recvChain);
   }
 
+  /** Número de mensajes ya recibidos/descifrados en esta sesión */
+  getRecvCounter(): number {
+    return this.recvChain?.counter ?? 0;
+  }
+
   /** Número de mensajes ya enviados en esta sesión */
   getSendCounter(): number {
     return this.sendChain?.counter ?? 0;
@@ -335,6 +340,15 @@ export class CryptoManager {
   /** ¿Está el ratchet listo para cifrar/descifrar? */
   isReady(): boolean {
     return this.sendChain !== undefined && this.recvChain !== undefined;
+  }
+
+  /**
+   * Clave pública raw (Uint8Array) para reusarla en reconexiones de transporte
+   * sin regenerar el par ECDH (preservando así el ratchet ya negociado).
+   * undefined si aún no se generó el par.
+   */
+  getPublicKeyRaw(): Uint8Array | undefined {
+    return this.myPublicKeyRaw;
   }
 
   /**

@@ -20,7 +20,7 @@ import type {
 import { MAX_MESSAGE_SIZE } from "./protocol.js";
 
 export interface ChatClientCallbacks {
-  onPeerJoined?: (safetyNumber?: SafetyNumber) => void;
+  onPeerJoined?: (safetyNumber?: SafetyNumber, theirPublicKey?: string) => void;
   onPeerDisconnected?: () => void;
   onMessageReceived?: (payload: MessagePayload) => void;
   onTyping?: (isTyping: boolean) => void;
@@ -44,7 +44,9 @@ export class ChatClient {
   private isReconnecting = false;
   private shouldReconnect = true;
   private publicKeyB64?: string;
+  private lastPeerPublicKey?: string;
   private displayName = "Anon";
+  private connectionId = crypto.randomUUID(); // ID único de esta conexión (para ignorar ecos)
 
   constructor(callbacks?: ChatClientCallbacks) {
     this.callbacks = callbacks || {};
@@ -89,6 +91,7 @@ export class ChatClient {
           roomId,
           publicKey: this.publicKeyB64!,
           displayName: this.displayName,
+          connectionId: this.connectionId,
         };
 
         this.ws!.send(JSON.stringify(handshake));
@@ -287,6 +290,7 @@ export class ChatClient {
 
       // Convertir clave pública del peer de base64
       const theirPublicKeyRaw = this.base64ToArrayBuffer(msg.theirPublicKey);
+      this.lastPeerPublicKey = msg.theirPublicKey;
 
       // CRÍTICO: Validar tamaño de clave P-256 (debe ser exactamente 65 bytes)
       // Formato: 0x04 (1 byte) + X coordinate (32 bytes) + Y coordinate (32 bytes)
@@ -316,7 +320,7 @@ export class ChatClient {
       }
 
       if (this.callbacks.onPeerJoined) {
-        this.callbacks.onPeerJoined(safetyNumber);
+        this.callbacks.onPeerJoined(safetyNumber, this.lastPeerPublicKey);
       }
     } catch (err) {
       console.error("❌ Error con peer join:", err);
@@ -333,6 +337,13 @@ export class ChatClient {
    */
   private async handleEncryptedMessage(msg: any) {
     try {
+      // Ignorar nuestros propios ecos (p.ej. 2 pestañas en la misma room).
+      // Sin esto, el emisor intentaría descifrar su mensaje con la chain
+      // opuesta y desincronizaría su ratchet de recepción permanentemente.
+      if (msg.senderId && msg.senderId === this.connectionId) {
+        return;
+      }
+
       const payload = await this.crypto.decrypt(msg.iv, msg.ciphertext, msg.counter);
 
       console.log("📥 Mensaje cifrado recibido y descifrado", {
@@ -352,6 +363,7 @@ export class ChatClient {
       }
     } catch (err) {
       console.error("❌ Error descifrando:", err);
+      this.recordError(`decrypt: ${err instanceof Error ? err.message : String(err)}`);
       if (this.callbacks.onError) {
         this.callbacks.onError(err instanceof Error ? err.message : "Decrypt failed");
       }
@@ -534,6 +546,21 @@ export class ChatClient {
     return this.ws !== undefined && this.ws.readyState === WebSocket.OPEN;
   }
 
+  /** ¿El ratchet E2EE está listo para cifrar/descifrar? (para diagnóstico) */
+  isReady(): boolean {
+    return this.crypto.isReady();
+  }
+
+  /** Contador de envío (para diagnóstico de desincronización) */
+  getSendCounter(): number {
+    return this.crypto.getSendCounter();
+  }
+
+  /** Contador de claves fuera de orden guardadas (para diagnóstico) */
+  getSkippedKeyCount(): number {
+    return this.crypto.getSkippedKeyCount();
+  }
+
   /**
    * Safety number (SAS) de la sesión activa.
    * undefined hasta que el peer se une y se deriva la clave compartida.
@@ -543,6 +570,29 @@ export class ChatClient {
    */
   getSafetyNumber(): SafetyNumber | undefined {
     return this.crypto.getSafetyNumber();
+  }
+
+  /** Contador de la cadena de recepción (para diagnóstico de desincronización) */
+  getRecvCounter(): number {
+    return this.crypto.getRecvCounter();
+  }
+
+  /** ID de conexión (para verificar que el relay lo devuelve en senderId) */
+  getConnectionId(): string {
+    return this.connectionId;
+  }
+
+  /**
+   * Buffer de los últimos errores de descifrado/conexión, para el panel de
+   * diagnóstico. Se llena desde handleEncryptedMessage/onError.
+   */
+  private recentErrors: { ts: number; msg: string }[] = [];
+  recordError(msg: string): void {
+    this.recentErrors.push({ ts: Date.now(), msg });
+    if (this.recentErrors.length > 25) this.recentErrors.shift();
+  }
+  getRecentErrors(): { ts: number; msg: string }[] {
+    return [...this.recentErrors];
   }
 
   /**
@@ -566,9 +616,16 @@ export class ChatClient {
         this.callbacks.onReconnecting(this.reconnectAttempts, this.maxReconnectAttempts);
       }
 
-      // 1. CRÍTICO: Destruir claves antiguas
-      this.crypto.destroy();
-      this.crypto = new CryptoManager();
+      // 1. CRÍTICO: Preservar el ratchet en reconexiones de transporte.
+      // Solo recreamos el CryptoManager si NUNCA se derivó (sesión nueva).
+      // Recrearlo aquí reiniciaría el ratchet a counter 0 mientras el peer
+      // sigue en su counter N → desincronización permanente (bug en móvil).
+      if (!this.crypto.isReady()) {
+        this.crypto.destroy();
+        this.crypto = new CryptoManager();
+      } else {
+        console.log("🔁 Ratchet existente preservado tras reconexión");
+      }
 
       // 2. Backoff exponencial: 1s, 2s, 4s, 8s, 16s
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 16000);
@@ -580,14 +637,30 @@ export class ChatClient {
         break;
       }
 
-      // 3. Generar NUEVAS claves ECDH
-      try {
-        const publicKeyRaw = await this.crypto.generateKeyPair();
-        this.publicKeyB64 = this.arrayBufferToBase64(publicKeyRaw);
-        console.log("✅ Nuevas claves generadas");
-      } catch (err) {
-        console.error("❌ Error generando nuevas claves:", err);
-        continue;
+      // 3. Asegurar que tenemos la clave pública para el join.
+      // Si el ratchet ya está listo, REUSAMOS la clave pública existente
+      // (no regeneramos el par ECDH: eso rompería el acuerdo de claves con
+      // el peer y desincronizaría el ratchet). Si no hay ratchet, generamos
+      // un par nuevo.
+      if (this.crypto.isReady()) {
+        if (!this.publicKeyB64) {
+          const raw = this.crypto.getPublicKeyRaw();
+          if (raw) {
+            // Copiar a un ArrayBuffer propio (TS 5.7 exige Uint8Array<ArrayBuffer>)
+            const ab = raw.slice().buffer as ArrayBuffer;
+            this.publicKeyB64 = this.arrayBufferToBase64(ab);
+          }
+        }
+        console.log("✅ Reusando clave pública existente (ratchet preservado)");
+      } else {
+        try {
+          const publicKeyRaw = await this.crypto.generateKeyPair();
+          this.publicKeyB64 = this.arrayBufferToBase64(publicKeyRaw);
+          console.log("✅ Nuevas claves generadas");
+        } catch (err) {
+          console.error("❌ Error generando nuevas claves:", err);
+          continue;
+        }
       }
 
       // 4. Reconectar WebSocket
@@ -611,7 +684,7 @@ export class ChatClient {
           const handshake: ClientToServerMessage = {
             type: "join",
             roomId: this.roomId,
-            publicKey: this.publicKeyB64,
+            publicKey: this.publicKeyB64!,
             displayName: this.displayName,
           };
 

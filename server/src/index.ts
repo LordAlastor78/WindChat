@@ -45,6 +45,7 @@ interface ClientConnection {
   roomId?: string;
   publicKey?: string;
   displayName?: string;
+  connectionId?: string; // ID de conexión del handshake (para ecos)
   lastSeen?: number; // timestamp ms of last activity or pong
   isAlive?: boolean; // for server-initiated ping/pong
 }
@@ -52,6 +53,14 @@ interface ClientConnection {
 // Estructura de room
 interface Room {
   clients: Map<WebSocket, ClientConnection>;
+  /**
+   * connectionIds ya vistos en esta room. Sirve para distinguir un NUEVO par
+   * (handshake ECDH) de una RECONEXIÓN de transporte del mismo dispositivo.
+   * El ratchet es estado de sesión y debe sobrevivir a caídas de red: si el
+   * connectionId ya se vio, NO reenviamos peer_joined (eso reiniciaría el
+   * ratchet y desincronizaría a los peers — el bug que fallaba en móvil).
+   */
+  seenConnectionIds: Set<string>;
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
@@ -544,7 +553,7 @@ function handleJoin(
   msg: HandshakeMessage,
   client: ClientConnection
 ) {
-  const { roomId, publicKey } = msg;
+  const { roomId, publicKey, connectionId } = msg;
   const displayName =
     typeof msg.displayName === "string" && msg.displayName.trim().length > 0
       ? msg.displayName.trim().slice(0, 24)
@@ -573,7 +582,7 @@ function handleJoin(
   // Obtener o crear room
   let room = rooms.get(roomId);
   if (!room) {
-    room = { clients: new Map() };
+    room = { clients: new Map(), seenConnectionIds: new Set() };
     rooms.set(roomId, room);
       debugLog(`📍 Nueva room creada: ${roomId}`);
   }
@@ -589,13 +598,21 @@ function handleJoin(
   client.roomId = roomId;
   client.publicKey = publicKey;
   client.displayName = displayName;
+  client.connectionId = connectionId;
+
   room.clients.set(ws, client);
 
-  console.log(`✅ Cliente se unió a una room (${room.clients.size}/${MAX_USERS_PER_ROOM})`);
-  debugLog(`   room=${roomId} displayName=${displayName}`);
+  const isReconnect = connectionId && room.seenConnectionIds.has(connectionId);
+  if (connectionId) room.seenConnectionIds.add(connectionId);
 
-  // Si hay otro cliente, intercambiar claves públicas
-  if (room.clients.size === 2) {
+  console.log(`✅ Cliente se unió a una room (${room.clients.size}/${MAX_USERS_PER_ROOM})`);
+  debugLog(`   room=${roomId} displayName=${displayName}${isReconnect ? " [reconexión]" : ""}`);
+
+  // Solo hacer handshake ECDH cuando entramos a una room recién emparejada
+  // (1→2). En reconexiones del mismo connectionId NO reenviamos peer_joined:
+  // el ratchet ya existe en ambos lados y re-negociarlo los desincronizaría
+  // (el bug que fallaba en móvil por señal inestable).
+  if (room.clients.size === 2 && !isReconnect) {
     broadcastPeerJoined(room);
     debugLog(`👥 Room ${roomId} activa (2/2 clientes)`);
   }
@@ -653,6 +670,7 @@ function handleMessage(
     iv: msg.iv,
     ciphertext: msg.ciphertext,
     counter: msg.counter,
+    senderId: client.connectionId,
   };
 
   let sent = 0;

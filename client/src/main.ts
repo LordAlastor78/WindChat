@@ -19,12 +19,25 @@ import SoundManager from "./soundManager";
 import { generateRoomId, loadTheme } from "./ui";
 import { formatAbsoluteTimestamp, formatMessageTimestamp } from "./utils/time";
 import ChatClient from "./websocket";
+import { Store } from "./store";
+import {
+  exportSync,
+  importSync,
+  generateSyncCode,
+} from "./sync";
+import type { Profile, Contact } from "./store";
+import { AVATAR_COLORS } from "./store";
+import { SessionManager, ChatSession } from "./session";
+import CryptoManager from "./crypto";
 
 let chatClient: ChatClient | undefined;
 let fileManager: FileManager | undefined;
+let sessionManager: SessionManager;
 let currentRoomId: string = "";
 let currentDisplayName: string = "Anon";
 let selectedFile: File | null = null; // Archivo seleccionado para enviar
+let currentConvId: string = ""; // Conversación activa (multi-chat)
+const localMessages = new Map<string, any[]>(); // roomId -> mensajes (copia local)
 
 class UnreadCounter {
   private count = 0;
@@ -61,7 +74,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function initApp() {
   loadTheme();
   initializeTranslations();
 
@@ -259,6 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentRoomId = roomId;
     currentDisplayName = displayNameInput?.value.trim() || "Anon";
     localStorage.setItem("windchat_display_name", currentDisplayName);
+    currentConvId = ensureConversation(roomId).id;
 
     isConnecting = true;
     updateConnectionStatus("connecting");
@@ -279,8 +293,66 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ---- Helpers multi-chat ----
+  const ensureConversation = (roomId: string) => {
+    let conv = Store.getConversationByRoom(roomId);
+    if (!conv) {
+      conv = Store.createConversation({
+        roomId,
+        title: roomId.slice(0, 8),
+        type: "direct",
+        ephemeral: true,
+        color: "#7db4ff",
+      });
+    }
+    return conv;
+  };
+
+  const persistMessage = (roomId: string, msg: any) => {
+    const arr = localMessages.get(roomId) || [];
+    arr.push(msg);
+    localMessages.set(roomId, arr);
+    const conv = Store.getConversationByRoom(roomId);
+    if (conv) {
+      Store.saveConversation({ ...conv, lastMessagePreview: msg.text || "", lastActivity: Date.now() });
+    }
+  };
+
   async function connectToChat(roomId: string) {
+    const serverUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
+    const conv = ensureConversation(roomId);
+
     try {
+      // Si la sesión ya existe y está conectada → solo activarla y re-renderizar.
+      // El re-render se hace inline (sin buildMessageElement/scrollToBottom, que
+      // son const del closure y aún están en TDZ aquí) para evitar ReferenceError.
+      const existing = sessionManager.get(conv.id);
+      if (existing && existing.client.isConnected()) {
+        sessionManager.setActive(conv.id);
+        currentConvId = conv.id;
+        chatClient = existing.client;
+        const mc = document.getElementById("messages");
+        if (mc) {
+          mc.textContent = "";
+          for (const m of existing.messages) {
+            const div = document.createElement("div");
+            div.className = "message " + (m.side === "me" ? "me" : "other");
+            div.dataset.messageId = m.id || "";
+            const sender = document.createElement("div");
+            sender.className = "message-sender";
+            sender.textContent = m.displayName || "";
+            const body = document.createElement("div");
+            body.className = "message-body";
+            body.textContent = m.text || "";
+            div.appendChild(sender);
+            div.appendChild(body);
+            mc.appendChild(div);
+          }
+          mc.scrollTop = mc.scrollHeight;
+        }
+        return;
+      }
+
       const loginScreen = document.getElementById("loginScreen");
       const chatContainer = document.getElementById("chatContainer");
       const messagesContainer = document.getElementById("messages");
@@ -801,7 +873,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       };
 
-      chatClient = new ChatClient({
+      const session =
+        existing ??
+        new ChatSession(conv, new ChatClient({}), new CryptoManager());
+
+      session.client = new ChatClient({
         onConnected: () => {
           console.log("[OK] Connected to server");
           updateConnectionStatus("connected");
@@ -817,29 +893,49 @@ document.addEventListener("DOMContentLoaded", () => {
           waitingMessage.textContent = t("waitingForPeer");
           messagesContainer.appendChild(waitingMessage);
         },
-        onPeerJoined: (safetyNumber) => {
+        onPeerJoined: (safetyNumber, theirPublicKey?: string) => {
           console.log("[OK] User connected - Chat ready");
-          updateConnectionStatus("connected");
-          resetUnreadIndicator();
-          outgoingMessageStates.clear();
-          messagesContainer.textContent = "";
+          currentConvId = ensureConversation(roomId).id;
+          session.peerPublicKey = theirPublicKey;
+          if (session.active) {
+            updateConnectionStatus("connected");
+            resetUnreadIndicator();
+            outgoingMessageStates.clear();
+            messagesContainer.textContent = "";
 
-          // Mostrar el código de verificación de la sesión (anti-MITM)
-          showSafetyNumber(safetyNumber);
+            // Capturar peer como contacto (si trae su clave pública)
+            if (theirPublicKey) {
+              const conv = Store.getConversationByRoom(roomId);
+              const existing = Store.getContacts().find((c) => c.publicKey === theirPublicKey);
+              if (!existing && conv) {
+                Store.saveContact({
+                  id: crypto.randomUUID(),
+                  displayName: conv.title || roomId.slice(0, 8),
+                  safetyNumber: typeof safetyNumber === "string" ? safetyNumber : (safetyNumber?.digits ?? ""),
+                  publicKey: theirPublicKey,
+                  addedAt: Date.now(),
+                });
+              }
+            }
 
-          const joinedMessage = document.createElement("div");
-          joinedMessage.style.textAlign = "center";
-          joinedMessage.style.opacity = "0.85";
-          joinedMessage.style.fontSize = "0.9rem";
-          joinedMessage.textContent = t("peerJoinedMessage");
-          messagesContainer.appendChild(joinedMessage);
+            // Mostrar el código de verificación de la sesión (anti-MITM)
+            showSafetyNumber(safetyNumber);
 
-          messageInput.disabled = false;
-          sendButton.disabled = false;
-          messageInput.focus();
+            const joinedMessage = document.createElement("div");
+            joinedMessage.style.textAlign = "center";
+            joinedMessage.style.opacity = "0.85";
+            joinedMessage.style.fontSize = "0.9rem";
+            joinedMessage.textContent = t("peerJoinedMessage");
+            messagesContainer.appendChild(joinedMessage);
+
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+          }
         },
         onPeerDisconnected: () => {
           console.log("[!] Peer disconnected");
+          if (!session.active) return;
           updateConnectionStatus("disconnected");
           resetUnreadIndicator();
           outgoingMessageStates.clear();
@@ -884,6 +980,21 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           const displayName = payload.displayName || "Peer";
+          // Acumular en la sesión (copia local) siempre
+          const sessionMsg = {
+            id: payload.id,
+            side: "other" as const,
+            displayName,
+            text: payload.text,
+            timestamp: payload.timestamp,
+            replyToId: payload.replyToId,
+          };
+          session.pushMessage(sessionMsg);
+          sessionManager.touchConversation(session.conv.id, payload.text);
+
+          // Renderizar solo si esta sesión es la activa
+          if (!session.active) return;
+
           const shouldAutoScroll = isNearBottom();
           const msg = buildMessageElement(displayName, payload.text, {
             side: "other",
@@ -920,6 +1031,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         onError: (error: string) => {
           console.error("ERROR:", error);
+          if (!session.active) return;
           resetUnreadIndicator();
           outgoingMessageStates.clear();
           messagesContainer.textContent = "";
@@ -936,6 +1048,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         onReconnecting: (attempt: number, maxAttempts: number) => {
           console.log(`[RECONNECTING] Attempt ${attempt}/${maxAttempts}`);
+          if (!session.active) return;
           updateConnectionStatus("connecting");
           showReconnectBanner(attempt, maxAttempts);
           messageInput.disabled = true;
@@ -943,6 +1056,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         onReconnected: () => {
           console.log("[✅] Reconnected successfully");
+          if (!session.active) return;
           updateConnectionStatus("connected");
           hideReconnectBanner();
           resetUnreadIndicator();
@@ -957,6 +1071,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         onReconnectFailed: () => {
           console.error("[❌] Reconnection failed");
+          if (!session.active) return;
           updateConnectionStatus("disconnected");
           hideReconnectBanner();
           resetUnreadIndicator();
@@ -980,6 +1095,7 @@ document.addEventListener("DOMContentLoaded", () => {
           updateServerStatus(level, message);
         },
       });
+      chatClient = session.client;
 
       startTimestampRefresh();
       const handleLanguageChanged = () => {
@@ -992,6 +1108,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("windchat:languagechange", handleLanguageChanged);
 
       chatClient.setDisplayName(currentDisplayName);
+      // Registrar la sesión en el SessionManager (si es nueva) y marcarla activa
+      if (!sessionManager.has(conv.id)) {
+        sessionManager.register(session);
+      }
+      sessionManager.setActive(conv.id);
+      currentConvId = conv.id;
       await chatClient.connect(serverUrl, roomId);
 
       if (replyClose) {
@@ -1428,16 +1550,19 @@ document.addEventListener("DOMContentLoaded", () => {
         stopTimestampRefresh();
         document.removeEventListener("windchat:languagechange", handleLanguageChanged);
 
+        const activeClient = sessionManager.getActive()?.client;
         // Si hay conexión activa, pedir confirmación
-        if (chatClient && chatClient.isConnected()) {
+        if (activeClient && activeClient.isConnected()) {
           const message = t('confirmClose');
           e.preventDefault();
           e.returnValue = message; // Estándar moderno (Chrome ignora el mensaje custom)
           return message; // Compatibilidad con navegadores antiguos
         }
 
-        // Limpiar recursos al cerrar
-        if (chatClient) chatClient.disconnect();
+        // Limpiar recursos al cerrar (desconectar todas las sesiones)
+        for (const s of sessionManager.all()) {
+          s.client.disconnect();
+        }
       });
 
     } catch (err) {
@@ -1452,4 +1577,289 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
-});
+
+  const $ = (id: string) => document.getElementById(id);
+  const appShell = $("appShell") as HTMLElement | null;
+  const sidebarMenu = $("sidebarMenu") as HTMLElement | null;
+  const chatList = $("chatList") as HTMLUListElement | null;
+  
+  const toggleSidebarMenu = () => sidebarMenu?.classList.toggle("hidden");
+  const closeSidebarMenu = () => sidebarMenu?.classList.add("hidden");
+  // En móvil, alterna entre ver el sidebar y el chat.
+  const showChatMobile = () => appShell?.classList.add("show-chat");
+  const showSidebarMobile = () => appShell?.classList.remove("show-chat");
+  
+  const setProfileDisplay = (p: Profile) => {
+  const av = $("sidebarAvatar");
+  if (av) { av.textContent = (p.displayName || "A").slice(0, 1).toUpperCase(); (av as HTMLElement).style.background = p.avatarColor; }
+  const nm = $("sidebarName"); if (nm) nm.textContent = p.displayName;
+  const st = $("sidebarStatus"); if (st) st.textContent = p.status;
+  };
+  
+  const renderChatList = () => {
+  if (!chatList) return;
+  const convs = Store.getConversations().sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
+  chatList.innerHTML = "";
+  if (convs.length === 0) {
+  const li = document.createElement("li");
+  li.className = "chat-list-item";
+  li.style.opacity = "0.6";
+  li.textContent = t("noContacts");
+  chatList.appendChild(li);
+  return;
+  }
+  for (const c of convs) {
+  const li = document.createElement("li");
+  li.className = "chat-list-item" + (c.id === currentConvId ? " active" : "");
+  li.dataset.convId = c.id;
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.style.background = c.color || "#7db4ff";
+  av.textContent = (c.title || "?").slice(0, 1).toUpperCase();
+  const info = document.createElement("div");
+  info.className = "cli-info";
+  const title = document.createElement("div");
+  title.className = "cli-title";
+  title.textContent = c.title;
+  const prev = document.createElement("div");
+  prev.className = "cli-preview";
+  prev.textContent = c.lastMessagePreview || "";
+  info.appendChild(title); info.appendChild(prev);
+  li.appendChild(av); li.appendChild(info);
+  li.addEventListener("click", () => openConversation(c.id));
+  chatList.appendChild(li);
+  }
+  };
+  
+  const openConversation = (convId: string) => {
+  const conv = Store.getConversation(convId);
+  if (!conv) return;
+  // NO desconectar la sesión anterior: se mantienen N WS vivos (multi-chat).
+  // connectToChat reusa la sesión si ya existe y está conectada.
+  $("loginScreen")?.classList.add("hidden");
+  $("chatContainer")?.classList.remove("hidden");
+  const dn = $("displayName") as HTMLInputElement | null;
+  if (dn) dn.value = Store.getProfile().displayName;
+  connectToChat(conv.roomId);
+  currentConvId = conv.id;
+  renderChatList();
+  closeSidebarMenu();
+  showChatMobile();
+  };
+  
+  const openRoom = (roomId: string) => {
+  const dn = $("displayName") as HTMLInputElement | null;
+  if (dn) dn.value = Store.getProfile().displayName;
+  $("loginScreen")?.classList.add("hidden");
+  $("chatContainer")?.classList.remove("hidden");
+  connectToChat(roomId);
+  renderChatList();
+  closeSidebarMenu();
+  showChatMobile();
+  };
+  
+  // --- Sidebar: el botón hamburguesa abre el menú (3 puntitos); en móvil alterna chat/sidebar ---
+  $("sidebarToggle")?.addEventListener("click", () => {
+  if (window.matchMedia("(max-width: 820px)").matches) {
+  appShell?.classList.toggle("show-chat");
+  } else {
+  toggleSidebarMenu();
+  }
+  });
+  // El botón de 3 puntitos también abre el menú
+  $("sidebarMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); toggleSidebarMenu(); });
+  // Cerrar el menú al hacer click fuera
+  document.addEventListener("click", (e) => {
+  if (sidebarMenu && !sidebarMenu.contains(e.target as Node) && e.target !== $("sidebarMenuBtn")) {
+  closeSidebarMenu();
+  }
+  });
+  
+  // --- Nuevo chat modal ---
+  const newChatModal = $("newChatModal");
+  const showModal = (el: HTMLElement | null) => el?.classList.remove("hidden");
+  const hideModal = (el: HTMLElement | null) => el?.classList.add("hidden");
+  $("newChatBtn")?.addEventListener("click", () => { showModal(newChatModal); });
+  document.querySelectorAll("[data-close]").forEach((b) => {
+  b.addEventListener("click", () => { const id = b.getAttribute("data-close"); hideModal($(id!)); });
+  });
+  $("createRoomBtn")?.addEventListener("click", () => {
+  const id = generateRoomId();
+  hideModal(newChatModal);
+  openRoom(id);
+  });
+  $("joinRoomBtn")?.addEventListener("click", () => {
+  const inp = $("joinRoomInput") as HTMLInputElement | null;
+  const id = inp?.value.trim();
+  if (!id) return;
+  hideModal(newChatModal);
+  openRoom(id);
+  });
+  
+  // --- Perfil ---
+  const profileModal = $("profileModal");
+  const colorPicker = $("avatarColorPicker");
+  let selectedColor = Store.getProfile().avatarColor;
+  const renderColorPicker = () => {
+  if (!colorPicker) return;
+  colorPicker.innerHTML = "";
+  for (const c of AVATAR_COLORS) {
+  const sw = document.createElement("div");
+  sw.className = "color-swatch" + (c === selectedColor ? " selected" : "");
+  sw.style.background = c;
+  sw.addEventListener("click", () => { selectedColor = c; renderColorPicker(); });
+  colorPicker.appendChild(sw);
+  }
+  };
+  $("sidebarProfile")?.addEventListener("click", () => {
+  const p = Store.getProfile();
+  selectedColor = p.avatarColor;
+  const ni = $("profileNameInput") as HTMLInputElement | null;
+  const si = $("profileStatusInput") as HTMLInputElement | null;
+  if (ni) ni.value = p.displayName;
+  if (si) si.value = p.status;
+  renderColorPicker();
+  showModal(profileModal);
+  });
+  $("profileSaveBtn")?.addEventListener("click", () => {
+  const ni = $("profileNameInput") as HTMLInputElement | null;
+  const si = $("profileStatusInput") as HTMLInputElement | null;
+  const saved = Store.saveProfile({ displayName: ni?.value.trim() || "Anon", status: si?.value.trim() || "", avatarColor: selectedColor });
+  setProfileDisplay(saved);
+  // Actualizar nombre mostrado en el chat activo
+  currentDisplayName = saved.displayName;
+  hideModal(profileModal);
+  });
+  
+  // --- Contactos ---
+  const contactsModal = $("contactsModal");
+  const contactList = $("contactList") as HTMLUListElement | null;
+  const contactEmpty = $("contactEmpty");
+  const renderContacts = () => {
+  if (!contactList) return;
+  const cs = Store.getContacts();
+  contactList.innerHTML = "";
+  if (cs.length === 0) { if (contactEmpty) contactEmpty.style.display = "block"; return; }
+  if (contactEmpty) contactEmpty.style.display = "none";
+  for (const c of cs) {
+  const li = document.createElement("li");
+  li.className = "contact-item";
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.style.background = "#7db4ff";
+  av.textContent = (c.displayName || "?").slice(0, 1).toUpperCase();
+  const info = document.createElement("div");
+  info.className = "ci-info";
+  const nm = document.createElement("div");
+  nm.className = "ci-name";
+  nm.textContent = c.displayName;
+  const sf = document.createElement("div");
+  sf.className = "ci-safety";
+  sf.textContent = c.safetyNumber ? `SAS: ${c.safetyNumber}` : (c.identityPublicKey ? "sin verificar" : "");
+  info.appendChild(nm); info.appendChild(sf);
+  li.appendChild(av); li.appendChild(info);
+  contactList.appendChild(li);
+  }
+  };
+  $("contactsBtn")?.addEventListener("click", () => { renderContacts(); showModal(contactsModal); });
+  $("addContactBtn")?.addEventListener("click", () => {
+  const name = window.prompt(t("profileName") + "?");
+  if (!name) return;
+  Store.saveContact({ id: crypto.randomUUID(), displayName: name.trim(), addedAt: Date.now() });
+  renderContacts();
+  });
+  
+  // --- Ajustes ---
+  const settingsModal = $("settingsModal");
+  $("settingsBtn")?.addEventListener("click", () => {
+  console.log("SETTINGS_CLICK handler ran");
+  const s = Store.getSettings();
+  const ts = $("themeSelect") as HTMLSelectElement | null;
+  const ls = $("settingsLangSelect") as HTMLSelectElement | null;
+  const sc = $("settingsSoundChk") as HTMLInputElement | null;
+  const nc = $("settingsNotifChk") as HTMLInputElement | null;
+  if (ts) ts.value = s.theme;
+  if (ls) ls.value = s.language;
+  if (sc) sc.checked = s.soundEnabled;
+  if (nc) nc.checked = s.notificationsEnabled;
+  showModal(settingsModal);
+  });
+  $("themeSelect")?.addEventListener("change", (e) => {
+  const v = (e.target as HTMLSelectElement).value as "dark" | "light" | "stellar";
+  Store.saveSettings({ theme: v });
+  document.documentElement.setAttribute("data-theme", v);
+  });
+  $("settingsLangSelect")?.addEventListener("change", (e) => {
+  const v = (e.target as HTMLSelectElement).value as "es" | "en";
+  Store.saveSettings({ language: v });
+  setLanguage(v);
+  });
+  $("settingsSoundChk")?.addEventListener("change", (e) => Store.saveSettings({ soundEnabled: (e.target as HTMLInputElement).checked }));
+  $("settingsNotifChk")?.addEventListener("change", (e) => Store.saveSettings({ notificationsEnabled: (e.target as HTMLInputElement).checked }));
+  
+  // --- Sincronización (código offline) ---
+  const syncStatus = $("syncStatus");
+  $("genSyncCodeBtn")?.addEventListener("click", () => {
+  const code = generateSyncCode();
+  const el = $("syncCodeValue"); if (el) el.textContent = code;
+  });
+  $("exportSyncBtn")?.addEventListener("click", async () => {
+  const code = ($("syncCodeInput") as HTMLInputElement | null)?.value.trim();
+  if (!code) { if (syncStatus) { syncStatus.textContent = t("syncBadCode"); syncStatus.className = "sync-status err"; } return; }
+  try {
+  const blob = await exportSync(Store.getProfile(), Store.getContacts(), code);
+  await navigator.clipboard?.writeText(blob).catch(() => {});
+  if (syncStatus) { syncStatus.textContent = `${t("syncExported")} (${blob.length} chars)`; syncStatus.className = "sync-status ok"; }
+  } catch (e) { if (syncStatus) { syncStatus.textContent = t("syncBadCode"); syncStatus.className = "sync-status err"; } }
+  });
+  $("importSyncBtn")?.addEventListener("click", async () => {
+  const blob = ($("importSyncInput") as HTMLInputElement | null)?.value.trim();
+  const code = ($("syncCodeInput") as HTMLInputElement | null)?.value.trim();
+  if (!blob || !code) { if (syncStatus) { syncStatus.textContent = t("syncBadCode"); syncStatus.className = "sync-status err"; } return; }
+  try {
+  const data = await importSync(blob, code);
+  Store.applySyncData(data.profile, data.contacts);
+  setProfileDisplay(Store.getProfile());
+  renderContacts();
+  if (syncStatus) { syncStatus.textContent = t("syncImported"); syncStatus.className = "sync-status ok"; }
+  } catch { if (syncStatus) { syncStatus.textContent = t("syncBadCode"); syncStatus.className = "sync-status err"; } }
+  });
+  
+  // --- Reparar (solo en el .exe de Tauri) ---
+  $("repairBtn")?.addEventListener("click", async () => {
+  const rs = $("repairStatus");
+  const tauriOk = (window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__;
+  if (!tauriOk) {
+  if (rs) { rs.textContent = "Reparar solo está disponible en la app de escritorio."; rs.className = "sync-status err"; }
+  return;
+  }
+  try {
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("repair");
+  if (rs) { rs.textContent = t("repairDone"); rs.className = "sync-status ok"; }
+  } catch { if (rs) { rs.textContent = t("repairFailed"); rs.className = "sync-status err"; } }
+  });
+
+  // SessionManager: tracking de chats abiertos (N conexiones WS simultáneas)
+  const chatStage = $("chatContainer") as HTMLElement | null;
+  sessionManager = new SessionManager(chatStage || document.body);
+  (window as any).__windchat = { get sessionManager() { return sessionManager; } };
+
+  // Render inicial del shell
+  setProfileDisplay(Store.getProfile());
+  renderChatList();
+  // Aplicar ajustes guardados al arrancar
+  {
+  const s = Store.getSettings();
+  document.documentElement.setAttribute("data-theme", s.theme);
+  }
+
+}
+
+// Ejecutar init de inmediato si el DOM ya está listo (módulos ES son defer por defecto),
+// o esperar a DOMContentLoaded en caso contrario.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}

@@ -115,8 +115,10 @@ export function initializeUI(onSendMessage: (text: string) => void) {
 
 function toggleTheme() {
   const html = document.documentElement;
-  const currentTheme = html.getAttribute("data-theme") || "light";
-  const newTheme = currentTheme === "light" ? "dark" : "light";
+  const currentTheme = html.getAttribute("data-theme") || "dark";
+  const order = ["dark", "stellar", "light"] as const;
+  const idx = order.indexOf(currentTheme as (typeof order)[number]);
+  const newTheme = order[(idx + 1) % order.length];
 
   html.setAttribute("data-theme", newTheme);
   localStorage.setItem("theme", newTheme);
@@ -124,9 +126,9 @@ function toggleTheme() {
   console.log(`🌙 Tema cambiado a: ${newTheme}`);
 }
 
-// Cargar tema guardado al iniciar
+// Cargar tema guardado al iniciar (por defecto: oscuro estelar)
 export function loadTheme() {
-  const saved = localStorage.getItem("theme") || "light";
+  const saved = localStorage.getItem("theme") || "dark";
   document.documentElement.setAttribute("data-theme", saved);
 }
 

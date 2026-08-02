@@ -25,5 +25,18 @@ export default defineConfig({
         chat: resolve(__dirname, 'chat.html')
       }
     }
-  }
+  },
+  preview: {
+    port: 4183,
+    strictPort: true,
+    // En E2E el relay Rust corre en 8080; proxyamos el WebSocket al relay
+    // sin afectar el sirvido de estáticos (vite sirve HTTP, proxya solo WS).
+    proxy: {
+      '/': {
+        target: 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+  },
 });

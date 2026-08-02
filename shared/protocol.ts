@@ -25,6 +25,13 @@ export interface HandshakeMessage {
   roomId: string;           // ej: "abc123xyz" (random 128 bits B64)
   publicKey: string;        // base64 encoded raw P-256 public key
   displayName?: string;
+  /**
+   * ID de conexión único por pestaña/dispositivo (UUID generado en el
+   * cliente). El servidor lo reenvía en cada mensaje como `senderId` para
+   * que el emisor pueda ignorar sus propios ecos (p.ej. 2 pestañas en la
+   * misma room) sin avanzar su ratchet de recepción.
+   */
+  connectionId?: string;
 }
 
 export interface PeerJoinedMessage {
@@ -56,6 +63,11 @@ export interface EncryptedMessage {
    * cuando los mensajes llegan fuera de orden.
    */
   counter: number;
+  /**
+   * ID de conexión del emisor (connectionId del handshake). Permite al
+   * receptor ignorar sus propios ecos sin tocar su ratchet de recepción.
+   */
+  senderId?: string;
 }
 
 /**
