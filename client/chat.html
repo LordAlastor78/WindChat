@@ -1608,13 +1608,92 @@
             .star-cursor { display: none; }
         }
 
+        /* ===== Estetica cyberpunk azul (portfolio) sobre WindChat ===== */
+        :root {
+            --bg: #050508;
+            --bg2: #0a0a0f;
+            --card: #0f0f14;
+            --card-hover: #16161d;
+            --text: #e2e4e9;
+            --text2: #7a7d8c;
+            --accent: #1e5bff;
+            --accent2: #3b82f6;
+            --accent3: #7cb2ff;
+            --glow: rgba(30, 91, 255, 0.5);
+            --glow2: rgba(30, 91, 255, 0.15);
+            --border: rgba(30, 91, 255, 0.25);
+            --cyan: #00f0ff;
+            --cyan-glow: rgba(0, 240, 255, 0.3);
+
+            /* Vars que usa WindChat mapeadas a la paleta azul */
+            --bg-primary: #050508;
+            --bg-secondary: #0a0a0f;
+            --text-primary: #e2e4e9;
+            --text-secondary: #7a7d8c;
+            --accent-strong: #3b82f6;
+            --glass-bg: rgba(30, 91, 255, 0.10);
+            --glass-strong: rgba(15, 15, 20, 0.82);
+            --blur: blur(22px);
+            --blur-strong: blur(30px);
+            --border-color: rgba(30, 91, 255, 0.25);
+            --chat-bg: rgba(10, 10, 15, 0.55);
+            --message-me: linear-gradient(135deg, #1e5bff, #3b82f6);
+            --message-other: rgba(125, 178, 255, 0.10);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(30, 91, 255, 0.15);
+        }
+
+        #particleCanvas {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+        }
+        .scanlines {
+            position: fixed; inset: 0; z-index: 2; pointer-events: none;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+        }
+        .vignette {
+            position: fixed; inset: 0; z-index: 2; pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);
+        }
+        .grid-bg {
+            position: fixed; inset: 0; z-index: 1; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(30, 91, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 91, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+            -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+        }
+        .orb {
+            position: fixed; border-radius: 50%; filter: blur(80px);
+            pointer-events: none; z-index: 1; opacity: 0.4;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+        .orb-1 { width: 400px; height: 400px; background: radial-gradient(circle, var(--accent), transparent 70%); top: -100px; right: -100px; }
+        .orb-2 { width: 300px; height: 300px; background: radial-gradient(circle, var(--cyan), transparent 70%); bottom: 10%; left: -100px; opacity: 0.2; animation-delay: -7s; }
+        .orb-3 { width: 250px; height: 250px; background: radial-gradient(circle, var(--accent2), transparent 70%); top: 40%; right: 10%; opacity: 0.15; animation-delay: -14s; }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -40px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.95); }
+            75% { transform: translate(40px, 30px) scale(1.05); }
+        }
+        /* El app-shell y el chat deben quedar por encima de las capas de fondo */
+        .app-shell, .modal, .sidebar-menu, .context-menu, .star-cursor { position: relative; z-index: 5; }
+        .sidebar { z-index: 6; }
+
     </style>
 
 </head>
 
 <body>
 
-    <canvas id="particles"></canvas>
+    <canvas id="particleCanvas"></canvas>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
 
     <div class="app-shell" id="appShell">
 
@@ -1987,143 +2066,109 @@
 
 
     <script>
-        const canvas = document.getElementById('particles');
+    <script>
+        // Fondo cyberpunk azul: particulas que reaccionan al mouse + conexiones
+        window.mouse = window.mouse || { x: null, y: null };
+        const mouse = window.mouse;
+        const canvas = document.getElementById('particleCanvas');
         const ctx = canvas.getContext('2d');
-
-        const ctx = canvas.getContext('2d');
-
-        // --- Cursor estelar: punto azul que sigue al raton (tematica WindChat) ---
-
         let particles = [];
-        let animationFrameId = null;
 
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
-
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-
-            canvas.style.width = `${window.innerWidth}px`;
-            canvas.style.height = `${window.innerHeight}px`;
-
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
         }
-
-        resizeCanvas();
-
-        window.addEventListener('resize', resizeCanvas);
 
         class Particle {
             constructor() {
-                this.reset();
-            }
-
-            reset() {
-                this.x = Math.random() * window.innerWidth;
-                this.y = Math.random() * window.innerHeight;
-
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
                 this.size = Math.random() * 2 + 0.5;
-
-                this.speedX = (Math.random() - 0.5) * 0.4;
-                this.speedY = (Math.random() - 0.5) * 0.4;
-
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.color = Math.random() > 0.5 ? 'rgba(30, 91, 255, ' : 'rgba(0, 240, 255, ';
                 this.opacity = Math.random() * 0.5 + 0.2;
-
-                // Dos tonos azules WindChat (estetica estelar)
-                this.color = Math.random() > 0.5 ? 'rgba(56, 189, 248, ' : 'rgba(125, 211, 252, ';
             }
 
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
 
-                // Repulsion del cursor (efecto estelar): las particulas huyen del puntero
-                if (window.mouse && window.mouse.x !== null && window.mouse.y !== null) {
-                    const dx = this.x - window.mouse.x;
-                    const dy = this.y - window.mouse.y;
+                if (mouse.x != null && mouse.y != null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-                    const RADIUS = 150;
-                    if (distance < RADIUS && distance > 0.01) {
-                        const force = (RADIUS - distance) / RADIUS;
-                        this.x += (dx / distance) * force * 1.2;
-                        this.y += (dy / distance) * force * 1.2;
+
+                    if (distance < 150) {
+                        const force = (150 - distance) / 150;
+                        this.x -= dx * force * 0.02;
+                        this.y -= dy * force * 0.02;
                     }
                 }
 
-                // Rebote en los bordes (en vez de teletransporte)
-                if (this.x < 0) { this.x = 0; this.speedX *= -1; }
-                else if (this.x > window.innerWidth) { this.x = window.innerWidth; this.speedX *= -1; }
-                if (this.y < 0) { this.y = 0; this.speedY *= -1; }
-                else if (this.y > window.innerHeight) { this.y = window.innerHeight; this.speedY *= -1; }
+                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
             }
 
             draw() {
                 ctx.beginPath();
-
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-
                 ctx.fillStyle = this.color + this.opacity + ')';
-
                 ctx.fill();
             }
         }
 
-        const PARTICLE_COUNT =
-            window.innerWidth < 768 ? 35 : 80;
-
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            particles.push(new Particle());
+        function initParticles() {
+            particles = [];
+            const count = Math.min(Math.floor((canvas.width * canvas.height) / 8000), 120);
+            for (let i = 0; i < count; i++) particles.push(new Particle());
         }
 
-        function animate() {
-            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-            particles.forEach((p, i) => {
-                p.update();
-                p.draw();
-
+        function connectParticles() {
+            for (let i = 0; i < particles.length; i++) {
                 for (let j = i + 1; j < particles.length; j++) {
-                    const dx = p.x - particles[j].x;
-                    const dy = p.y - particles[j].y;
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < 120) {
+                    if (distance < 120) {
+                        const opacity = (1 - distance / 120) * 0.15;
                         ctx.beginPath();
-
-                        ctx.moveTo(p.x, p.y);
+                        ctx.strokeStyle = `rgba(30, 91, 255, ${opacity})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
-
-                        ctx.strokeStyle =
-                            `rgba(56,189,248,${0.08 - dist / 1500})`;
-
-                        ctx.lineWidth = 1;
-
                         ctx.stroke();
                     }
                 }
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p) => {
+                p.update();
+                p.draw();
             });
-
-            animationFrameId = requestAnimationFrame(animate);
+            connectParticles();
+            requestAnimationFrame(animateParticles);
         }
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                cancelAnimationFrame(animationFrameId);
-            } else {
-                animate();
-            }
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
         });
 
-        window.addEventListener('beforeunload', () => {
-            if (animationFrameId !== null) {
-                cancelAnimationFrame(animationFrameId);
-            }
+        window.addEventListener('mouseout', () => {
+            mouse.x = null;
+            mouse.y = null;
         });
 
-        if (!document.hidden) {
-            animate();
-        }
+        window.addEventListener('resize', resizeCanvas);
+
+        resizeCanvas();
+        animateParticles();
     </script>
 
 
