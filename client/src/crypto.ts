@@ -598,7 +598,13 @@ export class CryptoManager {
    */
   private arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
     const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
-    return btoa(String.fromCharCode(...bytes));
+    // FIX §4.6: usar bucle `for` en vez de `btoa(String.fromCharCode(...bytes))`
+    // para evitar stack overflow (límite V8 ~50MB) en datos grandes.
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   }
 
   /**

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Import the server helper to inspect generated headers
-import { getSecurityHeaders } from '../../../server/src/security-headers.ts';
+import { getSecurityHeaders } from '../../../server/src/security-headers';
 
 describe('Security headers generation', () => {
     let origEnv: any;

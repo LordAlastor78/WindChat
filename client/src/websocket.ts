@@ -678,14 +678,18 @@ export class ChatClient {
         const connected = await this.waitForConnection(this.ws);
 
         if (connected) {
-          // 5. Re-hacer handshake completo
+          // 5. Re-hacer handshake — reenviar el MISMO connectionId
           console.log("✅ Reconectado. Enviando nuevo handshake...");
 
+          // FIX §4.1a: connectionId es clave para que el servidor identifique esta
+          // como reconexión (no como nuevo peer) y NO re-envíe peer_joined →
+          // evita el re-handshake simétrico que reinicia el ratchet a 0/0.
           const handshake: ClientToServerMessage = {
             type: "join",
             roomId: this.roomId,
             publicKey: this.publicKeyB64!,
             displayName: this.displayName,
+            connectionId: this.connectionId,
           };
 
           this.ws.send(JSON.stringify(handshake));
@@ -693,12 +697,10 @@ export class ChatClient {
           // Re-configurar handlers
           this.setupHandlers();
 
-          // Notificar éxito
+          // Notificar éxito. Solo onReconnected: onConnected no debe dispararse
+          // aquí porque main.ts:onConnected vacía el historial (ver main.ts §4.1b).
           if (this.callbacks.onReconnected) {
             this.callbacks.onReconnected();
-          }
-          if (this.callbacks.onConnected) {
-            this.callbacks.onConnected();
           }
 
           this.isReconnecting = false;
@@ -793,7 +795,12 @@ export class ChatClient {
    */
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
-    return btoa(String.fromCharCode(...bytes));
+    // FIX §4.6: bucle `for` seguro (evita stack overflow del spread en datos grandes).
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   }
 
   /**

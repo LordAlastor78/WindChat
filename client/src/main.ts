@@ -893,7 +893,14 @@ function initApp() {
           hideReconnectBanner();
           resetUnreadIndicator();
           outgoingMessageStates.clear();
-          // Reconectar regenera las claves ECDH: el SAS anterior ya no es válido
+
+          // FIX §4.1b: onConnected se dispara SOLO en la primera conexión.
+          // handleReconnection() ya no lo dispara (ver websocket.ts §4.1a), por
+          // lo que el historial visible NO se vacía en reconexiones.
+          // El comentario previo ("Reconectar regenera las claves ECDH") era falso:
+          // el ratchet se preserva (isReady) y la clave pública se reusa.
+          if (!session.isFirstConnect) return;
+
           hideSafetyUi();
           messagesContainer.textContent = "";
           const waitingMessage = document.createElement("div");
@@ -901,6 +908,7 @@ function initApp() {
           waitingMessage.style.opacity = "0.7";
           waitingMessage.textContent = t("waitingForPeer");
           messagesContainer.appendChild(waitingMessage);
+          session.isFirstConnect = false;
         },
         onPeerJoined: (safetyNumber, theirPublicKey?: string) => {
           console.log("[OK] User connected - Chat ready");

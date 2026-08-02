@@ -289,9 +289,12 @@ export class FileManager {
 
   /**
    * Generar ID único para archivo
+   * FIX §4.5: usamos crypto.randomUUID() en vez de Date.now()+Math.random()
+   * (Math.random no es cripto-seguro y Date.now() puede colisionar bajo reloj
+   * corrido o alta frecuencia de transferencias).
    */
   private generateFileId(): string {
-    return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `file_${crypto.randomUUID()}`;
   }
 
   /**

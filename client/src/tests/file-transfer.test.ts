@@ -19,7 +19,13 @@ function randomBytes(n: number): Uint8Array {
 }
 
 async function makeFile(bytes: Uint8Array, type: string, name: string): Promise<File> {
-  return new File([bytes], name, { type });
+  // FIX TS5.7: Uint8Array<ArrayBufferLike> no es assignable a BlobPart;
+  // pasar el ArrayBuffer subyacente, clonado y casteado para TS.
+  const src = bytes.buffer;
+  const ab: ArrayBuffer = src instanceof ArrayBuffer
+    ? (src.slice(0) as ArrayBuffer)
+    : (src.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as unknown as ArrayBuffer);
+  return new File([ab], name, { type });
 }
 
 /** Emisor prepara payloads; receptor los consume; devuelve el Blob reensamblado. */
@@ -77,8 +83,9 @@ describe("FileManager — integridad de transferencia", () => {
     expect(fm.validateFile(file).valid).toBe(false);
   });
 
-  it("rechaza archivos mayores al límite", () => {
-    const big = new File([randomBytes(1024)], "x.bin", { type: "application/octet-stream" });
+  it("rechaza archivos mayores al límite", async () => {
+    // FIX TS5.7: usar makeFile (helper async) en vez de new File([Uint8Array])
+    const big = await makeFile(randomBytes(1024), "application/octet-stream", "x.bin");
     // trucar size para no reservar 50MB reales en memoria
     Object.defineProperty(big, "size", { value: MAX_FILE_SIZE + 1 });
     const fm = new FileManager();

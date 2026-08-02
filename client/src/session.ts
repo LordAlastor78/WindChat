@@ -36,6 +36,8 @@ export class ChatSession {
   active = false;
   peerPublicKey?: string;
   peerDisplayName?: string;
+  /** Indica si es la primera conexión (vs reconexión). Para no vaciar historial (§4.1b). */
+  isFirstConnect = true;
 
   constructor(conv: Conversation, client: ChatClient, crypto: CryptoManager) {
     this.conv = conv;

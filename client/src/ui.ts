@@ -136,7 +136,12 @@ export function loadTheme() {
 export function generateRoomId(): string {
   const bytes = new Uint8Array(16); // 128 bits
   crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes))
+  // FIX §4.6: bucle `for` seguro (solo 16 bytes, pero por consistencia).
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "")

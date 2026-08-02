@@ -155,9 +155,8 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
     });
 
     let mut last_ping = Instant::now();
-    let mut closed = false;
 
-    while !closed {
+    loop {
         tokio::select! {
             // Mensajes entrantes del socket
             msg = reader.next() => {
@@ -195,13 +194,11 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
                         *meta.last_seen.lock().await = Instant::now();
                     }
                     Some(Ok(Message::Close(_))) | None => {
-                        closed = true;
                         break;
                     }
                     Some(Ok(_)) => {}
                     Some(Err(e)) => {
                         eprintln!("❌ WS error: {e}");
-                        closed = true;
                         break;
                     }
                 }
@@ -211,11 +208,10 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
                 match out {
                     Some(s) => {
                         if writer.send(Message::Text(s.into())).await.is_err() {
-                            closed = true;
                             break;
                         }
                     }
-                    None => { closed = true; break; }
+                    None => { break; }
                 }
             }
             // Heartbeat
@@ -225,17 +221,14 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
                     let alive = *meta.is_alive.lock().await;
                     if !alive {
                         eprintln!("⚠️ Cerrando cliente muerto (no pong)");
-                        closed = true;
                         break;
                     }
                     *meta.is_alive.lock().await = false;
                     if writer.send(Message::Ping(vec![])).await.is_err() {
-                        closed = true;
                         break;
                     }
                     if meta.last_seen.lock().await.elapsed() > HEARTBEAT_TIMEOUT {
                         eprintln!("⚠️ Timeout de inactividad");
-                        closed = true;
                         break;
                     }
                 }
