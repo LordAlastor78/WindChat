@@ -1,14 +1,50 @@
 // Server de prueba E2E: sirve estáticos de client/dist en 4183 y proxya
 // SOLO las conexiones WebSocket (upgrade) al relay Rust en 8080.
+// Además: si no hay relay vivo en :8080, lo lanza como hijo; expone
+// POST /quit para matar el relay y cerrar el server (así la web puede
+// "salir" de todo sin dejar procesos en 2o plano).
 // Usa solo 'ws' (ya disponible) + http nativo. No afecta la app de producción.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
+const net = require('net');
 const { WebSocket } = require('ws');
 
 const STATIC_DIR = path.resolve(__dirname, '..', 'client', 'dist');
 const RELAY_WS = 'ws://localhost:8080';
 const PORT = 4183;
+const RELAY_PORT = 8080;
+const ROOT = path.resolve(__dirname, '..');
+
+let relayChild = null;
+
+// ¿Hay ya un relay escuchando en :8080? (para no duplicar en E2E)
+function relayListening() {
+  return new Promise((resolve) => {
+    const s = net.connect(RELAY_PORT, '127.0.0.1');
+    const done = (ok) => { try { s.destroy(); } catch {} resolve(ok); };
+    s.once('connect', () => done(true));
+    s.once('error', () => done(false));
+    setTimeout(() => done(false), 600);
+  });
+}
+
+async function ensureRelay() {
+  if (await relayListening()) {
+    console.log('[e2e_server] relay ya vivo en :8080, no se lanza otro');
+    return;
+  }
+  const exe = path.join(ROOT, 'relay-rust', 'target', 'release', 'relay-rust.exe');
+  if (!fs.existsSync(exe)) {
+    console.warn('[e2e_server] relay-rust.exe no encontrado, el chat no conectara');
+    return;
+  }
+  relayChild = spawn(exe, [], { cwd: path.join(ROOT, 'relay-rust'), windowsHide: true, stdio: 'ignore' });
+  relayChild.on('exit', () => { relayChild = null; });
+  console.log('[e2e_server] relay Rust lanzado como hijo en :8080');
+  await new Promise((r) => setTimeout(r, 800));
+}
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -17,6 +53,14 @@ const MIME = {
 };
 
 const server = http.createServer((req, res) => {
+  // Cerrar todo (relay + server) a peticion de la web
+  if (req.method === 'POST' && req.url === '/quit') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    try { if (relayChild) relayChild.kill('SIGTERM'); } catch {}
+    setTimeout(() => process.exit(0), 200);
+    return;
+  }
   let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
   if (urlPath === '/') urlPath = '/chat.html';
   const safePath = path.normalize(path.join(STATIC_DIR, urlPath));
@@ -67,6 +111,7 @@ function computeAccept(key) {
   return crypto.createHash('sha1').update(key + GUID).digest('base64');
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`E2E server en http://localhost:${PORT} (proxy WS -> ${RELAY_WS})`);
+  await ensureRelay();
 });

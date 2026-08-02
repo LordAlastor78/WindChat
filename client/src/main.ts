@@ -1919,6 +1919,22 @@ function initApp() {
 
   shareLinkBtn?.addEventListener("click", openShareModal);
 
+  // Botón "Salir": detiene el server local (y el relay hijo) y cierra la pestaña.
+  const exitAppBtn = $("exitAppBtn") as HTMLButtonElement | null;
+  exitAppBtn?.addEventListener("click", async () => {
+    try {
+      await fetch("/quit", { method: "POST", keepalive: true });
+    } catch {
+      /* el server puede haber muerto ya */
+    }
+    // Dar tiempo a que el server mate el relay antes de cerrar
+    setTimeout(() => {
+      window.close();
+      // Fallback: si window.close() no cierra (pestaña no abierta por script)
+      window.location.href = "about:blank";
+    }, 400);
+  });
+
   shareLinkCreateBtn?.addEventListener("click", async () => {
     if (shareActive) return;
     shareActive = true;

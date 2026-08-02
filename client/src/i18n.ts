@@ -158,6 +158,7 @@ const translations: Record<Lang, Record<string, string>> = {
     shareLinkCreating: 'Generando enlace…',
     shareLinkError: 'No se pudo crear el enlace. Instala cloudflared o usa el .exe de escritorio.',
     shareLinkStopped: 'Enlace detenido.',
+    exitAppButton: 'Salir',
   },
   en: {
     // Header
@@ -313,6 +314,7 @@ const translations: Record<Lang, Record<string, string>> = {
     shareLinkCreating: 'Generating link…',
     shareLinkError: 'Could not create the link. Install cloudflared or use the desktop .exe.',
     shareLinkStopped: 'Link stopped.',
+    exitAppButton: 'Exit',
   },
 };
 
