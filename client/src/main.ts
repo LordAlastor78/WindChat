@@ -2068,7 +2068,7 @@ function initApp() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("Diagnostico falló", err);
-      alert("No se pudo generar el reporte de diagnóstico.");
+      console.error("WindChat: no se pudo generar el reporte de diagnóstico", err);
     }
   };
 

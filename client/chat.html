@@ -37,37 +37,6 @@
         :root {
 
 
-            /* Iconify: evita layout shift y alinea con el texto */
-            iconify-icon {
-                display: inline-block;
-                width: 1em;
-                height: 1em;
-                vertical-align: -0.125em;
-            }
-            .i {
-                width: 20px; height: 20px; flex: 0 0 auto; display: inline-block;
-                vertical-align: middle;
-            }
-            .icon-btn .i, .sidebar-menu-item .i { width: 22px; height: 22px; }
-            .iconify-svg {
-                display: inline-flex;
-                width: 1em;
-                height: 1em;
-                vertical-align: -0.125em;
-            }
-            .iconify-svg svg {
-                width: 1em;
-                height: 1em;
-                display: block;
-            }
-            iconify-icon.spin,
-            .iconify-svg.spin svg {
-                animation: icon-spin 1s linear infinite;
-            }
-            @keyframes icon-spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
 
             --bg-primary: #dff4ff;
             --bg-secondary: #c7e8ff;
@@ -1602,6 +1571,29 @@
             .icon-btn, .btn-primary, .btn-secondary, .modal-close, .sidebar-menu-item, .file-attach-btn { transition: none; }
         }
 
+
+        /* Cursor estelar: punto azul luminoso que sigue al raton */
+        .star-cursor {
+            position: fixed;
+            top: 0; left: 0;
+            width: 14px; height: 14px;
+            margin: -7px 0 0 -7px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            background: radial-gradient(circle, #7dd3fc 0%, #38bdf8 45%, rgba(56,189,248,0) 72%);
+            box-shadow: 0 0 10px 3px rgba(56,189,248,0.75), 0 0 22px 8px rgba(56,189,248,0.35);
+            transition: opacity 0.25s ease, transform 0.08s ease;
+            opacity: 0;
+            will-change: transform;
+            mix-blend-mode: screen;
+        }
+        .star-cursor.visible { opacity: 1; }
+        .star-cursor.click { transform: scale(1.6); }
+        @media (prefers-reduced-motion: reduce) {
+            .star-cursor { display: none; }
+        }
+
     </style>
 
 </head>
@@ -1984,6 +1976,25 @@
         const canvas = document.getElementById('particles');
         const ctx = canvas.getContext('2d');
 
+        const ctx = canvas.getContext('2d');
+
+        // --- Cursor estelar: punto azul que sigue al raton (tematica WindChat) ---
+        const starCursor = document.createElement('div');
+        starCursor.className = 'star-cursor';
+        document.body.appendChild(starCursor);
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX; mouse.y = e.clientY;
+            starCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+            starCursor.classList.add('visible');
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = null; mouse.y = null;
+            starCursor.classList.remove('visible');
+        });
+        window.addEventListener('mousedown', () => starCursor.classList.add('click'));
+        window.addEventListener('mouseup', () => starCursor.classList.remove('click'));
+
         let particles = [];
         let animationFrameId = null;
 
@@ -2023,6 +2034,19 @@
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
+
+                // Repulsion del cursor (efecto estelar): las particulas huyen del puntero
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const RADIUS = 150;
+                    if (distance < RADIUS && distance > 0.01) {
+                        const force = (RADIUS - distance) / RADIUS;
+                        this.x += (dx / distance) * force * 1.2;
+                        this.y += (dy / distance) * force * 1.2;
+                    }
+                }
 
                 if (
                     this.x < 0 ||
