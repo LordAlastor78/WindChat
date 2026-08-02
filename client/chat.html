@@ -143,6 +143,7 @@
             font-size: 0.78rem;
             font-weight: 600;
             cursor: pointer;
+            -webkit-user-select: none;
             user-select: none;
             align-self: flex-start;
             border: 1px solid rgba(245, 158, 11, 0.55);
@@ -571,6 +572,16 @@
             display: flex;
             align-items: center;
             gap: 0.6rem;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+        .chat-header-left {
+            flex: 1 1 auto;
+            flex-shrink: 1;
+        }
+        .header-controls {
+            flex: 0 1 auto;
+            justify-content: flex-end;
         }
 
         .theme-toggle,
@@ -1368,8 +1379,6 @@
             display: flex;
             height: 100vh;
             width: 100%;
-            max-width: 1600px;
-            margin: 0 auto;
             background: var(--bg-secondary);
             overflow: hidden;
         }
@@ -1392,7 +1401,11 @@
             align-items: center;
             justify-content: space-between;
             gap: 0.75rem;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
         }
+        .sidebar-header:active { cursor: grabbing; }
         .user-profile {
             display: flex;
             align-items: center;
@@ -1652,7 +1665,7 @@
                 <div class="reply-bar" id="replyBar">
                     <span id="replyText"></span>
                     <button id="replyClose" class="reply-close" data-i18n="cancelReplyTitle" data-i18n-attr="title"
-                        title="Cancel reply"><iconify-icon icon="mdi:close"></iconify-icon></button>
+                        title="Cancel reply" aria-label="Cancelar respuesta"><iconify-icon icon="mdi:close"></iconify-icon></button>
                 </div>
                 <div id="filePreview" class="file-preview hidden">
                     <div class="file-preview-info">
@@ -1663,16 +1676,16 @@
                         </div>
                     </div>
                     <button id="fileCancelBtn" class="file-cancel-btn" data-i18n="fileCancelTitle" data-i18n-attr="title"
-                        title="Cancel"><iconify-icon icon="mdi:close"></iconify-icon></button>
+                        title="Cancel" aria-label="Cancelar archivo"><iconify-icon icon="mdi:close"></iconify-icon></button>
                     <div class="file-progress hidden" id="fileProgress">
                         <div class="file-progress-bar" id="fileProgressBar"></div>
                     </div>
                 </div>
                 <footer class="input-area">
                     <!-- Selectores ocultos: cámara / galería / documento -->
-                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" />
-                    <input type="file" id="galleryInput" accept="image/*,video/*" class="hidden" />
-                    <input type="file" id="docInput" class="hidden" />
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" aria-label="Cámara" />
+                    <input type="file" id="galleryInput" accept="image/*,video/*" class="hidden" aria-label="Galería" />
+                    <input type="file" id="docInput" class="hidden" aria-label="Documento" />
                     <!-- Menú tipo WhatsApp -->
                     <div id="attachMenu" class="attach-menu hidden" role="menu" aria-label="Adjuntar">
                         <button class="attach-menu-item" data-target="camera" role="menuitem"><iconify-icon icon="mdi:camera"></iconify-icon> <span>Cámara</span></button>
@@ -1680,7 +1693,7 @@
                         <button class="attach-menu-item" data-target="doc" role="menuitem"><iconify-icon icon="mdi:file-document"></iconify-icon> <span>Documento</span></button>
                     </div>
                     <button id="attachFileBtn" class="file-attach-btn" data-i18n="attachFileTitle" data-i18n-attr="title"
-                        title="Attach file"><iconify-icon icon="mdi:paperclip"></iconify-icon></button>
+                        title="Attach file" aria-label="Adjuntar archivo"><iconify-icon icon="mdi:paperclip"></iconify-icon></button>
                     <input type="text" id="messageInput" data-i18n="messageInputPlaceholder" data-i18n-attr="placeholder"
                         placeholder="Type a message..." />
                     <button class="icon-btn" aria-label="Send"><iconify-icon icon="mdi:send"></iconify-icon></button>
@@ -1693,11 +1706,11 @@
 
     <div id="newChatModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
-            <div class="modal-head"><strong data-i18n="newChatTitle">Nuevo chat</strong><button class="modal-close" data-close="newChatModal"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
+            <div class="modal-head"><strong data-i18n="newChatTitle">Nuevo chat</strong><button class="modal-close" data-close="newChatModal" aria-label="Cerrar"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
             <p class="modal-hint" data-i18n="newChatHint">Crea una sala nueva y comparte el Room ID, o únete con uno existente.</p>
             <button id="createRoomBtn" class="btn-primary" type="button" data-i18n="createRoom">Crear sala nueva</button>
             <div class="modal-divider"><span data-i18n="orLabel">o</span></div>
-            <input type="text" id="joinRoomInput" data-i18n-attr="placeholder" placeholder="Pega un Room ID..." />
+            <input type="text" id="joinRoomInput" data-i18n-attr="placeholder" placeholder="Pega un Room ID..." aria-label="Room ID para unirse" />
             <button id="joinRoomBtn" class="btn-secondary" type="button" data-i18n="joinRoom">Unirse a sala</button>
         </div>
     </div>
@@ -1705,11 +1718,11 @@
     <!-- Modal: Perfil -->
     <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
-            <div class="modal-head"><strong data-i18n="profileTitle">Perfil</strong><button class="modal-close" data-close="profileModal"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
+            <div class="modal-head"><strong data-i18n="profileTitle">Perfil</strong><button class="modal-close" data-close="profileModal" aria-label="Cerrar"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
             <label class="field-label" data-i18n="profileName">Nombre</label>
-            <input type="text" id="profileNameInput" maxlength="24" />
+            <input type="text" id="profileNameInput" maxlength="24" aria-label="Nombre" />
             <label class="field-label" data-i18n="profileStatus">Estado</label>
-            <input type="text" id="profileStatusInput" maxlength="64" />
+            <input type="text" id="profileStatusInput" maxlength="64" aria-label="Estado" />
             <label class="field-label" data-i18n="profileColor">Color de avatar</label>
             <div id="avatarColorPicker" class="color-picker"></div>
             <div class="modal-actions">
@@ -1722,7 +1735,7 @@
     <!-- Modal: Contactos -->
     <div id="contactsModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
-            <div class="modal-head"><strong data-i18n="contactsTitle">Contactos</strong><button class="modal-close" data-close="contactsModal"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
+            <div class="modal-head"><strong data-i18n="contactsTitle">Contactos</strong><button class="modal-close" data-close="contactsModal" aria-label="Cerrar"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
             <button id="addContactBtn" class="btn-secondary" type="button"><iconify-icon icon="mdi:plus"></iconify-icon> <span data-i18n="addContact">Añadir contacto</span></button>
             <ul id="contactList" class="contact-list"></ul>
             <div id="contactEmpty" class="modal-empty" data-i18n="noContacts">Aún no tienes contactos.</div>
@@ -1732,17 +1745,17 @@
     <!-- Modal: Ajustes -->
     <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
-            <div class="modal-head"><strong data-i18n="settingsTitle">Ajustes</strong><button class="modal-close" data-close="settingsModal"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
+            <div class="modal-head"><strong data-i18n="settingsTitle">Ajustes</strong><button class="modal-close" data-close="settingsModal" aria-label="Cerrar"><iconify-icon icon="mdi:close"></iconify-icon></button></div>
 
             <label class="field-label" data-i18n="themeLabel">Tema</label>
-            <select id="themeSelect" class="select">
+            <select id="themeSelect" class="select" aria-label="Tema">
                 <option value="dark" data-i18n="themeDark">Oscuro</option>
                 <option value="light" data-i18n="themeLight">Claro</option>
                 <option value="stellar" data-i18n="themeStellar">Estelar</option>
             </select>
 
             <label class="field-label" data-i18n="languageLabel">Idioma</label>
-            <select id="settingsLangSelect" class="select">
+            <select id="settingsLangSelect" class="select" aria-label="Idioma">
                 <option value="es">ES</option>
                 <option value="en">EN</option>
             </select>
@@ -1763,11 +1776,11 @@
                 <code id="syncCodeValue" class="sync-code"></code>
             </div>
             <div class="setting-row">
-                <input type="text" id="syncCodeInput" data-i18n-attr="placeholder" placeholder="Código de sincronización..." />
+                <input type="text" id="syncCodeInput" data-i18n-attr="placeholder" placeholder="Código de sincronización..." aria-label="Código de sincronización" />
                 <button id="exportSyncBtn" class="btn-secondary" type="button" data-i18n="exportSync">Exportar</button>
             </div>
             <div class="setting-row">
-                <input type="text" id="importSyncInput" data-i18n-attr="placeholder" placeholder="Pega código para importar..." />
+                <input type="text" id="importSyncInput" data-i18n-attr="placeholder" placeholder="Pega código para importar..." aria-label="Código para importar" />
                 <button id="importSyncBtn" class="btn-secondary" type="button" data-i18n="importSync">Importar</button>
             </div>
             <div id="syncStatus" class="sync-status"></div>

@@ -1659,13 +1659,41 @@ function initApp() {
   };
   
   // --- Sidebar: el botón hamburguesa abre el menú (3 puntitos); en móvil alterna chat/sidebar ---
-  $("sidebarToggle")?.addEventListener("click", () => {
-  if (window.matchMedia("(max-width: 820px)").matches) {
-  appShell?.classList.toggle("show-chat");
-  } else {
-  toggleSidebarMenu();
+
+  // Sidebar arrastrable (drag) por el header: la hace "móvil" por la pantalla.
+  const sidebarEl = $('sidebar') as HTMLElement | null;
+  const sidebarHeader = sidebarEl?.querySelector('.sidebar-header') as HTMLElement | null;
+  if (sidebarEl && sidebarHeader) {
+    let dragging = false;
+    let startX = 0, startY = 0, origLeft = 0, origTop = 0;
+    const onPointerDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      dragging = true;
+      sidebarEl.style.transition = 'none';
+      sidebarEl.style.transform = 'none';
+      const cs = getComputedStyle(sidebarEl);
+      origLeft = parseFloat(sidebarEl.style.left || cs.left || '0') || 0;
+      origTop = parseFloat(sidebarEl.style.top || cs.top || '0') || 0;
+      startX = e.clientX; startY = e.clientY;
+      sidebarHeader.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const nx = Math.max(0, Math.min(window.innerWidth - 60, origLeft + (e.clientX - startX)));
+      const ny = Math.max(0, Math.min(window.innerHeight - 60, origTop + (e.clientY - startY)));
+      sidebarEl.style.left = nx + 'px';
+      sidebarEl.style.top = ny + 'px';
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      dragging = false;
+      sidebarEl.style.transition = '';
+      try { sidebarHeader.releasePointerCapture(e.pointerId); } catch {}
+    };
+    sidebarHeader.addEventListener('pointerdown', onPointerDown);
+    sidebarHeader.addEventListener('pointermove', onPointerMove);
+    sidebarHeader.addEventListener('pointerup', onPointerUp);
   }
-  });
+
   // El botón de 3 puntitos también abre el menú
   $("sidebarMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); toggleSidebarMenu(); });
   // Cerrar el menú al hacer click fuera
