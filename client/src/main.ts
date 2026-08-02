@@ -1155,6 +1155,38 @@ function initApp() {
         hideContextMenu();
       });
 
+  // Menú contextual de salas (clic derecho en una sala)
+  const convMenu = $("conversationContextMenu") as HTMLDivElement | null;
+  convMenu?.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest("button");
+    const action = btn?.getAttribute("data-action");
+    const convId = convMenu.dataset.convId;
+    if (!action || !convId) return;
+    if (action === "close") {
+      if (convId === currentConvId) {
+        $("chatContainer")?.classList.add("hidden");
+        $("loginScreen")?.classList.remove("hidden");
+        currentConvId = "";
+      }
+    } else if (action === "delete") {
+      Store.removeConversation(convId);
+      if (convId === currentConvId) {
+        $("chatContainer")?.classList.add("hidden");
+        $("loginScreen")?.classList.remove("hidden");
+        currentConvId = "";
+      }
+    }
+    hideConversationMenu();
+    renderChatList();
+  });
+  document.addEventListener("click", (e) => {
+    if (convMenu && !convMenu.contains(e.target as Node)) hideConversationMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideConversationMenu();
+  });
+
+
       let typingTimeoutId: number | undefined;
       messageInput.addEventListener("input", () => {
         if (!chatClient) return;
@@ -1605,6 +1637,18 @@ function initApp() {
   const st = $("sidebarStatus"); if (st) st.textContent = p.status;
   };
   
+  const openConversationMenu = (convId: string, x: number, y: number) => {
+    const menu = $("conversationContextMenu") as HTMLDivElement | null;
+    if (!menu) return;
+    menu.dataset.convId = convId;
+    menu.classList.add("visible");
+    const mw = menu.offsetWidth || 170, mh = menu.offsetHeight || 90;
+    menu.style.left = Math.min(x, window.innerWidth - mw - 8) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - mh - 8) + "px";
+  };
+  const hideConversationMenu = () => $("conversationContextMenu")?.classList.remove("visible");
+
+
   const renderChatList = () => {
   if (!chatList) return;
   const convs = Store.getConversations().sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
@@ -1636,11 +1680,17 @@ function initApp() {
   info.appendChild(title); info.appendChild(prev);
   li.appendChild(av); li.appendChild(info);
   li.addEventListener("click", () => openConversation(c.id));
+  li.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    openConversationMenu(c.id, e.clientX, e.clientY);
+  });
   chatList.appendChild(li);
   }
   };
   
   const openConversation = (convId: string) => {
+
+
   const conv = Store.getConversation(convId);
   if (!conv) return;
   // NO desconectar la sesión anterior: se mantienen N WS vivos (multi-chat).
@@ -1966,9 +2016,67 @@ function initApp() {
 
   shareLinkBtn?.addEventListener("click", openShareModal);
 
-  // Botón "Salir": detiene el server local (y el relay hijo) y cierra la pestaña.
+  // Botón "Salir": borra todas las salas, detiene el server local (y el relay hijo) y cierra la pestaña.
+  // Genera y descarga un reporte de diagnóstico del estado de la app.
+  const runDiagnostics = () => {
+    try {
+      const profile = Store.getProfile();
+      const settings = Store.getSettings();
+      const convs = Store.getConversations();
+      const active = convs.find((c) => c.id === currentConvId);
+      const linesOut: string[] = [];
+      linesOut.push("=== WindChat / FugazChat - Reporte de diagnostico ===");
+      linesOut.push("Fecha: " + new Date().toISOString());
+      linesOut.push("User-Agent: " + navigator.userAgent);
+      linesOut.push("");
+      linesOut.push("--- Perfil ---");
+      linesOut.push("Nombre: " + profile.displayName);
+      linesOut.push("Estado: " + (profile.status || "(vacío)"));
+      linesOut.push("Color avatar: " + profile.avatarColor);
+      linesOut.push("Tiene foto: " + (profile.avatarDataUrl ? "sí" : "no"));
+      linesOut.push("");
+      linesOut.push("--- Ajustes ---");
+      linesOut.push("Tema: " + settings.theme);
+      linesOut.push("Sonido: " + settings.soundEnabled);
+      linesOut.push("Notificaciones: " + settings.notificationsEnabled);
+      linesOut.push("Idioma: " + settings.language);
+      linesOut.push("");
+      linesOut.push("--- Conexion ---");
+      linesOut.push("Estado: " + currentConnectionState);
+      linesOut.push("Servidor local: " + (($("serverStatus") as HTMLElement)?.textContent || "?"));
+      linesOut.push("");
+      linesOut.push("--- Salas (" + convs.length + ") ---");
+      for (const c of convs) {
+        linesOut.push("- " + c.title + "  [room: " + c.roomId + ", tipo: " + c.type + "]");
+      }
+      linesOut.push("");
+      linesOut.push("--- Sala activa ---");
+      if (active) {
+        linesOut.push("Titulo: " + active.title);
+        linesOut.push("Room: " + active.roomId);
+      } else {
+        linesOut.push("(ninguna)");
+      }
+      const blob = new Blob([linesOut.join("\n")], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "windchat-diagnostico.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("Diagnostico falló", err);
+      alert("No se pudo generar el reporte de diagnóstico.");
+    }
+  };
+
+
   const exitAppBtn = $("exitAppBtn") as HTMLButtonElement | null;
   exitAppBtn?.addEventListener("click", async () => {
+    // Borrar todas las salas de chat guardadas
+    try { Store.clearConversations(); } catch { /* ignore */ }
     try {
       await fetch("/quit", { method: "POST", keepalive: true });
     } catch {
@@ -1981,6 +2089,10 @@ function initApp() {
       window.location.href = "about:blank";
     }, 400);
   });
+
+  // Botón "Diagnóstico": genera y descarga un reporte del estado de la app.
+  const diagnoseBtn = $("diagnoseBtn") as HTMLButtonElement | null;
+  diagnoseBtn?.addEventListener("click", () => runDiagnostics());
 
   shareLinkCreateBtn?.addEventListener("click", async () => {
     if (shareActive) return;

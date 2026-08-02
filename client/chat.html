@@ -1831,6 +1831,12 @@
         <button data-action="react" data-i18n="contextReact"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 12a8 8 0 0 0-8-8a8 8 0 0 0-8 8a8 8 0 0 0 8 8a8 8 0 0 0 8-8m2 0a10 10 0 0 1-10 10A10 10 0 0 1 2 12A10 10 0 0 1 12 2a10 10 0 0 1 10 10M10 9.5c0 .8-.7 1.5-1.5 1.5S7 10.3 7 9.5S7.7 8 8.5 8s1.5.7 1.5 1.5m7 0c0 .8-.7 1.5-1.5 1.5S14 10.3 14 9.5S14.7 8 15.5 8s1.5.7 1.5 1.5m-5 7.73c-1.75 0-3.29-.73-4.19-1.81L9.23 14c.45.72 1.52 1.23 2.77 1.23s2.32-.51 2.77-1.23l1.42 1.42c-.9 1.08-2.44 1.81-4.19 1.81"/></svg> Reaccionar</button>
     </div>
 
+    <!-- Menú contextual de salas (clic derecho en una sala) -->
+    <div id="conversationContextMenu" class="context-menu" data-conv-id="">
+        <button data-action="close" data-i18n="closeRoom"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> <span data-i18n="closeRoom">Cerrar</span></button>
+        <button data-action="delete" data-i18n="deleteRoom"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg> <span data-i18n="deleteRoom">Borrar</span></button>
+    </div>
+
     <div id="audioPrompt" class="audio-prompt" data-i18n="audioPrompt">Tap anywhere to enable sounds</div>
 
     <style>

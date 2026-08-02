@@ -221,6 +221,9 @@ export const Store = {
       this.getConversations().filter((c) => c.id !== id)
     );
   },
+  clearConversations(): void {
+    writeJSON(K_CONVERSATIONS, []);
+  },
   /** Upsert de conversación por id (usado por el shell). */
   saveConversation(c: Conversation): Conversation {
     const list = this.getConversations();
