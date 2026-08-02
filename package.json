@@ -40,6 +40,8 @@
     "marked": "^18.0.7"
   },
   "devDependencies": {
-    "@types/dompurify": "^3.0.5"
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/dompurify": "^3.0.5",
+    "playwright": "^1.62.1"
   }
 }
