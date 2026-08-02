@@ -63,6 +63,15 @@
             --blur: var(--blur-strong);
         }
 
+        /* Iconos SVG inline (embebidos, offline). Tamaño fijo para que no se
+           deformen ni hereden el ancho del contenedor. */
+        .i {
+            width: 20px; height: 20px; flex: 0 0 auto; display: inline-block;
+            vertical-align: middle;
+        }
+        .icon-btn .i, .sidebar-menu-item .i, .sidebar-link .i { width: 22px; height: 22px; }
+        .btn-primary .i, .btn-secondary .i { width: 18px; height: 18px; }
+
         .chat-container {
             flex: 1;
             display: flex;
