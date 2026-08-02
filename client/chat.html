@@ -1580,32 +1580,7 @@
             .icon-btn, .btn-primary, .btn-secondary, .modal-close, .sidebar-menu-item, .file-attach-btn { transition: none; }
         }
 
-
-        /* Cursor estelar: punto azul luminoso que sigue al raton */
-        .star-cursor {
-            position: fixed;
-            top: 0; left: 0;
-            width: 16px; height: 16px;
-            margin: -8px 0 0 -8px;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 9999;
-            background: radial-gradient(circle, #e0f2fe 0%, #7dd3fc 30%, #38bdf8 60%, rgba(56,189,248,0) 75%);
-            border: 1px solid rgba(125,211,252,0.9);
-            box-shadow: 0 0 12px 4px rgba(56,189,248,0.85), 0 0 28px 10px rgba(56,189,248,0.45);
-            transition: opacity 0.25s ease, transform 0.08s ease;
-            opacity: 0;
-            will-change: transform;
-        }
-        .star-cursor.visible { opacity: 1; }
-        .star-cursor.click { transform: scale(1.7); }
-        /* Ocultar el cursor nativo: el punto azul estelar lo reemplaza.
-           Se restaura en campos/botones para poder escribir y clicar bien. */
-        body { cursor: none; }
-        input, textarea, select, button, a, .chat-list-item, .modal, .context-menu, .sidebar { cursor: auto; }
-        .star-cursor { cursor: none; }
         @media (prefers-reduced-motion: reduce) {
-            .star-cursor { display: none; }
         }
 
         /* ===== Estetica cyberpunk azul (portfolio) sobre WindChat ===== */
@@ -1678,7 +1653,6 @@
             75% { transform: translate(40px, 30px) scale(1.05); }
         }
         /* El app-shell y el chat deben quedar por encima de las capas de fondo */
-        .app-shell, .modal, .sidebar-menu, .context-menu, .star-cursor { position: relative; z-index: 5; }
         .sidebar { z-index: 6; }
 
     </style>
@@ -2173,30 +2147,6 @@
 
 
     <script type="module" src="/src/main.ts"></script>
-    <script>
-        // Cursor estelar: punto azul luminoso que sigue al raton (tematica WindChat/FugazChat)
-        (function () {
-            const starCursor = document.createElement('div');
-            starCursor.className = 'star-cursor';
-            document.body.appendChild(starCursor);
-
-            // Compartido con el canvas de particulas para el efecto de repulsion
-            window.mouse = { x: null, y: null };
-
-            window.addEventListener('mousemove', (e) => {
-                window.mouse.x = e.clientX;
-                window.mouse.y = e.clientY;
-                starCursor.style.transform = 'translate(' + e.clientX + 'px, ' + e.clientY + 'px)';
-                starCursor.classList.add('visible');
-            });
-            window.addEventListener('mouseout', () => {
-                window.mouse.x = null;
-                window.mouse.y = null;
-                starCursor.classList.remove('visible');
-            });
-            window.addEventListener('mousedown', () => starCursor.classList.add('click'));
-            window.addEventListener('mouseup', () => starCursor.classList.remove('click'));
-        })();
     </script>
 
 
