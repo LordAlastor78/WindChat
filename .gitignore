@@ -1,27 +1,38 @@
+# Dependencias y builds
 node_modules/
 dist/
 build/
 relay-rust/target/
 *.log
 .DS_Store
-.env
-.env.local
-.env.*.local
-*.swp
-*.swo
-*~
 .vscode/
 .idea/
 coverage/
 .nyc_output/
 *.tsbuildinfo
 
+# Entornos locales / .env
+.env
+.env.local
+.env.*.local
+
+# Editores
+*.swp
+*.swo
+*~
+
+# Desktop Tauri
 desktop/src-tauri/target/
 desktop/node_modules/
 desktop/src-tauri/gen/
 desktop/src-tauri/binaries/
 relay-rust/target/debug/
 relay-rust/target/release/
+
+# Claves de firma Tauri (ED25519) — NUNCA commitear
+# Generadas con: npx tauri signer generate --ci --write-keys ./tauri.key
+desktop/tauri.key
+desktop/tauri.key.pub
 
 # Capturas de debug / assets efímeros de herramientas
 tools/*.png

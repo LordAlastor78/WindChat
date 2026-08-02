@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "WindChat",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "identifier": "com.windchat.desktop",
   "build": {
     "frontendDist": "../../client/dist",
@@ -44,9 +44,9 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/<GITHUB_USER>/WindChat/releases/latest/download/latest.json"
+        "https://github.com/LordAlastor78/WindChat/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IFBUE3hYRFZycyBCaW5hcnkgcGxhY2Vob2xkZXIgLS0gcmVlbXBsYXogY29uIGxhIGNsYXZlIFBVQkxJQ0Egb24gPGEgdGF1cmkgc2lnbmVyIGdlbmVyYXRlPiBhbmQgcGVnYWhlIGxhIHB1YmtleSBlbiB0YXVyaS5jb25mLmpzb24="
+      "pubkey": "dW50cnVzdGVkIGNvbW1tZW50OiBtaW5pc2lnbiBwdWJsaWMga2V5OiA2OEE0RkRCMVQ1RkEzODNBCkJXVTZPUHJGSWYyazFIYXZmNkxMVWF4aU1VZGdvNDBvZC9mczM5WDFYN3R2Y2ZMbTBvWG8K"
     }
   }
 }
