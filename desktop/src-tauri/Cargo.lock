@@ -830,11 +830,13 @@ dependencies = [
 name = "fugazchat-desktop"
 version = "1.0.0"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-shell",
+ "tokio",
  "windows-sys 0.52.0",
 ]
 
