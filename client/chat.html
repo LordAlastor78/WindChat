@@ -1511,6 +1511,19 @@
             .app-shell.show-chat .sidebar { display: none; }
             .app-shell.show-chat .chat-area { display: flex; }
         }
+
+        /* Modal: Crear enlace público */
+        .share-status { font-size: 0.85rem; opacity: 0.8; margin: 0.5rem 0; }
+        .share-status.error { color: #ef4444; }
+        .share-result { margin: 0.5rem 0 1rem; }
+        .share-url-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+        .share-url-row input {
+            flex: 1; padding: 0.5rem; border-radius: 8px;
+            border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+            background: rgba(255,255,255,0.04); color: var(--text-color, #e6edf6);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem;
+        }
+        .share-link-btn { border: 1px solid var(--accent-stellar, #7c5cff); }
     </style>
 
 </head>
@@ -1591,6 +1604,8 @@
                     <button id="themeToggle" class="theme-toggle" data-i18n="themeToggle">Theme</button>
                     <button id="diagnoseBtn" class="icon-btn diagnose-btn" type="button" title="Ejecutar diagnóstico y descargar reporte"
                         data-i18n="diagnoseButton"><iconify-icon icon="mdi:stethoscope"></iconify-icon> <span data-i18n="diagnoseButtonText">Diagnosticar</span></button>
+                    <button id="shareLinkBtn" class="icon-btn share-link-btn" type="button" title="Crear enlace público (túnel Cloudflare)"
+                        data-i18n="shareLinkButton"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> <span data-i18n="shareLinkButtonText">Crear enlace</span></button>
                 </div>
             </header>
 
@@ -1760,6 +1775,27 @@
             <div class="modal-divider"><span data-i18n="maintenanceSection">Mantenimiento</span></div>
             <button id="repairBtn" class="btn-secondary" type="button"><iconify-icon icon="mdi:wrench"></iconify-icon> <span data-i18n="repairBtn">Reparar programa</span></button>
             <div id="repairStatus" class="sync-status"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear enlace público (túnel Cloudflare) -->
+    <div id="shareLinkModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shareLinkTitle">
+        <div class="modal-content">
+            <h3 id="shareLinkTitle" data-i18n="shareLinkTitle">Enlace público</h3>
+            <p class="modal-sub" data-i18n="shareLinkSub">Comparte tu relay por un túnel efímero de Cloudflare. El cifrado E2EE sigue intacto.</p>
+            <div id="shareLinkStatus" class="share-status" data-i18n="shareLinkIdle">Pulsa “Crear enlace” para generar la URL.</div>
+            <div id="shareLinkResult" class="share-result hidden">
+                <label for="shareLinkUrl" data-i18n="shareLinkUrlLabel">URL del túnel</label>
+                <div class="share-url-row">
+                    <input id="shareLinkUrl" type="text" readonly />
+                    <button id="shareLinkCopyBtn" class="icon-btn" type="button" data-i18n="copyButton">Copiar</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="shareLinkCreateBtn" class="btn-primary" type="button" data-i18n="shareLinkCreate">Crear enlace</button>
+                <button id="shareLinkStopBtn" class="btn-secondary hidden" type="button" data-i18n="shareLinkStop">Detener enlace</button>
+                <button class="btn-secondary" data-close="shareLinkModal" type="button" data-i18n="closeButton">Cerrar</button>
+            </div>
         </div>
     </div>
 

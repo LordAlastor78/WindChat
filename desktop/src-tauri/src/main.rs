@@ -11,6 +11,9 @@ use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
 
 struct RelayChild(Mutex<Option<CommandChild>>);
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+static CLOUDFLARED_CHILD: OnceLock<Arc<StdMutex<Option<CommandChild>>>> = OnceLock::new();
+static CLOUDFLARED_URL: OnceLock<Arc<StdMutex<Option<String>>>> = OnceLock::new();
 
 #[cfg(windows)]
 mod win_job {
@@ -71,6 +74,23 @@ mod win_job {
             }
         }
     }
+
+    /// Devuelve el Job Object global (si existe) para asignarle procesos hijos.
+    pub fn get_job() -> Option<&'static JobGuard> {
+        // El JobGuard se crea en run() y se mueve al closure de setup; para
+        // compartirlo con los comandos usamos un lazy static.
+        JOB_HANDLE.get()
+    }
+
+    use std::sync::OnceLock;
+    static JOB_HANDLE: OnceLock<JobGuard> = OnceLock::new();
+
+    /// Inicializa el Job Object global (llamar una vez en run()).
+    pub fn init_job() -> Option<()> {
+        let job = JobGuard::new()?;
+        JOB_HANDLE.set(job).ok()?;
+        Some(())
+    }
 }
 
 #[tauri::command]
@@ -113,15 +133,93 @@ async fn repair(app: tauri::AppHandle) -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_shell::process::CommandEvent;
+    use std::time::{Duration, Instant};
+
+    let child_arc = CLOUDFLARED_CHILD.get().unwrap().clone();
+    let url_arc = CLOUDFLARED_URL.get().unwrap().clone();
+
+    // Si ya hay un túnel activo, devolver la URL cached.
+    {
+        let guard = url_arc.lock().unwrap();
+        if let Some(url) = guard.clone() {
+            return Ok(url);
+        }
+    }
+
+    let command = app
+        .shell()
+        .sidecar("cloudflared")
+        .map_err(|e| format!("No se encontró cloudflared: {e}"))?
+        .args(["tunnel", "--url", "http://localhost:8080"]);
+
+    let (mut rx, child) = command
+        .spawn()
+        .map_err(|e| format!("No se pudo lanzar cloudflared: {e}"))?;
+
+    // Asignar al Job Object para que muera con el padre.
+    #[cfg(windows)]
+    {
+        if let Some(ref job) = win_job::get_job() {
+            let _ = job.assign(child.pid());
+        }
+    }
+
+    *child_arc.lock().unwrap() = Some(child);
+
+    // Capturar la URL del stdout (ej. "https://xxxx.trycloudflare.com").
+    let url_arc_spawn = Arc::clone(&url_arc);
+    tauri::async_runtime::spawn(async move {
+        let re = regex::Regex::new(r"https://[a-z0-9-]+\.trycloudflare\.com").unwrap();
+        while let Some(event) = rx.recv().await {
+            if let CommandEvent::Stdout(b) | CommandEvent::Stderr(b) = event {
+                let s = String::from_utf8_lossy(&b);
+                if let Some(m) = re.find(&s) {
+                    *url_arc_spawn.lock().unwrap() = Some(m.as_str().to_string());
+                }
+            }
+        }
+    });
+
+    // Esperar hasta 8s a que aparezca la URL.
+    let start = Instant::now();
+    loop {
+        if let Some(url) = url_arc.lock().unwrap().clone() {
+            return Ok(url);
+        }
+        if start.elapsed() > Duration::from_secs(8) {
+            return Err("Timeout esperando la URL del túnel.".into());
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
+#[tauri::command]
+async fn stop_link(_app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(child_arc) = CLOUDFLARED_CHILD.get() {
+        if let Some(child) = child_arc.lock().unwrap().take() {
+            let _ = child.kill();
+        }
+    }
+    if let Some(url_arc) = CLOUDFLARED_URL.get() {
+        *url_arc.lock().unwrap() = None;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Job object para matar el relay si este proceso muere por cualquier causa.
+    // Job object global para matar los sidecars si este proceso muere por cualquier causa.
     #[cfg(windows)]
-    let job = win_job::JobGuard::new();
+    win_job::init_job();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
+            CLOUDFLARED_CHILD.get_or_init(|| Arc::new(StdMutex::new(None)));
+            CLOUDFLARED_URL.get_or_init(|| Arc::new(StdMutex::new(None)));
             match app.shell().sidecar("relay-rust") {
                 Ok(mut command) => {
                     command = command.args(["--port", "8080"]);
@@ -146,7 +244,7 @@ pub fn run() {
                             });
                             // Asignar el relay al Job Object (muere con el padre).
                             #[cfg(windows)]
-                            if let Some(ref job) = job {
+                            if let Some(ref job) = win_job::get_job() {
                                 let _ = job.assign(child.pid());
                             }
                             app.manage(RelayChild(Mutex::new(Some(child))));
@@ -175,7 +273,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![repair])
+        .invoke_handler(tauri::generate_handler![repair, share_link, stop_link])
         .run(tauri::generate_context!())
         .expect("error al correr la app Tauri");
 }

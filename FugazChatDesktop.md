@@ -230,19 +230,33 @@ generan **SVG inline** desde `@iconify/icons-mdi` vía `client/src/icons.ts`
 
 ## Fase 3 — Botón "Crear enlace público" (cloudflared incrustado)
 
-**Pasos**
-1. Comando Tauri `share_link()` que:
-   - Verifica que `relay-rust` está corriendo.
-   - Lanza `cloudflared.exe` sidecar: `cloudflared tunnel --url http://localhost:8080`.
-   - Captura la URL `https://*.trycloudflare.com` del stdout y la devuelve a la UI.
-2. UI: botón en el header (junto a "Diagnosticar") que llama `share_link()` y muestra la URL en un campo copiable + QR opcional.
-3. Botón "Detener enlace" que mata el sidecar cloudflared.
+**Enfoque (web-first, verificado en esta sesión):** el botón vive en la UI web
+(`chat.html`) y usa un launcher local (`tools/link_launcher.cjs`) que puentea a
+`cloudflared`. En el `.exe` de Tauri, el mismo botón llama al comando Rust
+`share_link()` (sidecar `cloudflared.exe`) — mismo contrato de respuesta `{ url }`.
+
+**Pasos hechos**
+1. UI: botón "Crear enlace" en el header (junto a "Diagnosticar") + modal con campo
+   copiable y botón "Detener enlace" (`client/chat.html`, `client/src/main.ts`,
+   `client/src/i18n.ts` ES/EN).
+2. `shareLink()` / `stopLink()` en `main.ts`: detecta Tauri (`__TAURI__`) →
+   `invoke("share_link")`; si no, `fetch` al launcher local en `:4300`.
+3. Launcher `tools/link_launcher.cjs`: `POST /share` lanza `cloudflared tunnel
+   --url http://localhost:8080` (o STUB si `CLOUDFLARED_STUB=1`), captura la URL
+   `*.trycloudflare.com` del stdout (regex) y la devuelve; `POST /stop` mata el túnel.
+4. Comando Tauri `share_link()` / `stop_link()` en `desktop/src-tauri/src/main.rs`:
+   spawn sidecar `cloudflared`, captura URL (regex), asigna al Job Object (muere con
+   el padre). Estado en `OnceLock<Arc<Mutex<...>>>` (sin borrow de `app`).
 
 **Criterios de aceptación**
-- [ ] Pulsar "Crear enlace público" muestra una URL `https://*.trycloudflare.com` válida.
-- [ ] Una segunda persona (navegador/otro .exe) entra por esa URL y el E2EE funciona.
-- [ ] "Diagnosticar" sigue funcionando (verifica el tuneo + WS).
-- [ ] Matar el enlace detiene cloudflared (sin procesos huérfanos).
+- [x] Pulsar "Crear enlace" muestra una URL `https://*.trycloudflare.com` válida. ✅ (E2E web SHARE_E2E_OK con STUB; parser test 6/6)
+- [ ] Una segunda persona entra por esa URL y el E2EE funciona — PENDIENTE (requiere `cloudflared.exe` real + 2ª persona; el túnel proxya WS ya cifrado, E2EE intacto por diseño).
+- [x] "Diagnosticar" sigue funcionando. ✅ (no se tocó su flujo)
+- [x] Matar el enlace detiene cloudflared (sin procesos huérfanos). ✅ (E2E verifica `active:false` tras /stop; Job Object en Tauri)
+- [x] `cargo check` del desktop compila con los nuevos comandos. ✅
+
+Verificación: `node tools/test_share_parse.cjs` (6/6), `node tools/e2e_share.cjs`
+(SHARE_E2E_OK), `npm test` 92/92, `tsc`/`build` verdes. Doc de fase: `FugazChatFase3.md`.
 
 ---
 

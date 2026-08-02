@@ -1854,6 +1854,110 @@ function initApp() {
   document.documentElement.setAttribute("data-theme", s.theme);
   }
 
+  // Fase 3 — Botón "Crear enlace público" (túnel Cloudflare)
+  const shareLinkBtn = $("shareLinkBtn") as HTMLButtonElement | null;
+  const shareLinkModal = $("shareLinkModal") as HTMLElement | null;
+  const shareLinkCreateBtn = $("shareLinkCreateBtn") as HTMLButtonElement | null;
+  const shareLinkStopBtn = $("shareLinkStopBtn") as HTMLButtonElement | null;
+  const shareLinkCopyBtn = $("shareLinkCopyBtn") as HTMLButtonElement | null;
+  const shareLinkUrl = $("shareLinkUrl") as HTMLInputElement | null;
+  const shareLinkStatus = $("shareLinkStatus") as HTMLElement | null;
+  const shareLinkResult = $("shareLinkResult") as HTMLElement | null;
+  let shareActive = false;
+
+  const isTauri = (): boolean =>
+    typeof window !== "undefined" &&
+    (("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window));
+
+  // Crea el enlace: usa comando Tauri si está en el .exe, si no el launcher local.
+  const createShareLink = async (): Promise<string | null> => {
+    if (isTauri()) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        return (await invoke<string>("share_link")) || null;
+      } catch (e) {
+        console.warn("[share] Tauri invoke falló:", e);
+        return null;
+      }
+    }
+    // Web: launcher local en http://localhost:4300/share
+    const res = await fetch("http://localhost:4300/share", { method: "POST" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url?: string };
+    return data.url || null;
+  };
+
+  const stopShareLink = async (): Promise<void> => {
+    if (isTauri()) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("stop_link");
+      } catch (e) {
+        console.warn("[share] Tauri stop falló:", e);
+      }
+      return;
+    }
+    try {
+      await fetch("http://localhost:4300/stop", { method: "POST" });
+    } catch (e) {
+      console.warn("[share] stop local falló:", e);
+    }
+  };
+
+  const openShareModal = () => {
+    if (shareLinkModal) {
+      shareLinkModal.classList.remove("hidden");
+      if (shareLinkStatus) {
+        shareLinkStatus.textContent = t("shareLinkIdle");
+        shareLinkStatus.classList.remove("error");
+      }
+      if (shareLinkResult) shareLinkResult.classList.add("hidden");
+      if (shareLinkCreateBtn) shareLinkCreateBtn.classList.remove("hidden");
+      if (shareLinkStopBtn) shareLinkStopBtn.classList.add("hidden");
+    }
+  };
+
+  shareLinkBtn?.addEventListener("click", openShareModal);
+
+  shareLinkCreateBtn?.addEventListener("click", async () => {
+    if (shareActive) return;
+    shareActive = true;
+    if (shareLinkStatus) {
+      shareLinkStatus.textContent = t("shareLinkCreating");
+      shareLinkStatus.classList.remove("error");
+    }
+    if (shareLinkCreateBtn) shareLinkCreateBtn.disabled = true;
+    const url = await createShareLink();
+    shareActive = false;
+    if (shareLinkCreateBtn) shareLinkCreateBtn.disabled = false;
+    if (url) {
+      if (shareLinkUrl) shareLinkUrl.value = url;
+      if (shareLinkResult) shareLinkResult.classList.remove("hidden");
+      if (shareLinkCreateBtn) shareLinkCreateBtn.classList.add("hidden");
+      if (shareLinkStopBtn) shareLinkStopBtn.classList.remove("hidden");
+      if (shareLinkStatus) shareLinkStatus.textContent = "";
+    } else {
+      if (shareLinkStatus) {
+        shareLinkStatus.textContent = t("shareLinkError");
+        shareLinkStatus.classList.add("error");
+      }
+    }
+  });
+
+  shareLinkStopBtn?.addEventListener("click", async () => {
+    await stopShareLink();
+    if (shareLinkStatus) shareLinkStatus.textContent = t("shareLinkStopped");
+    if (shareLinkResult) shareLinkResult.classList.add("hidden");
+    if (shareLinkCreateBtn) shareLinkCreateBtn.classList.remove("hidden");
+    if (shareLinkStopBtn) shareLinkStopBtn.classList.add("hidden");
+  });
+
+  shareLinkCopyBtn?.addEventListener("click", () => {
+    if (shareLinkUrl && navigator.clipboard) {
+      navigator.clipboard.writeText(shareLinkUrl.value).catch(() => {});
+    }
+  });
+
 }
 
 // Ejecutar init de inmediato si el DOM ya está listo (módulos ES son defer por defecto),
