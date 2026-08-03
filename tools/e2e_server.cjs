@@ -18,16 +18,66 @@ const RELAY_PORT = 8080;
 const ROOT = path.resolve(__dirname, '..');
 
 let relayChild = null;
+let launcherChild = null;
+const LAUNCHER_PORT = 4300;
+const LAUNCHER_URL = `http://localhost:${LAUNCHER_PORT}`;
 
-// ¿Hay ya un relay escuchando en :8080? (para no duplicar en E2E)
-function relayListening() {
+// ¿Hay ya un proceso escuchando en un puerto? (para no duplicar relay/launcher)
+function portListening(port) {
   return new Promise((resolve) => {
-    const s = net.connect(RELAY_PORT, '127.0.0.1');
+    const s = net.connect(port, '127.0.0.1');
     const done = (ok) => { try { s.destroy(); } catch {} resolve(ok); };
     s.once('connect', () => done(true));
     s.once('error', () => done(false));
     setTimeout(() => done(false), 600);
   });
+}
+
+// ¿Hay ya un relay escuchando en :8080? (para no duplicar en E2E)
+function relayListening() {
+  return portListening(RELAY_PORT);
+}
+
+// §Fase 3 fix: el launcher de share link (link_launcher.cjs) debe arrancar como
+// hijo del server, porque el cliente web llama a http://localhost:4300/share.
+// Antes se lanzaba en una terminal separada; ahora el server lo gestiona.
+async function ensureLauncher() {
+  if (await portListening(LAUNCHER_PORT)) {
+    console.log(`[e2e_server] launcher ya vivo en :${LAUNCHER_PORT}, no se lanza otro`);
+    return;
+  }
+  const launcherScript = path.join(ROOT, 'tools', 'link_launcher.cjs');
+  if (!fs.existsSync(launcherScript)) {
+    console.warn('[e2e_server] link_launcher.cjs no encontrado; el botón Crear enlace no funcionará en web');
+    return;
+  }
+  // Si cloudflared no está en PATH, usar STUB para que al menos la UI web no falle.
+  const hasCloudflared = await new Promise((resolve) => {
+    const probe = spawn('cloudflared', ['--version'], { windowsHide: true });
+    probe.on('error', () => resolve(false));
+    probe.on('exit', (code) => resolve(code === 0));
+  });
+  const launchEnv = { ...process.env };
+  if (!hasCloudflared) {
+    console.log('[e2e_server] cloudflared no está en PATH → launcher arranca en modo STUB');
+    launchEnv.CLOUDFLARED_STUB = '1';
+  }
+  launcherChild = spawn('node', [launcherScript], {
+    cwd: ROOT, env: launchEnv, windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],  // stdout/stderr al server para poder debuggear 502
+  });
+  launcherChild.on('exit', (code) => {
+    launcherChild = null;
+    if (code !== 0 && code !== null) {
+      console.warn(`[e2e_server] WARNING: launcher hijo murió (exit ${code}); se reiniciará en 2s §fix-502`);
+      setTimeout(() => { ensureLauncher(); }, 2000);
+    }
+  });
+  // loggear salida del launcher hijo (evita que muera en silencio y deje relay muerto → 502)
+  launcherChild.stdout?.on('data', (d) => console.log('[launcher]', d.toString().trim()));
+  launcherChild.stderr?.on('data', (d) => console.warn('[launcher:err]', d.toString().trim()));
+  console.log(`[e2e_server] launcher (share link) lanzado como hijo en :${LAUNCHER_PORT}`);
+  await new Promise((r) => setTimeout(r, 800));
 }
 
 async function ensureRelay() {
@@ -61,6 +111,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
     try { if (relayChild) relayChild.kill('SIGTERM'); } catch {}
+    try { if (launcherChild) launcherChild.kill('SIGTERM'); } catch {}
     setTimeout(() => process.exit(0), 200);
     return;
   }
@@ -117,4 +168,5 @@ function computeAccept(key) {
 server.listen(PORT, async () => {
   console.log(`E2E server en http://localhost:${PORT} (proxy WS -> ${RELAY_WS})`);
   await ensureRelay();
+  await ensureLauncher();
 });

@@ -258,6 +258,25 @@ generan **SVG inline** desde `@iconify/icons-mdi` vía `client/src/icons.ts`
 Verificación: `node tools/test_share_parse.cjs` (6/6), `node tools/e2e_share.cjs`
 (SHARE_E2E_OK), `npm test` 92/92, `tsc`/`build` verdes. Doc de fase: `FugazChatFase3.md`.
 
+### Bugs encontrados revisando el Create Link (sesión de fix)
+Durante la revisión del botón "Crear enlace" se encontraron y corrigieron 3 bugs:
+
+1. **`link_launcher.cjs` no capturaba la URL de cloudflared (root cause del "no funciona")**:
+   `cloudflared` 2026.x escribe **todos** sus logs —incluida la URL del quick tunnel— en **stderr** (no stdout). El launcher viejo sólo parseaba `stdout.on('data')` y el stderr lo mandaba a `console.warn` sin parsear → la URL nunca se capturaba → `timeout` → `{error:"timeout"}` → el cliente ve `null` → el botón se cuesta.
+   **Fix**: `startCloudflared()` ahora registra `onData` en **ambos** streams (`stdout` y `stderr`) y parsea la URL en cualquiera.
+
+2. **Timeout demasiado bajo (8s) para cloudflared 2026.x**: medido que `cloudflared tunnel --url` tarda **9-11s** en emitir la URL del quick tunnel (antes tardaba ~1s). El polleo de 8s siempre daba timeout.
+   **Fix**: deadline de 8s → 15s en `link_launcher.cjs` (web) y en el comando Rust `share_link` (`main.rs`: `Duration::from_secs(8)` → `15`).
+
+3. **`e2e_server.cjs` no arrancaba el launcher**: el cliente web llama a `http://localhost:4300/share`, pero el server de prueba (`run_chat.bat` → `e2e_server.cjs`) nunca lanzaba `link_launcher.cjs` → el endpoint no existía → `ECONNREFUSED`.
+   **Fix**: `e2e_server.cjs` ahora arranca el launcher como hijo (`ensureLauncher()`), reutilizando `portListening()` y heredando `CLOUDFLARED_STUB=1` si `cloudflared` no está en PATH. El `/quit` también mata el launcher hijo.
+
+**Nota sobre el .exe de Tauri**: el comando Rust `share_link` (`main.rs`) **ya parseaba ambos stdout y stderr** (el patrón `CommandEvent::Stdout(b) | CommandEvent::Stderr(b)`), así que no tenía el bug (1). Sólo necesitó el fix del timeout (2). El bug (3) es web-only (el .exe no usa `link_launcher.cjs`).
+
+**Verificación real con cloudflared REAL** (no stub): `POST /share` →
+`{"url":"https://gabriel-portsmouth-mean-losing.trycloudflare.com"}`,
+`POST /stop` → `{"ok":true}`, `GET /status` tras stop → `{"active":false,"url":null}` (sin proceso huérfano). `cargo check` 0 warnings.
+
 ---
 
 ## Fase 4 — Auto-update desde GitHub (firmado)

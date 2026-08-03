@@ -32,9 +32,10 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": [],
+    "resources": ["binaries/cloudflared-x86_64-pc-windows-msvc.exe"],
     "externalBin": [
-      "binaries/relay-rust"
+      "binaries/relay-rust",
+      "binaries/cloudflared"
     ]
   },
   "plugins": {

@@ -182,13 +182,14 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
         }
     });
 
-    // Esperar hasta 8s a que aparezca la URL.
+    // Esperar hasta 15s a que aparezca la URL (cloudflared 2026.x puede tardar
+    // hasta ~11s en emitir el quick tunnel URL). §fix timing
     let start = Instant::now();
     loop {
         if let Some(url) = url_arc.lock().unwrap().clone() {
             return Ok(url);
         }
-        if start.elapsed() > Duration::from_secs(8) {
+        if start.elapsed() > Duration::from_secs(15) {
             return Err("Timeout esperando la URL del túnel.".into());
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
