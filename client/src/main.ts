@@ -2110,6 +2110,10 @@ function initApp() {
     // §4.9 FIX: borrar TODO lo local al salir (no solo salas). La promesa
     // "ephemeral" del cliente implica limpiar perfil/contactos/settings too.
     try { Store.clearAll(); } catch { /* ignore */ }
+    // §fix-leak: detener el share link (cloudflared + túnel) ANTES de matar el server.
+    // Si vamos directo a /quit, el server mata launcherChild con SIGTERM en cadena y
+    // puede no dar tiempo al launcher para matar cloudflared → túnel zombie → 502.
+    try { await stopShareLink(); } catch { /* share no estaba activo */ }
     try {
       // §fix-leak: URL absoluta localhost:4183. Un /quit relativo iría al túnel HTTP
       // (https://...trycloudflare.com/quit) → relay WS no habla HTTP → 502. Forzamos localhost.

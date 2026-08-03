@@ -105,14 +105,24 @@ const MIME = {
   '.ico': 'image/x-icon', '.map': 'application/json',
 };
 
+// Timer global para /quit (clearTimeout si se llama de nuevo). §fix-leak
+let __quitTimer = null;
+
 const server = http.createServer((req, res) => {
-  // Cerrar todo (relay + server) a peticion de la web
+  // Cerrar todo (relay + server + launcher/túnel) a petición de la web
   if (req.method === 'POST' && req.url === '/quit') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
+    // §fix-leak: matar el relay primero, luego el launcher hijo con SIGINT (que
+    // ejecuta su handler -> stopCloudflared() mata cloudflared limpio). SIGTERM
+    // mata en cadena sin darle tiempo al launcher; 800ms da tiempo a cloudflared
+    // a cerrar el túnel antes de process.exit (evita túnel zombie -> 502).
     try { if (relayChild) relayChild.kill('SIGTERM'); } catch {}
-    try { if (launcherChild) launcherChild.kill('SIGTERM'); } catch {}
-    setTimeout(() => process.exit(0), 200);
+    if (launcherChild) {
+      try { launcherChild.kill('SIGINT'); } catch {}
+    }
+    clearTimeout(__quitTimer);
+    __quitTimer = setTimeout(() => process.exit(0), 800);
     return;
   }
   let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
