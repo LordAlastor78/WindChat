@@ -107,20 +107,28 @@ async fn repair(app: tauri::AppHandle) -> Result<String, String> {
         .unwrap_or_else(|_| resource_dir.clone());
     let _ = sidecar_dir;
 
-    let binaries = ["relay-rust.exe", "cloudflared.exe"];
+    // §fix share-link: usar el NOMBRE REAL empaquetado por Tauri.
+    // tauri.conf.json declara `cloudflared` en externalBin, y Tauri empaqueta el
+    // binario con el target triple: cloudflared-x86_64-pc-windows-msvc.exe
+    // (NO cloudflared.exe). Si repair() busca "cloudflared.exe", src.exists() es
+    // falso y el sidecar nunca se redeploya al dir del .exe. Alinear nombres.
+    let binaries: [(&str, &str); 2] = [
+        ("relay-rust.exe", "relay-rust.exe"),
+        ("cloudflared.exe", "cloudflared-x86_64-pc-windows-msvc.exe"),
+    ];
     let mut repaired = Vec::new();
     let exe_dir = std::env::current_exe()
         .map(|p| p.parent().map(|x| x.to_path_buf()).unwrap_or_default())
         .unwrap_or_default();
 
-    for bin in binaries.iter() {
-        let src = resource_dir.join(bin);
+    for (logical, packaged) in binaries.iter() {
+        let src = resource_dir.join(packaged);
         if !src.exists() {
             continue;
         }
-        let dst = exe_dir.join(bin);
-        fs::copy(&src, &dst).map_err(|e| format!("No se pudo reparar {bin}: {e}"))?;
-        repaired.push(bin.to_string());
+        let dst = exe_dir.join(logical);
+        fs::copy(&src, &dst).map_err(|e| format!("No se pudo reparar {logical}: {e}"))?;
+        repaired.push(logical.to_string());
     }
 
     if repaired.is_empty() {
