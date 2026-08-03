@@ -246,6 +246,8 @@ export const Store = {
     lsRemove(K_CONTACTS);
     lsRemove(K_CONVERSATIONS);
     lsRemove(K_SETTINGS);
+    // §4.9 FIX: incluir claves persistidas fuera del Store (legacy displayName)
+    lsRemove("windchat_display_name");
   },
 };
 

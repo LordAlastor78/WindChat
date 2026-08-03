@@ -249,7 +249,7 @@ function initApp() {
 
   const usernameInput = username;
   if (displayNameInput) {
-    const savedName = localStorage.getItem("windchat_display_name");
+    const savedName = Store.getProfile().displayName;
     if (savedName) {
       displayNameInput.value = savedName;
       currentDisplayName = savedName;
@@ -280,7 +280,8 @@ function initApp() {
 
     currentRoomId = roomId;
     currentDisplayName = displayNameInput?.value.trim() || "Anon";
-    localStorage.setItem("windchat_display_name", currentDisplayName);
+      // §4.9b: rutar por Store (centraliza persistencia + clearAll en Salir)
+      Store.saveProfile({ displayName: currentDisplayName });
     currentConvId = ensureConversation(roomId).id;
 
     isConnecting = true;
@@ -2106,8 +2107,9 @@ function initApp() {
 
   const exitAppBtn = $("exitAppBtn") as HTMLButtonElement | null;
   exitAppBtn?.addEventListener("click", async () => {
-    // Borrar todas las salas de chat guardadas
-    try { Store.clearConversations(); } catch { /* ignore */ }
+    // §4.9 FIX: borrar TODO lo local al salir (no solo salas). La promesa
+    // "ephemeral" del cliente implica limpiar perfil/contactos/settings too.
+    try { Store.clearAll(); } catch { /* ignore */ }
     try {
       await fetch("/quit", { method: "POST", keepalive: true });
     } catch {

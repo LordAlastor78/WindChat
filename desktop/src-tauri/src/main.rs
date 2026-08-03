@@ -135,8 +135,10 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
     use tauri_plugin_shell::process::CommandEvent;
     use std::time::{Duration, Instant};
 
-    let child_arc = CLOUDFLARED_CHILD.get().unwrap().clone();
-    let url_arc = CLOUDFLARED_URL.get().unwrap().clone();
+    // §6.1 FIX: get_or_init defensivo en vez de .unwrap() — evita panic si el
+    // backend llama a share_link antes de que run()->setup() haya corrido get_or_init.
+    let child_arc = CLOUDFLARED_CHILD.get_or_init(|| Arc::new(StdMutex::new(None))).clone();
+    let url_arc = CLOUDFLARED_URL.get_or_init(|| Arc::new(StdMutex::new(None))).clone();
 
     // Si ya hay un túnel activo, devolver la URL cached.
     {

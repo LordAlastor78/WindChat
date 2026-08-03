@@ -191,7 +191,9 @@ export const ALLOWED_FILE_TYPES = [
   "image/webp",
   "image/bmp",
   "image/avif",
-  "image/svg+xml",
+  // §4.10 FIX: excluir image/svg+xml — SVG puede contener <script>/onload.
+  // Aunque blob: URLs no ejecutan JS en <img>, es un vector XSS — bloqueado por simpleza.
+  // "image/svg+xml",
   // Video
   "video/mp4",
   "video/webm",

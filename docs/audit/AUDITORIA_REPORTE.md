@@ -33,7 +33,10 @@ WindChat es una aplicación de chat E2EE (ephemeral) bien arquitecturada, con un
 - ✅ **§4.4 corregido**: placeholder `expect(true).toBe(true)` reemplazado por test real (ratchet preservado + connectionId en handshake + backoff).
 - ✅ **§4.5 corregido**: `substr()` → `crypto.randomUUID()` en `generateFileId`.
 - ✅ **§4.6 corregido**: helpers `btoa(...)` frágiles → bucle `for` seguro en `crypto.ts`, `websocket.ts`, `ui.ts`.
-- ✅ **§4.8 corregido**: XSS por nombres de archivo (`innerHTML` → `textContent` en `main.ts:1346,1509`).
+- ✅ **§4.8 corregido**: XSS por nombres de archivo (`innerHTML` → `textContent` en `main.ts:1346,1509`). Test regresión `file-transfer.test.ts`.
+- ✅ **§4.9 corregido**: Persistencia parcial en \"Salir\" — `exitAppBtn` llamaba solo `Store.clearConversations()` (perfil/contactos/settings sobrevivían). Fix: `Store.clearAll()` + rutar `windchat_display_name` por `Store` (main.ts:249,283). Verificado.
+- ✅ **§4.10 corregido**: `image/svg+xml` permitido en `ALLOWED_FILE_TYPES` — SVG puede contener `<script>`/`onload`. Eliminado de `shared/protocol.ts` y propagado a client/server vía `npm run sync:protocol`.
+- ✅ **§6.1 corregido**: Desktop Tauri — `share_link` usaba `CLOUDFLARED_CHILD.get().unwrap()` (panic si se invocaba antes de `setup()`). Fix: `.get_or_init(...)` defensivo. `cargo check` desktop: 0 warnings.
 - ✅ **§5.7 corregido**: code-splitting + lazy `highlight.js` → main chunk 96.58 KB (era 1.34 MB).
 - ✅ **§4.7 aclarado**: promesa "ephemeral" es **parcial** (wire efímero; cliente persiste previews/metadatos en localStorage hasta "Salir"). Verificado + documentado en README con ⚠️.
 
@@ -97,6 +100,7 @@ WindChat/
 - **Job Object de Windows** (`KILL_ON_JOB_CLOSE`) para matar `relay-rust.exe` y `cloudflared.exe` si el padre muere — evita procesos huérfanos.
 - Comandos: `repair`, `share_link` (cloudflared tunnel), `stop_link`, `check_update`, `install_update`.
 - ✅ **§4.3 RETRACTADO**: `regex` SÍ está en `desktop/Cargo.toml` — no es un bug. (Error de la auditoría original corregido.)
+- ✅ **§6.1 POST-FIX**: `share_link` usaba `CLOUDFLARED_CHILD.get().unwrap()` (panic si se invocaba antes de `setup()`). Cambiado a `.get_or_init(...)` defensivo → `cargo check` desktop: 0 warnings.
 
 ### 3.6 Sanitización de Markdown (`client/src/markdown/renderer.ts`) — ✅ Seguro + optimizado
 - Pipeline: `marked → stripDangerous (regex) → DOMPurify → KaTeX → highlight.js (lazy)`.
@@ -105,10 +109,11 @@ WindChat/
 - Rechaza `javascript:`, `on*`, `<img>` externas. Verificado por `markdown-safety.test.ts` (8/8).
 - ✅ **§5.7 POST-FIX**: `highlight.js` (915KB) **lazy-importado** vía `import()` dinámico en `getHighlightJs()`. El `highlightCode` aplica resaltado fire-and-forget (post-render) → no bloquea el mensaje ni propaga async a `renderMarkdownSafe`/`main.ts`. Main chunk libre de highlight.js.
 
-### 3.7 Almacenamiento (`client/src/store.ts`) — ✅ Correcto
+### 3.7 Almacenamiento (`client/src/store.ts`) — ✅ Correcto + fortalecido
 - `localStorage` con fallback en memoria para Node/tests.
 - No persiste claves ni ciphertext; solo metadatos y texto descifrado local.
-- Limpieza de conversaciones en "Salir".
+- ✅ **§4.9 POST-FIX**: "Salir" ahora llama `Store.clearAll()` (no solo `clearConversations`) → perfil/contactos/settings también se borran. `windchat_display_name` rutado por `Store` (main.ts:249,283) → incluido en `clearAll()`.
+- ✅ **§4.9b**: unificado acceso a display name bajo `Store.getProfile()`/`saveProfile` (main.ts:249) → consistencia + funcionabilidad en Node/tests.
 
 ### 3.8 Sincronización offline (`client/src/sync.ts`) — ✅ Seguro
 - PBKDF2 (150k iteraciones) + AES-GCM para cifrar perfil+contactos bajo un código.
