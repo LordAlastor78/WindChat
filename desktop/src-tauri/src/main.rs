@@ -167,16 +167,18 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
         }
     }
 
-    // §fix-502: verificar que el relay WS (:8080) está UP antes de tunelar.
-    // Sin relay, cloudflared proxya a :8080 muerto -> 502 al conectar clientes WS.
-    if !port_open(8080) {
-        eprintln!("⚠️  relay :8080 no está escuchando; share_link apuntará a un origin muerto -> posible 502");
+    // §fix-502-HTTP: healthcheck del origin del túnel (:4183 HTTP), no :8080 (relay WS).
+    // El túnel sirve HTTP → :8080 (relay WS puro) no responde HTTP → 502. :4183 sirve HTTP + proxyea WS.
+    // NOTA: en .exe Tauri aún no se levanta un HTTP server en :4183 (el frontend usa tauri:// protocol);
+    // hasta que eso esté, el share link en desktop sigue siendo best-effort. §todo
+    if !port_open(4183) {
+        eprintln!("⚠️  origin HTTP :4183 no está escuchando; share_link apuntará a un origin HTTP muerto -> posible 502");
     }
     let command = app
         .shell()
         .sidecar("cloudflared")
         .map_err(|e| format!("No se encontró cloudflared: {e}"))?
-        .args(["tunnel", "--url", "http://localhost:8080"]);
+        .args(["tunnel", "--url", "http://localhost:4183"]);
 
     let (mut rx, child) = command
         .spawn()

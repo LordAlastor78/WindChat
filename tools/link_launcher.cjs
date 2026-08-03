@@ -10,7 +10,11 @@ const net = require("net");
 const fs = require("fs");
 
 const PORT = 4300;
-const RELAY_URL = process.env.RELAY_URL || "http://localhost:8080";
+// §fix-502-HTTP: el túnel apunta a :4183 (server HTTP que sirve chat.html +
+// proxyea WS al relay), NO a :8080 (relay WS puro). Abrir la URL en navegador
+// envía HTTP GET → relay WS no responde HTTP → 502. :4183 sirve HTTP y hace
+// upgrade WS hacia :8080, evitando el 502 y dejando la URL abrible.
+const RELAY_URL = process.env.RELAY_URL || "http://localhost:4183";
 const RELAY_PORT = 8080;
 const ROOT = process.env.WC_ROOT || require("path").resolve(__dirname, "..");
 
@@ -73,11 +77,18 @@ function startStub() {
 }
 
 function startCloudflared() {
-  // §fix 502: re-verificar relay justo antes de tunelar (puede haber caído desde el arranque).
-  // Si está caído, re-lanzar para evitar 502 Bad Gateway (cloudflared apuntando a :8080 muerto).
+  // §fix-502-HTTP: el túnel apunta a :4183 (server HTTP), NO a :8080 (relay WS).
+  // Verificar que el origin HTTP (:4183) está UP antes de tunelar. Si :4183 cayó,
+  // el server padre (e2e_server.cjs) no está corriendo → el túnel apuntará a un
+  // backend HTTP muerto → 502. Avisar; el relay :8080 (que :4183 proxyea) sigue como fallback.
+  portListening(4183).then((up) => {
+    if (!up) {
+      console.warn("[link_launcher] origin HTTP :4183 caído; el túnel dará 502 si no sube. §fix-502-HTTP");
+    }
+  }).catch(() => {});
   portListening(RELAY_PORT).then((up) => {
     if (!up && !relayChild) {
-      console.warn("[link_launcher] relay :8080 cayó antes del túnel; re-lanzando §fix-502");
+      console.warn("[link_launcher] relay :8080 caído; re-lanzando §fix-502");
       ensureRelay().catch((e) => console.warn("[link_launcher] re-ensureRelay falló:", e));
     }
   }).catch(() => {});
