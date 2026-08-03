@@ -38,3 +38,8 @@ desktop/tauri.key.pub
 tools/*.png
 tools/**/*.png
 iconify.md
+
+# Sandbox/Windows artifacts (do NOT commit)
+nul
+docs/audit/AUDIT_PROMPT.md
+_t*.txt
