@@ -6,6 +6,17 @@
 // El frontend (client/dist) se conecta al relay vía ws://127.0.0.1:8080.
 
 use std::sync::Mutex;
+/// Comprueba si algo está escuchando en 127.0.0.1:port (timeout 600ms).
+/// §fix-502: evitar 502 asegurando que el relay WS (:8080) está UP antes de tunelar.
+fn port_open(port: u16) -> bool {
+    use std::net::TcpStream;
+    use std::time::Duration;
+    TcpStream::connect_timeout(
+        &std::net::SocketAddr::from((std::net::Ipv4Addr::new(127,0,0,1), port)),
+        Duration::from_millis(600),
+    )
+    .is_ok()
+}
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
@@ -156,6 +167,11 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
         }
     }
 
+    // §fix-502: verificar que el relay WS (:8080) está UP antes de tunelar.
+    // Sin relay, cloudflared proxya a :8080 muerto -> 502 al conectar clientes WS.
+    if !port_open(8080) {
+        eprintln!("⚠️  relay :8080 no está escuchando; share_link apuntará a un origin muerto -> posible 502");
+    }
     let command = app
         .shell()
         .sidecar("cloudflared")
