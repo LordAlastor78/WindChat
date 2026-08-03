@@ -103,6 +103,9 @@ function startCloudflared() {
 }
 
 function stopCloudflared() {
+  // §fix-leak: parar cloudflared + relay del launcher. Si relayChild es null
+  // (el relay lo lanzó e2e_server.cjs, no este launcher), el relay sigue vivo
+  // hasta que e2e_server reciba /quit o stop_chat.bat lo termine por puerto.
   if (cloudflaredProc) {
     try { cloudflaredProc.kill("SIGTERM"); } catch (e) {}
     cloudflaredProc = null;
@@ -111,8 +114,11 @@ function stopCloudflared() {
   if (relayChild) {
     try { relayChild.kill("SIGTERM"); } catch (e) {}
     relayChild = null;
+  } else {
+    console.log("[link_launcher] relayChild null (relay lo gestiona e2e_server padre)");
   }
   capturedUrl = null;
+  console.log("[link_launcher] túnel + relay del launcher detenidos");
 }
 
 const server = http.createServer((req, res) => {

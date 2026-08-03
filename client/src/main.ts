@@ -2111,16 +2111,24 @@ function initApp() {
     // "ephemeral" del cliente implica limpiar perfil/contactos/settings too.
     try { Store.clearAll(); } catch { /* ignore */ }
     try {
-      await fetch("/quit", { method: "POST", keepalive: true });
+      // §fix-leak: URL absoluta localhost:4183. Un /quit relativo iría al túnel HTTP
+      // (https://...trycloudflare.com/quit) → relay WS no habla HTTP → 502. Forzamos localhost.
+      await fetch("http://localhost:4183/quit", { method: "POST", keepalive: true });
     } catch {
       /* el server puede haber muerto ya */
     }
-    // Dar tiempo a que el server mate el relay antes de cerrar
+    // Dar tiempo al server para matar el relay antes de cerrar la pestaña
     setTimeout(() => {
-      window.close();
-      // Fallback: si window.close() no cierra (pestaña no abierta por script)
-      window.location.href = "about:blank";
-    }, 400);
+      // window.close() lanza DOMException si la pestaña fue abierta manualmente (no por script).
+      // Capturamos el error para no dejarlo silente; el fallback about:blank asegura que
+      // el WS client se cierre aunque window.close() falle. §fix-leak
+      try {
+        window.close();
+      } catch (e) {
+        console.warn("[Salir] window.close() falló (pestaña manual). Usando about:blank.", e);
+        window.location.href = "about:blank";
+      }
+    }, 500);
   });
 
   // Botón "Diagnóstico": genera y descarga un reporte del estado de la app.
