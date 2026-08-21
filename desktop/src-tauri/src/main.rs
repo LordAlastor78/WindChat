@@ -167,18 +167,19 @@ async fn share_link(app: tauri::AppHandle) -> Result<String, String> {
         }
     }
 
-    // §fix-502-HTTP: healthcheck del origin del túnel (:4183 HTTP), no :8080 (relay WS).
-    // El túnel sirve HTTP → :8080 (relay WS puro) no responde HTTP → 502. :4183 sirve HTTP + proxyea WS.
-    // NOTA: en .exe Tauri aún no se levanta un HTTP server en :4183 (el frontend usa tauri:// protocol);
-    // hasta que eso esté, el share link en desktop sigue siendo best-effort. §todo
-    if !port_open(4183) {
-        eprintln!("⚠️  origin HTTP :4183 no está escuchando; share_link apuntará a un origin HTTP muerto -> posible 502");
+    // §H5.2 FIX: en Tauri NO existe un HTTP server en :4183 (el frontend usa
+    // tauri:// protocol, no sirve HTTP estático). El relay WS escucha en :8080.
+    // Tunelamos cloudflared a 127.0.0.1:8080 (relay): cloudflared proxyea el WS
+    // upgrade al relay → el peer externo se conecta via wss://xxxx.trycloudflare.com.
+    // Antes se apuntaba a :4183 (inexistente en desktop) → 502 en producción.
+    if !port_open(8080) {
+        eprintln!("⚠️  relay WS :8080 no está escuchando; share_link fallará (arranque el relay en setup())");
     }
     let command = app
         .shell()
         .sidecar("cloudflared")
         .map_err(|e| format!("No se encontró cloudflared: {e}"))?
-        .args(["tunnel", "--url", "http://localhost:4183"]);
+        .args(["tunnel", "--url", "http://127.0.0.1:8080"]);
 
     let (mut rx, child) = command
         .spawn()
@@ -252,7 +253,22 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn stop_link(_app: tauri::AppHandle) -> Result<(), String> {
+async fn stop_link(app: tauri::AppHandle) -> Result<(), String> {
+    // §H5.4 FIX: stop_link ahora mata cloudflared Y el relay hijo.
+    // Antes solo moría cloudflared → relay-rust.exe quedaba como zombie en :8080.
+    // El relay se almacena como State<RelayChild> desde setup().
+    #[cfg(windows)]
+    {
+        if let Some(state) = app.try_state::<RelayChild>() {
+            if let Ok(mut guard) = state.0.lock() {
+                if let Some(child) = guard.take() {
+                    let _ = child.kill();
+                    println!("🛑 Relay sidecar detenido vía stop_link");
+                }
+            }
+        }
+    }
+    // Matar cloudflared
     if let Some(child_arc) = CLOUDFLARED_CHILD.get() {
         if let Some(child) = child_arc.lock().unwrap().take() {
             let _ = child.kill();

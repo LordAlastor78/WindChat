@@ -21,7 +21,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio_tungstenite::{
-    accept_async,
+    accept_hdr_async,
     tungstenite::Message,
 };
 
@@ -134,7 +134,33 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
     let addr = stream.peer_addr().map(|a| a.to_string()).unwrap_or_default();
     eprintln!("✅ Nuevo cliente conectado (#{conn_id} from {addr})");
 
-    let ws_stream = match accept_async(stream).await {
+    let ws_stream = match accept_hdr_async(stream, |req: &tungstenite::http::Request<()>, mut resp: tungstenite::http::Response<()>| {
+        // §H2.2 FIX: validar Origin del handshake HTTP para prevenir CSRF.
+        // Orígenes permitidos: localhost, tauri://, y *.trycloudflare.com (túneles).
+        let origin = req
+            .headers()
+            .get("origin")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_lowercase());
+
+        let ok = match &origin {
+            None => true, // conexiones server-side (tests) no envían Origin
+            Some(o) => {
+                o == "http://localhost:4183"
+                    || o == "https://localhost:4183"
+                    || o == "http://127.0.0.1:4183"
+                    || o == "http://localhost:8080"
+                    || o == "http://127.0.0.1:8080"
+                    || o == "tauri://localhost"
+                    || (o.starts_with("https://") && o.ends_with(".trycloudflare.com"))
+            }
+        };
+        if !ok {
+            eprintln!("\u{26a0}  WS rechazado por Origin inválido: {origin:?}");
+            *resp.status_mut() = http::StatusCode::FORBIDDEN;
+        }
+        Ok(resp)
+    }).await {
         Ok(ws) => ws,
         Err(e) => {
             eprintln!("⚠️ Fallo al aceptar WS: {e}");
@@ -458,7 +484,14 @@ async fn handle_disconnect(state: &Arc<AppState>, conn_id: usize) {
     let mut rooms = state.rooms.lock().await;
     let mut room_to_update: Option<String> = None;
     for (rid, room) in rooms.iter_mut() {
-        if room.clients.remove(&conn_id).is_some() {
+        if let Some(entry) = room.clients.remove(&conn_id) {
+            // §FIX-F1: limpiar el connection_id del set de reconexión al desconectar.
+            // Sin esto, seen_connection_ids crece sin límite y una reconexión REAL
+            // del peer (tras caída completa) se trata como "blip" y no reenvía
+            // peer_joined → el peer restante queda ciego (bug F-1).
+            if let Some(cid) = entry.meta.connection_id.lock().await.clone() {
+                room.seen_connection_ids.remove(&cid);
+            }
             room_to_update = Some(rid.clone());
             break;
         }

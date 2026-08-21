@@ -84,6 +84,13 @@ export class CryptoManager {
   private myPublicKeyRaw?: Uint8Array;
   private safetyNumber?: SafetyNumber;
 
+  // §H4.2 FIX: flag que indica que ya hubo una negociación (KeyPair generado +
+  // claves derivadas al menos una vez). `isReady()` verifica sendChain/recvChain,
+  // que pueden estar undefined tras un error transitorio (p.ej. ratchet skip
+  // demasiado grande) → falsos negativos que disparaban destroy() + recreación
+  // de CryptoManager en handleReconnection → counter 0 → desincronización.
+  private initialized = false;
+
   /** Cadena de envío: sólo yo derivo estas claves */
   private sendChain?: ChainState;
   /** Cadena de recepción: refleja la cadena de envío del peer */
@@ -205,6 +212,11 @@ export class CryptoManager {
       // Derivar el SAS (safety number) a partir de AMBAS claves públicas.
       // Esto es lo que permite detectar un MITM del servidor.
       await this.computeSafetyNumber(new Uint8Array(theirPublicKeyRaw), roomId);
+
+      // §H4.2 FIX: marcar que la negociación ECDH+HKDF+SAS completó trun time.
+      // Este flag persiste aunque sendChain/recvChain se reinicien tras un error
+      // transitorio, evitando recrear el CryptoManager en handleReconnection.
+      this.initialized = true;
     } catch (err) {
       console.error("❌ Error derivando clave compartida:", err);
       throw err;
@@ -340,6 +352,16 @@ export class CryptoManager {
   /** ¿Está el ratchet listo para cifrar/descifrar? */
   isReady(): boolean {
     return this.sendChain !== undefined && this.recvChain !== undefined;
+  }
+
+  /**
+   * §H4.2 FIX: indica si hubo una negociación completa (ECDH + HKDF + SAS).
+   * A diferencia de isReady(), este flag persiste aunque sendChain/recvChain
+   * se reinicien tras un error transitorio → evita recrear el CryptoManager
+   * en handleReconnection (que destruiría el ratchet → counter 0 → desincronización).
+   */
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
   /**
@@ -628,6 +650,9 @@ export class CryptoManager {
     this.keyPair = undefined;
     this.myPublicKeyRaw = undefined;
     this.safetyNumber = undefined;
+    // §H4.2 FIX: resetear el flag de negociación — un CryptoManager destruido
+    // debe volver a hacer keygen+derive antes de que isInitialized() sea true.
+    this.initialized = false;
 
     // Sobrescribir el material del ratchet antes de soltarlo
     this.sendChain?.key.fill(0);

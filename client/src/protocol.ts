@@ -68,8 +68,9 @@ export interface EncryptedMessage {
   /**
    * ID de conexión del emisor (connectionId del handshake). Permite al
    * receptor ignorar sus propios ecos sin tocar su ratchet de recepción.
+   * Puede ser null cuando el emisor no incluyó connectionId en el handshake.
    */
-  senderId?: string;
+  senderId?: string | null;
 }
 
 /**

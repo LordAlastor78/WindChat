@@ -10,7 +10,7 @@ const serverRoot = path.resolve(__dirname, '..');
 const toolsRoot = path.resolve(serverRoot, '..', 'tools', 'integration');
 const clientSimModule = await import(pathToFileURL(path.join(toolsRoot, 'client_sim.js')).href);
 const clientSim = clientSimModule.default || clientSimModule;
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 
 function waitForHttp(url, timeout = 15000) {
     const start = Date.now();

@@ -63,7 +63,10 @@ interface Room {
   seenConnectionIds: Set<string>;
 }
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
+// §FIX-F3: default 8081 para evitar colisión con el relay Rust (que usa 8080).
+// El server Node es el relay "tonto" de referencia; en el flujo de producción
+// local/desktop quien escucha 8080 es el relay Rust. Nunca ambos a la vez.
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 
 // Map global: roomId → Room
 const rooms = new Map<string, Room>();
@@ -152,10 +155,11 @@ const DEGRADED_THRESHOLD = process.env.DEGRADED_THRESHOLD ? parseInt(process.env
 const ALERT_THRESHOLD = process.env.ALERT_THRESHOLD ? parseInt(process.env.ALERT_THRESHOLD) : 10;
 
 let serverHealth: "ok" | "degraded" | "alert" = "ok";
-const serverEvents: { connections: number[]; disconnects: number[]; errors: number[] } = {
+const serverEvents: { connections: number[]; disconnects: number[]; errors: number[]; rejected_origin: number[] } = {
   connections: [],
   disconnects: [],
   errors: [],
+  rejected_origin: [],
 };
 
 function recordServerEvent(kind: keyof typeof serverEvents) {
@@ -307,6 +311,52 @@ app.use(
   })
 );
 
+// §H3.1 FIX: endpoint POST /quit + graceful shutdown handler.
+// Antes no existía en el server Node real → solo e2e_server.cjs lo manejaba,
+// bloqueando el apago cuando se ejecuta el server Node directamente.
+// Movido AQUÍ (antes de express.static) para que no interfiera con el SPA
+// fallback ni el WS upgrade.
+let shuttingDown = false;
+function gracefulShutdown(code: number) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log("🛑 Shutting down gracefully...");
+  try {
+    wss.clients.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1001, "server shutting down");
+      }
+    });
+  } catch {
+    /* clients may not be initialized */
+  }
+  wss.close(() => {
+    server.close(() => process.exit(code));
+    setTimeout(() => process.exit(code), 2000).unref();
+  });
+}
+process.on("SIGTERM", () => gracefulShutdown(0));
+// §H3.2 FIX: SIGINT no era manejado → Ctrl+C dejaba sockets WS en 'closing' → proceso zombie.
+process.on("SIGINT", () => gracefulShutdown(0));
+
+app.use((req, res, next) => {
+  // Allow body parsing minimal para /quit sin inflar el server.
+  if (req.url === "/quit" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1024) req.destroy();
+    });
+    req.on("end", () => {
+      gracefulShutdown(0);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    return;
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const rawContentLength = req.headers["content-length"];
   if (rawContentLength) {
@@ -447,7 +497,34 @@ function isValidP256PublicKey(value: string): boolean {
   }
 }
 
-wss.on("connection", (ws: WebSocket) => {
+// §H2.2/H1.3 FIX: validar Origin en el WS handshake para prevenir CSRF.
+const ALLOWED_ORIGINS = new Set(
+  [
+    "http://localhost:4183",
+    "https://localhost:4183",
+    "http://127.0.0.1:4183",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "tauri://localhost",
+  ].map((o) => o.toLowerCase())
+);
+function isValidOrigin(origin: string | undefined): boolean {
+  if (!origin) return true; // conexiones server-side (Node tests) no envían Origin
+  const o = origin.toLowerCase();
+  if (ALLOWED_ORIGINS.has(o)) return true;
+  if (o.startsWith("https://") && o.endsWith(".trycloudflare.com")) return true;
+  return false;
+}
+
+wss.on("connection", (ws: WebSocket, req: http.IncomingMessage) => {
+  // §H2.2 FIX: rechazar conexiones WS con Origin hostig (CSRF).
+  const origin = req.headers.origin as string | undefined;
+  if (!isValidOrigin(origin)) {
+    console.warn(`⚠️ WS rechazado por Origin inválido: ${origin ?? "(none)"}`);
+    ws.close(1008, "Forbidden origin");
+    recordServerEvent("rejected_origin");
+    return;
+  }
   const remoteAddr = (ws as any)?._socket?.remoteAddress || 'unknown';
   console.log("✅ Nuevo cliente conectado");
   debugLog(`   from ${remoteAddr}`);
@@ -665,12 +742,17 @@ function handleMessage(
   }
 
   // Broadcast a todos EXCEPTO el sender
+  // §H3.3 FIX: senderId debe ser explícitamente null cuando connectionId es undefined.
+  // Antes se asignaba `client.connectionId` (string | undefined) → JSON.stringify
+  // OMITÍA la key cuando era undefined → el cliente (websocket.ts:343) no filtraba el eco →
+  // desincronizaba el ratchet. El relay Rust envía `null` (serde Option<String>).
+  // Normalizamos a null para que ambas capas sean consistentes.
   const response: ServerToClientMessage = {
     type: "message",
     iv: msg.iv,
     ciphertext: msg.ciphertext,
     counter: msg.counter,
-    senderId: client.connectionId,
+    senderId: client.connectionId ?? null,
   };
 
   let sent = 0;
@@ -733,6 +815,12 @@ function handleDisconnect(ws: WebSocket, client: ClientConnection) {
   const room = rooms.get(client.roomId);
   if (!room) return;
 
+  // §FIX-F1: limpiar el connectionId del set de reconexión al desconectar.
+  // Sin esto, seenConnectionIds crece sin límite y una reconexión REAL del
+  // peer (tras caída completa) se trata como "blip" y no reenvía peer_joined
+  // → el peer restante queda ciego y sin poder re-handshakear (bug F-1).
+  if (client.connectionId) room.seenConnectionIds.delete(client.connectionId);
+
   room.clients.delete(ws);
   debugLog(`👋 Cliente desconectado. Quedan ${room.clients.size} en room`);
 
@@ -779,14 +867,6 @@ function broadcastPeerJoined(room: Room) {
     }
   });
 }
-
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("🛑 Shutting down...");
-  wss.close();
-  server.close();
-  process.exit(0);
-});
 
 // Iniciar servidor
 server.listen(PORT, () => {

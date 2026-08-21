@@ -43,11 +43,13 @@ export default defineConfig({
   preview: {
     port: 4183,
     strictPort: true,
-    // En E2E el relay Rust corre en 8080; proxyamos el WebSocket al relay
-    // sin afectar el sirvido de estáticos (vite sirve HTTP, proxya solo WS).
+    // §FIX-F4: el relay Rust corre en 8080; proxyamos SOLO el WebSocket (no
+    // '/', que capturaría el GET de chat.html y daría 502 contra el relay
+    // WS puro). vite preview SIRVE los estáticos de client/dist; el upgrade
+    // WS va al relay. Iguala el contrato de e2e_server.cjs.
     proxy: {
-      '/': {
-        target: 'http://localhost:8080',
+      '/ws': {
+        target: 'ws://localhost:8080',
         ws: true,
         changeOrigin: true,
       },

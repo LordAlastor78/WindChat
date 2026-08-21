@@ -185,7 +185,7 @@ O manualmente:
 
 ```bash
 # Terminal 1: servidor
-cd server && npm run dev        # http://localhost:8080
+cd server && npm run dev        # http://localhost:8081 (referencia; el relay Rust de producción usa :8080)
 # Terminal 2: cliente
 cd client && npm run dev         # http://localhost:3000
 ```

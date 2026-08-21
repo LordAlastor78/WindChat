@@ -133,11 +133,34 @@ function stopCloudflared() {
 }
 
 const server = http.createServer((req, res) => {
-  // CORS para que la UI web (en otro origen/puerto) pueda llamar al launcher.
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+  // §FIX-F2: CORS por allowlist en vez de `*`. El launcher escucha en
+  // localhost:4300 y lanza túneles Cloudflare; un `*` permite que CUALQUIER
+  // web que visite la víctima abra túneles salientes desde su máquina.
+  // Reflejamos el Origin solo si está en la lista (UI local, tauri, o el
+  // túnel trycloudflare por el que se sirve la propia UI). Si no, 403.
+  const ALLOWED_ORIGINS = new Set([
+    "http://localhost:4183", "https://localhost:4183", "http://127.0.0.1:4183",
+    "http://localhost:8080", "http://127.0.0.1:8080", "tauri://localhost",
+  ]);
+  function allowedOrigin(req) {
+    const o = req.headers.origin;
+    if (!o) return null;
+    const lo = String(o).toLowerCase();
+    if (ALLOWED_ORIGINS.has(lo)) return o;
+    if (lo.startsWith("https://") && lo.endsWith(".trycloudflare.com")) return o;
+    return null;
+  }
+  const corsOrigin = allowedOrigin(req);
+  if (corsOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
+    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+  if (req.method === "OPTIONS") {
+    if (corsOrigin) res.writeHead(204); else res.writeHead(403);
+    res.end(); return;
+  }
+  if (!corsOrigin) { res.writeHead(403); res.end("forbidden"); return; }
   if (req.method === "POST" && req.url === "/share") {
     if (capturedUrl) {
       res.writeHead(200, { "Content-Type": "application/json" });

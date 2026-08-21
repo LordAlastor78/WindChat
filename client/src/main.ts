@@ -329,7 +329,15 @@ function initApp() {
   };
 
   async function connectToChat(roomId: string) {
-    const serverUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
+    // §H4.1 FIX: en Tauri, window.location.protocol es "tauri:" →
+    // `window.location.host` es "" o inútil → `ws:///` o `wss://app.localhost`
+    // falla. En Tauri el relay sidecar escucha en 127.0.0.1:8080.
+    const isTauri =
+      typeof window !== "undefined" &&
+      ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+    const serverUrl = isTauri
+      ? "ws://127.0.0.1:8080"
+      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
     const conv = ensureConversation(roomId);
 
     try {
@@ -395,9 +403,12 @@ function initApp() {
         }
       });
 
-      // Servidor híbrido: WebSocket en la misma URL
+      // Servidor híbrido: WebSocket en la misma URL.
+      // §FIX-F4: usamos el path /ws para que el proxy de `vite preview`
+      // (que solo proxya '/ws') y el e2e_server (upgrade manual de cualquier
+      // path) coincidan sin capturar el GET de chat.html.
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const serverUrl = `${wsProtocol}//${window.location.host}`;
+      const serverUrl = `${wsProtocol}//${window.location.host}/ws`;
 
       console.log(`[+] Connecting to: ${serverUrl}`);
       const newMessagesIndicator = document.getElementById("newMessagesIndicator") as HTMLButtonElement | null;

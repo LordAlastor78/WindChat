@@ -617,10 +617,14 @@ export class ChatClient {
       }
 
       // 1. CRÍTICO: Preservar el ratchet en reconexiones de transporte.
-      // Solo recreamos el CryptoManager si NUNCA se derivó (sesión nueva).
-      // Recrearlo aquí reiniciaría el ratchet a counter 0 mientras el peer
-      // sigue en su counter N → desincronización permanente (bug en móvil).
-      if (!this.crypto.isReady()) {
+      // Sólo recreamos el CryptoManager si NUNCA se completó una negociación
+      // (Keygen + ECDH + HKDF + SAS). Antes usábamos `isReady()` que verifica
+      // sendChain/recvChain — pero esos pueden quedar undefined tras un error
+      // transitorio (p.ej. "Salto de ratchet demasiado grande"), disparando un
+      // destroy() + new CryptoManager() → counter 0 → desincronización permanente
+      // del peer (bug en móvil: reconexiones frecuentes creaban bucle).
+      // §H4.2 FIX: usar `initialized` (flag persistente) no `isReady()`.
+      if (!this.crypto.isInitialized()) {
         this.crypto.destroy();
         this.crypto = new CryptoManager();
       } else {
