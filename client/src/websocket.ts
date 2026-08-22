@@ -164,8 +164,13 @@ export class ChatClient {
 
       // If already ws:// or wss://
       if (url.startsWith('ws://') || url.startsWith('wss://')) {
-        // Upgrade to wss if page is served over HTTPS
-        if (window.location.protocol === 'https:' && url.startsWith('ws://')) {
+        // Upgrade to wss if page is served over HTTPS, except for local relay
+        if (
+          window.location.protocol === 'https:' &&
+          url.startsWith('ws://') &&
+          !url.includes('127.0.0.1') &&
+          !url.includes('localhost')
+        ) {
           return url.replace(/^ws:/, 'wss:');
         }
         return url;

@@ -328,16 +328,33 @@ function initApp() {
     }
   };
 
-  async function connectToChat(roomId: string) {
+  async function connectToChat(rawRoomInput: string) {
+    let roomId = rawRoomInput.trim();
+    let customServerUrl = "";
+    if (roomId.startsWith("http://") || roomId.startsWith("https://") || roomId.startsWith("ws://") || roomId.startsWith("wss://")) {
+      try {
+        const parsed = new URL(roomId);
+        const wsProto = (parsed.protocol.startsWith("https") || parsed.protocol === "wss:") ? "wss:" : "ws:";
+        customServerUrl = `${wsProto}//${parsed.host}`;
+        if (parsed.hash && parsed.hash.length > 1) {
+          roomId = decodeURIComponent(parsed.hash.substring(1));
+        } else if (parsed.searchParams.get("room")) {
+          roomId = parsed.searchParams.get("room") || "default";
+        } else {
+          roomId = "default";
+        }
+      } catch (e) {}
+    }
+
     // §H4.1 FIX: en Tauri, window.location.protocol es "tauri:" →
     // `window.location.host` es "" o inútil → `ws:///` o `wss://app.localhost`
     // falla. En Tauri el relay sidecar escucha en 127.0.0.1:8080.
     const isTauri =
       typeof window !== "undefined" &&
       ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
-    const serverUrl = isTauri
+    const serverUrl = customServerUrl || (isTauri
       ? "ws://127.0.0.1:8080"
-      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
+      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`);
     const conv = ensureConversation(roomId);
 
     try {
@@ -403,13 +420,7 @@ function initApp() {
         }
       });
 
-      // Servidor híbrido: WebSocket en la misma URL.
-      // §FIX-F4: usamos el path /ws para que el proxy de `vite preview`
-      // (que solo proxya '/ws') y el e2e_server (upgrade manual de cualquier
-      // path) coincidan sin capturar el GET de chat.html.
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const serverUrl = `${wsProtocol}//${window.location.host}/ws`;
-
+      // Server URL resolved dynamically above
       console.log(`[+] Connecting to: ${serverUrl}`);
       const newMessagesIndicator = document.getElementById("newMessagesIndicator") as HTMLButtonElement | null;
       const replyBar = document.getElementById("replyBar") as HTMLDivElement | null;
@@ -2162,7 +2173,8 @@ function initApp() {
     shareActive = false;
     if (shareLinkCreateBtn) shareLinkCreateBtn.disabled = false;
     if (url) {
-      if (shareLinkUrl) shareLinkUrl.value = url;
+      const fullUrl = currentRoomId ? `${url}#${encodeURIComponent(currentRoomId)}` : url;
+      if (shareLinkUrl) shareLinkUrl.value = fullUrl;
       if (shareLinkResult) shareLinkResult.classList.remove("hidden");
       if (shareLinkCreateBtn) shareLinkCreateBtn.classList.add("hidden");
       if (shareLinkStopBtn) shareLinkStopBtn.classList.remove("hidden");

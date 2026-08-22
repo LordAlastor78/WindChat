@@ -102,6 +102,11 @@ export class CryptoManager {
    */
   private skippedKeys = new Map<number, Uint8Array<ArrayBuffer>>();
 
+  /** Mutex secuencial para serializar operaciones de cifrado y evitar condiciones de carrera */
+  private encryptLock: Promise<void> = Promise.resolve();
+  /** Mutex secuencial para serializar operaciones de descifrado y evitar condiciones de carrera */
+  private decryptLock: Promise<void> = Promise.resolve();
+
   /**
    * Generar par de claves ECDH P-256
    * @returns ArrayBuffer con clave pública en formato raw (para exportar)
@@ -477,6 +482,18 @@ export class CryptoManager {
    * - Retorna {iv, ciphertext} ambos en base64
    */
   async encrypt(plaintextOrPayload: string | Partial<MessagePayload>): Promise<EncryptedData> {
+    const prev = this.encryptLock;
+    let release: () => void = () => {};
+    this.encryptLock = new Promise<void>((resolve) => { release = resolve; });
+    await prev;
+    try {
+      return await this.encryptInternal(plaintextOrPayload);
+    } finally {
+      release();
+    }
+  }
+
+  private async encryptInternal(plaintextOrPayload: string | Partial<MessagePayload>): Promise<EncryptedData> {
     try {
       if (!this.sendChain) {
         throw new Error("❌ Clave compartida no derivada. Llama deriveSharedKey() primero");
@@ -556,6 +573,18 @@ export class CryptoManager {
    * - Retorna MessagePayload con text y timestamp
    */
   async decrypt(ivB64: string, ciphertextB64: string, counter = 0): Promise<MessagePayload> {
+    const prev = this.decryptLock;
+    let release: () => void = () => {};
+    this.decryptLock = new Promise<void>((resolve) => { release = resolve; });
+    await prev;
+    try {
+      return await this.decryptInternal(ivB64, ciphertextB64, counter);
+    } finally {
+      release();
+    }
+  }
+
+  private async decryptInternal(ivB64: string, ciphertextB64: string, counter = 0): Promise<MessagePayload> {
     try {
       if (!this.recvChain) {
         throw new Error("❌ Clave compartida no derivada");
@@ -662,6 +691,9 @@ export class CryptoManager {
 
     this.skippedKeys.forEach((k) => k.fill(0));
     this.skippedKeys.clear();
+
+    this.encryptLock = Promise.resolve();
+    this.decryptLock = Promise.resolve();
 
     console.log("🗑️ Claves criptográficas destruidas");
   }
