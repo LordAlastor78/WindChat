@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../../client/dist",
     "devUrl": "http://localhost:4173",
-    "beforeDevCommand": "cd $CARGO_MANIFEST_DIR/../.. && cd client && npx vite preview --port 4173 --strictPort",
-    "beforeBuildCommand": "cd $CARGO_MANIFEST_DIR/../.. && cd client && npm run build"
+    "beforeDevCommand": "cd ../client && npx vite preview --port 4173 --strictPort",
+    "beforeBuildCommand": "cd ../client && npm run build"
   },
   "app": {
     "windows": [
@@ -32,7 +32,7 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": ["binaries/cloudflared-x86_64-pc-windows-msvc.exe"],
+    "resources": [],
     "externalBin": [
       "binaries/relay-rust",
       "binaries/cloudflared"

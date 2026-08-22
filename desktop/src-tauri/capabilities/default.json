@@ -11,7 +11,12 @@
     "shell:allow-stdin-write",
     {
       "identifier": "shell:allow-execute",
-      "allow": [{ "name": "relay-rust", "sidecar": true, "args": true }]
+      "allow": [
+        { "name": "binaries/relay-rust", "sidecar": true, "args": true },
+        { "name": "binaries/cloudflared", "sidecar": true, "args": true },
+        { "name": "relay-rust", "sidecar": true, "args": true },
+        { "name": "cloudflared", "sidecar": true, "args": true }
+      ]
     }
   ]
 }
