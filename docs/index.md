@@ -28,8 +28,11 @@
 - Fase 5: [pulido / docs](./development/FugazChatFase5.md)
 
 ### Auditoría
-- [AUDITORIA_REPORTE.md](./audit/AUDITORIA_REPORTE.md) — auditoría estática (crypto, reconnect, sanitización).
+- [AUDITORIA_REPORTE.md](./audit/AUDITORIA_REPORTE.md) — auditoría estática (crypto, reconnect, sanitización, desktop). **10/10.**
 - [AUDITORIA_UI.md](./audit/AUDITORIA_UI.md) — auditoría UI (markup, CSS, lógica).
+
+### Roadmap: migración serverless P2P
+- [MIGRATION.md](./audit/MIGRATION.md) — plan de migración WindChat → FugazChat P2P (serverless, WebRTC DataChannels, 7 fases).
 
 ---
 
@@ -51,8 +54,9 @@ cd desktop && npm run build:portable
 | Check | Comando | Estado |
 |---|---|---|
 | Build | `npm run build` | ✅ verde |
-| Tests | `npm test` | ✅ 94/94 |
+| Tests | `npm test` | ✅ 96/96 |
 | Protocolo | `npm run check:protocol` | ✅ sincronizado |
-| Relay Rust | `cargo test --manifest-path relay-rust/Cargo.toml` | ✅ |
+| Relay Rust | `cargo check --tests --manifest-path relay-rust/Cargo.toml` + `cargo test` | ✅ 0 warnings / 1 passed |
+| Desktop Tauri | `cargo check --manifest-path desktop/src-tauri/Cargo.toml` | ✅ 0 warnings |
 
 Ver el [README principal](../README.md) para la documentación completa.
