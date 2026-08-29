@@ -32,7 +32,7 @@
 - [AUDITORIA_UI.md](./audit/AUDITORIA_UI.md) — auditoría UI (markup, CSS, lógica).
 
 ### Roadmap: migración serverless P2P
-- [MIGRATION.md](./audit/MIGRATION.md) — plan de migración WindChat → FugazChat P2P (serverless, WebRTC DataChannels, 7 fases).
+- [MIGRATION.md](../MIGRATION.md) — plan de migración WindChat → FugazChat P2P (serverless, WebRTC DataChannels, 7 fases).
 
 ---
 
