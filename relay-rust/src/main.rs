@@ -149,9 +149,15 @@ async fn handle_connection(stream: TcpStream, state: Arc<AppState>) {
                 o == "http://localhost:4183"
                     || o == "https://localhost:4183"
                     || o == "http://127.0.0.1:4183"
+                    || o == "http://localhost:4173"
+                    || o == "http://127.0.0.1:4173"
                     || o == "http://localhost:8080"
                     || o == "http://127.0.0.1:8080"
+                    || o == "http://localhost:3000"
+                    || o == "http://127.0.0.1:3000"
                     || o == "tauri://localhost"
+                    || o == "http://tauri.localhost"
+                    || o == "https://tauri.localhost"
                     || (o.starts_with("https://") && o.ends_with(".trycloudflare.com"))
             }
         };
